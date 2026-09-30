@@ -227,7 +227,7 @@ const Grader = (() => {
   const band = (g1, g2, b1, b2) => ({ good: [g1, g2], bad: [b1, b2] });
 
   const DEFAULTS = {
-    crutch: lower(1, 25), vocab: higher(100, 50), openerTop: lower(30, 60), echoes: lower(4, 15), filler: lower(4, 15), adverbs: lower(1.5, 4),
+    crutch: lower(1, 25), vocab: higher(100, 50), openerTop: lower(30, 60), echoes: lower(4, 10), filler: lower(4, 15), adverbs: lower(1.5, 4),
     hedging: lower(2, 8), cliches: lower(0.5, 3), redund: lower(0.3, 3), epithets: lower(0.5, 3), coyBody: lower(0.2, 2),
     filter: lower(6, 18), emotions: lower(1, 5), body: lower(5, 15), sensory: higher(30, 5),
     sentAvg: band(10, 22, 5, 32), sentSpread: higher(0.55, 0.2), passive: lower(10, 25),
@@ -980,13 +980,17 @@ const Grader = (() => {
       `Every word and 2–3 word phrase, including fillers, adverbs, gestures, tags, clichés and redundancies, is compared with published English fiction (Google Books, 2010–2019). Names, and phrases made only of articles, pronouns, prepositions and linking words, are skipped. Each overused item adds overuse points depending on how far over normal it is.`,
       { flags: cf, na: total < 150 });
 
+    // Echoes: a distinctive word used twice close together ("her cerulean eyes… the cerulean sky"). Common words (the ~3,000 most
+    // frequent in published fiction) repeat unnoticed, and the story's own subjects ("whale" in Moby-Dick) are meant to recur, so both are skipped.
+    const ECHO_MAX_FREQ = 25000, ECHO_WINDOW = 40;
+    const topic = w => (cnt.get(w) || 0) >= Math.max(10, total / 1500);
     const last = new Map(), ef = [];
     W.forEach((x, i) => {
-      if (x.w.length < 5 || STOP.has(x.w) || isName(x.w)) return;
-      if (last.has(x.w) && i - last.get(x.w) <= 50) ef.push(F(x.s, x.e, 'warn', `Echo: "${x.w}" repeated within ${i - last.get(x.w)} words`, 'echoes'));
+      if (x.dlg || x.w.length < 5 || STOP.has(x.w) || isName(x.w) || (FREQ.get(x.w) || 0) > ECHO_MAX_FREQ || topic(x.w)) return;
+      if (last.has(x.w) && i - last.get(x.w) <= ECHO_WINDOW) ef.push(F(x.s, x.e, 'warn', `Echo: "${x.w}" repeated within ${i - last.get(x.w)} words`, 'echoes', 'vary or cut one'));
       last.set(x.w, i);
     });
-    M('words', 'echoes', 'Word echoes', k(ef.length), `${fmt(k(ef.length))} / 1k words`, 'The same uncommon word repeated within about 50 words.', { flags: ef, weight: 0.75 });
+    M('words', 'echoes', 'Word echoes', k(ef.length), `${fmt(k(ef.length))} / 1k words`, 'A distinctive word (outside the ~3,000 most common in fiction) repeated within 40 words of narration. Words the story uses throughout, like its subject, are skipped.', { flags: ef, weight: 0.75 });
 
     const lex = mtld(W.map(x => x.w));
     M('words', 'vocab', 'Vocabulary richness', lex, `MTLD ${Math.round(lex)}`, 'How rarely the text repeats itself across its whole vocabulary (MTLD, a length-independent measure). Published fiction usually lands around 80–110.', { na: total < 150 });
