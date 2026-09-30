@@ -1818,6 +1818,64 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   const safeName = s => (s || 'story').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'story';
   function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
   const MARK = l => l[0] === 'A' ? '#237A57' : l[0] === 'B' ? '#2B59C3' : l[0] === 'C' ? '#A8660B' : '#B42318';
+  // ---------- Shareable report links: the results (not the story) packed into the address after "#", which never reaches a server ----
+  // Only the numbers travel in the link. Check names, explanations and targets are rebuilt in the viewer by grading the built-in sample with
+  // the same settings; explanations that depend on the story (e.g. sensory counts) are sent only when they differ.
+  const SNAP_FLAGS = 5, SEV = ['error', 'warn', 'info'];
+  const skeleton = o => Grader.analyze(SAMPLE, o);
+  const snapOpts = () => ({ profile: profileSel.value, dlgMode: $('dlgMode').value, english: $('english').value });
+  const r3 = v => v == null ? null : Math.round(v * 1e5) / 1e5;
+  function snapshot(res) {
+    const o = res.opts || snapOpts(), sk = skeleton(o), skM = new Map(sk.metrics.map(m => [m.id, m]));
+    const metrics = res.metrics.map(m => [m.id, r3(m.value), m.display, r3(m.score), m.role, r3(m.avail), r3(m.points), m.flagTotal ?? m.flags.length,
+      m.flags.slice(0, SNAP_FLAGS).map((f, i) => [res.text.slice(f.s, f.e).replace(/\s+/g, ' ').slice(0, 70), SEV.indexOf(f.sev), typeof f.fix === 'string' ? f.fix : 0, i ? 0 : f.msg, f.dlg ? 1 : 0]),
+      skM.get(m.id)?.note === m.note ? 0 : m.note, m.naNote || 0]);
+    return { v: 2, o, t: ficTitle(), a: ficAuthor(), at: new Date().toISOString().slice(0, 10), n: res.total, sk: res.skippedWords, g: res.letter, s: r3(res.overall), b: r3(res.base),
+      m: metrics, c: res.cats.map(c => [c.id, r3(c.score), r3(c.points), r3(c.avail)]),
+      u: res.overuse.slice(0, 15).map(x => [x.w, x.kind === 'phrase' ? 1 : 0, x.c, r3(x.rate), r3(x.expRate), r3(x.ratio), x.known ? 1 : 0, r3(x.pen)]),
+      h: [res.headings.filter(h => h.kind === 'heading').length, res.headings.filter(h => h.kind === 'meta').length, res.headings.some(h => h.kind === 'matter' && h.s === 0) ? 1 : 0, res.headings.some(h => h.kind === 'matter' && h.s > 0) ? 1 : 0],
+      e: res.sevCounts ? [res.sevCounts.error, res.sevCounts.warn] : [res.flags.filter(f => f.sev === 'error').length, res.flags.filter(f => f.sev === 'warn').length] };
+  }
+  function unsnapshot(d) {
+    const sk = skeleton(d.o), skM = new Map(sk.metrics.map(m => [m.id, m])); let text = '';
+    const fmt1 = v => v >= 10 ? Math.round(v).toString() : (Math.round(v * 10) / 10).toString();
+    const metrics = d.m.map(([id, value, display, score, role, avail, points, flagTotal, fl, note, naNote]) => { const base = skM.get(id) || { name: id, cat: 'words', unit: '', weight: 1 };
+      const flags = fl.map(([ex, sev, fix, msg, dlg]) => { const s0 = text.length; text += ex + '\n'; return { s: s0, e: s0 + ex.length, sev: SEV[sev], fix: fix || undefined, msg: msg || '', dlg: !!dlg }; });
+      return { cat: base.cat, id, name: base.name, unit: base.unit, rule: base.rule, weight: base.weight, note: note || base.note, naNote: naNote || undefined, value, display, score, role, avail, points, flagTotal, flags }; });
+    metrics.flatMap(m => m.flags).forEach((f, i) => f.id = i);
+    const cats = d.c.map(([id, score, points, avail]) => { const base = sk.cats.find(c => c.id === id); return { id, name: base ? base.name : id, w: base ? base.w : 1, score, points, avail, metrics: metrics.filter(m => m.cat === id) }; });
+    const overuse = d.u.map(([w, ph, c, rate, expRate, ratio, known, pen]) => ({ w, kind: ph ? 'phrase' : 'word', label: ph ? `“${w}”` : w, c, rate, expRate, ratio, known: !!known, pen,
+      ratioTxt: `${known ? '' : 'at least '}${ratio >= 100 ? Math.round(ratio).toLocaleString() : fmt1(ratio)}× normal`, rateTxt: `${fmt1(rate)} per 1,000 words (normal ${expRate < 0.1 ? 'under 0.1' : fmt1(expRate)})` }));
+    const headings = [...Array(d.h[0]).fill({ kind: 'heading' }), ...Array(d.h[1]).fill({ kind: 'meta' }), ...(d.h[2] ? [{ kind: 'matter', s: 0 }] : []), ...(d.h[3] ? [{ kind: 'matter', s: 1 }] : [])];
+    return { text, total: d.n, skippedWords: d.sk, letter: d.g, overall: d.s, base: d.b, profile: sk.profile, dlgMode: d.o.dlgMode, overuseRules: sk.overuseRules, opts: d.o,
+      metrics, cats, overuse, headings, flags: metrics.flatMap(m => m.flags), sevCounts: { error: d.e[0], warn: d.e[1] }, shared: true, sharedAt: d.at, title: d.t, author: d.a };
+  }
+  const b64url = bytes => { let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+  const unb64url = str => Uint8Array.from(atob(str.replace(/-/g, '+').replace(/_/g, '/')), ch => ch.charCodeAt(0));
+  async function reportLink(res) {
+    const bytes = new TextEncoder().encode(JSON.stringify(snapshot(res)));
+    let packed = 'j' + b64url(bytes);
+    if ('CompressionStream' in window) packed = 'z' + b64url(new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer()));
+    const base = /^https?:/.test(location.protocol) ? location.origin + location.pathname : 'https://ihardlynoah.github.io/novelgrading/';
+    return `${base}#r=${packed}`;
+  }
+  async function openSharedReport() {
+    const m = /^#r=([zj])([\w-]+)$/.exec(location.hash); if (!m) return;
+    try {
+      let bytes = unb64url(m[2]);
+      if (m[1] === 'z') bytes = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+      const res = unsnapshot(JSON.parse(new TextDecoder().decode(bytes)));
+      setMeta(res.title, res.author); last = res;
+      if (res.opts) { profileSel.value = res.opts.profile; $('dlgMode').value = res.opts.dlgMode; $('english').value = res.opts.english || 'us'; }
+      renderReport(res);
+      input.hidden = true; ms.hidden = true; $('editBtn').hidden = true; $('saveBtn').hidden = true; $('legend').hidden = true;
+      $('ownBtn').onclick = () => { history.replaceState(null, '', location.pathname); last = null; setMeta('', ''); input.value = ''; input.hidden = false;
+        report.innerHTML = '<div class="empty">Paste your story or open a file, then press Grade.</div>'; countWords(); input.focus(); };
+    } catch (e) { console.error(e); setStatus("This report link is damaged or incomplete. Ask for the link again, or grade a story yourself.", true); }
+  }
+  setTimeout(openSharedReport, 0);
+  addEventListener('hashchange', openSharedReport);
+
   // ---- Share cards: 1200×630 PNGs (the size social sites use for link previews) ----
   const CARD_SERIF = '"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif', CARD_SANS = 'system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif';
   function cardFrame() {
@@ -1984,6 +2042,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     const done = (b, msg) => { const o = b.textContent; b.textContent = msg; setTimeout(() => b.textContent = o, 1800); };
     $('copyBtn').onclick = async () => done($('copyBtn'), await copyText(summaryText(r)) ? 'Copied' : 'Copy failed');
     $('emojiBtn').onclick = async () => done($('emojiBtn'), await copyText(emojiSummary(r)) ? 'Copied! Paste it anywhere' : 'Copy failed');
+    $('linkBtn').onclick = async () => done($('linkBtn'), await copyText(await reportLink(r)) ? 'Link copied' : 'Copy failed');
     // Share-card carousel: cards are drawn the first time it's opened
     let canvases = null, cur = 0;
     const box = $('cards'), setCur = i => { cur = Math.max(0, Math.min(CARDS.length - 1, i)); $('cardLabel').textContent = `${CARDS[cur][0]} (${cur + 1}/${CARDS.length})`;
@@ -2060,9 +2119,10 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
 
   function renderReport(res) {
     const gClass = res.letter[0] === 'A' ? 'g-a' : res.letter[0] === 'B' ? 'g-b' : res.letter[0] === 'C' ? 'g-c' : '';
-    const errCount = res.flags.filter(f => f.sev === 'error').length, warnCount = res.flags.filter(f => f.sev === 'warn').length;
+    const errCount = res.sevCounts ? res.sevCounts.error : res.flags.filter(f => f.sev === 'error').length, warnCount = res.sevCounts ? res.sevCounts.warn : res.flags.filter(f => f.sev === 'warn').length;
     const scored = res.metrics.filter(m => m.score != null && m.weight > 0).sort((a, b) => a.score - b.score).filter(m => m.score < 70).slice(0, 3);
-    let h = `${ficTitle() || ficAuthor() ? `<div class="ficname">${esc(ficTitle() || 'Untitled')}${ficAuthor() ? ` <span class="by">by ${esc(ficAuthor())}</span>` : ''}</div>` : ''}<div class="head"><div class="mark ${gClass}">${res.letter}</div><div>
+    const sharedNote = res.shared ? `<div class="warnbox">Shared report${res.sharedAt ? ` from ${esc(res.sharedAt)}` : ''}. The story text isn't included, only short quoted examples. <button class="btn" id="ownBtn" type="button">Grade your own story</button></div>` : '';
+    let h = sharedNote + `${ficTitle() || ficAuthor() ? `<div class="ficname">${esc(ficTitle() || 'Untitled')}${ficAuthor() ? ` <span class="by">by ${esc(ficAuthor())}</span>` : ''}</div>` : ''}<div class="head"><div class="mark ${gClass}">${res.letter}</div><div>
       <div class="num">${Math.round(res.overall)}<small> / 100</small></div>
       <div class="meta">${res.total.toLocaleString()} words graded${res.skippedWords ? ` of ${(res.total + res.skippedWords).toLocaleString()}` : ''} · ${res.profile}</div>
       ${(() => { const hd = res.headings.filter(x => x.kind === 'heading').length, mt = res.headings.filter(x => x.kind === 'meta').length, parts = [];
@@ -2070,7 +2130,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
         const fm = res.headings.filter(x => x.kind === 'matter'); if (fm.length) parts.push(fm.map(x => x.s === 0 ? 'front matter' : 'back matter').join(' and '));
         return parts.length ? `<div class="meta">Not graded: ${parts.join(', ')} (${res.skippedWords.toLocaleString()} words)</div>` : ''; })()}
       <div class="meta">${errCount} error${errCount === 1 ? '' : 's'}, ${warnCount} style flag${warnCount === 1 ? '' : 's'}</div></div></div>`;
-    h += `<div class="share"><button class="btn" id="copyBtn" type="button">Copy summary</button><button class="btn" id="emojiBtn" type="button" title="Copy a Wordle-style summary to paste anywhere">Copy results 🟩</button><button class="btn" id="cardBtn" type="button" aria-expanded="false" aria-controls="cardPanel">Share cards…</button><button class="btn" id="listAddBtn" type="button">Add to my list</button></div>
+    h += `<div class="share"><button class="btn" id="copyBtn" type="button">Copy summary</button><button class="btn" id="emojiBtn" type="button" title="Copy a Wordle-style summary to paste anywhere">Copy results 🟩</button><button class="btn" id="cardBtn" type="button" aria-expanded="false" aria-controls="cardPanel">Share cards…</button><button class="btn" id="linkBtn" type="button" title="Copy a link that opens this full report (the story text isn't included)">Copy report link</button><button class="btn" id="listAddBtn" type="button">Add to my list</button></div>
       <div class="cardpanel" id="cardPanel" hidden><div class="cards" id="cards" tabindex="0" aria-label="Share card options; swipe or use the arrows"></div>
       <div class="cardnav"><button type="button" id="cardPrev" aria-label="Previous card">‹</button><span class="lbl" id="cardLabel"></span><span class="dots" id="cardDots"></span><button type="button" id="cardNext" aria-label="Next card">›</button></div>
       <div class="cardacts"><button class="btn" id="cardSave" type="button">Save this card</button><button class="btn" id="cardShare" type="button" hidden>Share this card…</button></div></div>`;
@@ -2093,9 +2153,9 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
         let body = ruleHtml(m, res) + `<p>${esc(m.note)}</p>`;
         if (m.id === 'crutch' && res.overuse.length) body += `<table class="items"><tbody>${res.overuse.slice(0, 15).map(o => `<tr><td>${esc(o.label)}</td><td class="d" title="${fmt1(o.rate)} per 1,000 words; normal in fiction ${o.expRate < 0.1 ? 'under 0.1' : fmt1(o.expRate)}">${o.c}×, ${fmt1(o.rate)}/1k vs ${o.expRate < 0.1 ? '<0.1' : fmt1(o.expRate)}</td><td class="n">${r1(o.pen)} pts</td></tr>`).join('')}${res.overuse.length > 15 ? `<tr><td colspan="3" class="d">…and ${res.overuse.length - 15} more</td></tr>` : ''}</tbody></table>`;
         if (m.flags.length) {
-          const shown = m.flags.slice(0, 60);
+          const shown = m.flags.slice(0, 60), nAll = m.flagTotal ?? m.flags.length;
           body += `<div class="flist">${shown.map(f => `<button class="fitem" type="button" data-f="${f.id}"><q>${esc(res.text.slice(f.s, f.e).slice(0, 70))}</q>${f.fix ? ` <span class="fix">→ ${esc(f.fix)}</span>` : ''}${f.dlg && f.sev === 'error' && res.dlgMode === 'reduce' ? ' <span class="dl">(dialogue)</span>' : ''}</button>`).join('')}</div>`;
-          if (m.flags.length > 60) body += `<div class="more">…and ${m.flags.length - 60} more, all marked in the text.</div>`;
+          if (nAll > shown.length) body += `<div class="more">…and ${(nAll - shown.length).toLocaleString()} more, ${res.shared ? 'not included in this shared report' : 'all marked in the text'}.</div>`;
         }
         h += `<details><summary><span>${m.name}<small class="pts">${m.role === 'scored' ? `score ${Math.round(m.score)}/100, ${r1(m.points)} / ${r1(m.avail)} pts` : m.role === 'info' ? 'for information, not scored' : `${m.naNote || 'not enough text to judge'}, not scored`}</small></span><span class="val">${esc(m.display + (m.unit.startsWith('per 1,000') && !/\/ ?1k/.test(m.display) ? ` (${num(m.value)} / 1k)` : ''))}</span>${meter}</summary><div class="body">${body}</div></details>`;
       }
@@ -2110,7 +2170,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   }
 
   report.addEventListener('click', e => {
-    const b = e.target.closest('.fitem'); if (!b || !last) return;
+    const b = e.target.closest('.fitem'); if (!b || !last || last.shared) return;
     const f = last.flags[+b.dataset.f]; const id = f.anchor ?? f.id;
     const el = document.getElementById('f' + id); if (!el) return;
     el.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
