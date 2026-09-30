@@ -1,4 +1,4 @@
-# Fiction Grader
+# Novel Grader
 
 A single-page, fully client-side web app (`index.html`). Everything, including the PDF reader, is inlined, so there's no build step and no server code.
 
@@ -6,7 +6,7 @@ A single-page, fully client-side web app (`index.html`). Everything, including t
 
 The site deploys to GitHub Pages on every push to `claude/amazing-shannon-rh63cz`, through `.github/workflows/static.yml`:
 
-https://ihardlynoah.github.io/ficgrading/
+https://ihardlynoah.github.io/novelgrading/
 
 If the first deploy fails, open **Settings → Pages** in the repo and set **Source** to **GitHub Actions**.
 
