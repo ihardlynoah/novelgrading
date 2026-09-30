@@ -2726,7 +2726,8 @@ self.onmessage = e => { const { id, text, opts } = e.data;
       let free = true; for (let i = f.s; i < f.e; i++) if (occ[i] !== -1) { free = false; break; }
       if (free) { occ.fill(f.id, f.s, f.e); accepted.push(f); }
     }
-    for (const f of res.flags) { const a = occ[f.s]; f.anchor = a !== -1 ? a : null; }
+    // every flag is attached to a highlight it touches, so a phrase that counts in several checks lists all of them in its tooltip
+    for (const f of res.flags) { let a = occ[f.s]; for (let i = f.s + 1; a === -1 && i < f.e; i++) a = occ[i]; f.anchor = a !== -1 ? a : null; }
     for (const hd of res.headings) accepted.push({ ...hd, heading: true });
     accepted.sort((a, b) => a.s - b.s);
     const tipsFor = new Map(); for (const g of res.flags) if (g.anchor != null) { if (!tipsFor.has(g.anchor)) tipsFor.set(g.anchor, []); tipsFor.get(g.anchor).push(g.msg + (g.fix ? ` → ${g.fix}` : '')); }
