@@ -226,7 +226,7 @@ const Grader = (() => {
     filter: lower(6, 18), emotions: lower(1, 5), body: lower(5, 15), sensory: higher(30, 5),
     sentAvg: band(10, 22, 5, 32), sentSpread: higher(0.55, 0.2), passive: lower(10, 25),
     progressive: lower(6, 18), openers: lower(0.5, 4), ingOpeners: lower(5, 15),
-    adjStack: lower(0.5, 3), paragraphs: lower(0, 4),
+    adjStack: lower(0.5, 3), paragraphs: lower(0, 4), readability: higher(7, 3),
     dlgRatio: band(15, 60, 0, 85), fancyTags: lower(20, 60), tagAdverbs: lower(1, 5), dlgPunct: lower(0, 4),
     excl: lower(1, 5), ellipses: lower(2, 8), dashes: lower(6, 15),
     tier1: lower(0, 4), tier2: lower(0, 4)
@@ -236,7 +236,7 @@ const Grader = (() => {
     cliches: 'per 1,000 words', redund: 'per 1,000 words', epithets: 'per 1,000 narration words', coyBody: 'per 1,000 narration words', filter: 'per 1,000 narration words', emotions: 'per 1,000 narration words',
     body: 'per 1,000 words', sensory: '% non-visual sense words', sentAvg: 'words per sentence', sentSpread: 'spread', crutch: 'overuse points', vocab: 'MTLD', openerTop: '% of sentences',
     passive: '% of sentences', progressive: 'per 1,000 narration words', openers: 'runs per 1,000 words', ingOpeners: '% of sentences',
-    adjStack: 'per 1,000 words', paragraphs: 'issues', dlgRatio: '% dialogue', fancyTags: '% of tags', tagAdverbs: 'per 1,000 words',
+    adjStack: 'per 1,000 words', paragraphs: 'issues', readability: 'grade level', dlgRatio: '% dialogue', fancyTags: '% of tags', tagAdverbs: 'per 1,000 words',
     dlgPunct: 'per 1,000 words', excl: 'per 1,000 narration words', ellipses: 'per 1,000 words', dashes: 'per 1,000 words',
     tier1: 'per 1,000 words', tier2: 'per 1,000 words'
   };
@@ -960,7 +960,9 @@ const Grader = (() => {
 
     const syll = W.reduce((a, x) => a + syl(x.raw), 0);
     const fk = S.length && total ? 0.39 * (total / S.length) + 11.8 * (syll / total) - 15.59 : 0;
-    M('structure', 'readability', 'Reading grade level', fk, `grade ${fmt(Math.max(0, fk))}`, 'Flesch–Kincaid estimate. For information only; not scored.', { na: true, weight: 0 });
+    // Below grade 7 costs points, more the lower it goes (0 at grade 3). YA / middle grade is meant to read simpler, so it isn't scored there.
+    const fkYA = opts.profile === 'ya';
+    M('structure', 'readability', 'Reading grade level', fk, `grade ${fmt(Math.max(0, fk))}`, fkYA ? 'Flesch–Kincaid estimate. For information only with the YA / middle grade profile.' : 'Flesch–Kincaid estimate. Grade 7 or above scores full marks; below that the score drops, reaching zero at grade 3.', { na: fkYA || total < 100 });
 
     // ===== Dialogue
     const hasDlg = dlgWords >= 20;
