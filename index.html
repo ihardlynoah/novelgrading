@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fic Grader</title>
+<title>Fiction Grader</title>
 <style>
 :root{
   --paper:#EEF1F5; --sheet:#FFFFFF; --ink:#18233A; --muted:#5B6577; --rule:#D5DBE5;
@@ -107,9 +107,7 @@ summary .val{color:var(--muted);font-size:12.5px;text-align:right;white-space:no
 .linkbar input[type=url]{flex:1 1 380px;min-width:0;max-width:720px;background:var(--sheet);color:var(--ink);border:1px solid var(--rule);border-radius:6px;padding:8px 10px;font:inherit}
 .linkbar .relay{font-size:12.5px;color:var(--muted);display:inline-flex;gap:6px;align-items:center}
 .linkish{background:none;border:0;padding:0;color:var(--pencil);text-decoration:underline;cursor:pointer;font-size:13px}
-.bm{display:inline-block;background:var(--pencil);color:#fff;text-decoration:none;padding:3px 10px;border-radius:5px;font-weight:600;cursor:grab}
-@media (prefers-color-scheme:dark){.bm{color:#0E1422}}
-#ao3Help p{margin:6px 0}
+#linkHelp p{margin:6px 0}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 @media (max-width:640px){.linkbar{padding:12px 16px 0}}
 body.dragging .sheet{outline:2px dashed var(--pencil);outline-offset:6px}
@@ -149,7 +147,7 @@ body.dragging .sheet{outline:2px dashed var(--pencil);outline-offset:6px}
 <body>
 <header class="top">
   <div>
-    <h1>Fic Grader</h1>
+    <h1>Fiction Grader</h1>
     <p>Paste a story, open one or more .txt, .pdf, or .html files (or a whole folder), or import from a link to a page or a folder. Grading runs on this computer.</p>
   </div>
   <div class="controls">
@@ -173,16 +171,15 @@ body.dragging .sheet{outline:2px dashed var(--pencil);outline-offset:6px}
 </header>
 <div class="linkbar">
   <label for="url" class="sr">Link to a story</label>
-  <input type="url" id="url" placeholder="Paste a link to a PDF, a web page, a folder of chapters, or an AO3 work" autocomplete="off" spellcheck="false">
+  <input type="url" id="url" placeholder="Paste a link to a PDF, a web page, or a folder of chapters" autocomplete="off" spellcheck="false">
   <button class="btn" id="urlBtn" type="button">Import link</button>
   <label class="relay"><input type="checkbox" id="relay" checked> Use a public relay if the site blocks direct access</label>
-  <button class="linkish" id="ao3Btn" type="button" aria-expanded="false" aria-controls="ao3Help">AO3 link not working?</button>
+  <button class="linkish" id="linkHelpBtn" type="button" aria-expanded="false" aria-controls="linkHelp">Link not working?</button>
 </div>
-<div class="helpnote" id="ao3Help" hidden>
-  <p><b>AO3 doesn't allow other sites to download its pages</b>, and it often blocks the public relays too, so links can fail. These three ways always work, and they also work for works locked to logged-in users:</p>
-  <p><b>1. Copy story bookmark (easiest).</b> Drag this button to your bookmarks bar: <a class="bm" href="javascript:(()=>{const%20t=s=>(s%7C%7C'').replace(/%5Cu00a0/g,'%20').trim();const%20n=s=>s.split(/%5Cs+/).filter(Boolean).length;if(/archiveofourown%5C.org$/.test(location.hostname)){const%20m=location.pathname.match(/%5C/works%5C/(%5Cd+)/);if(m&&new%20URLSearchParams(location.search).get('view_full_work')!=='true'&&document.querySelector('li.chapter.entire,%20a[href*=%22view_full_work=true%22]')){if(confirm('This%20shows%20one%20chapter.%20Load%20the%20entire%20work?%20Click%20the%20bookmark%20again%20once%20it%20has%20loaded.'))location.href='/works/'+m[1]+'?view_full_work=true&view_adult=true';return;}}let%20out=[];const%20tl=document.querySelector('%23workskin%20h2.title');if(tl)out.push(t(tl.innerText));const%20au=document.querySelector('%23workskin%20h3.byline');if(au&&t(au.innerText))out.push('by%20'+t(au.innerText));const%20chs=document.querySelectorAll('%23chapters%20>%20.chapter');if(chs.length){chs.forEach(c=>{const%20h=c.querySelector('h3.title');const%20u=c.querySelector('div.userstuff');if(!u)return;if(h)out.push(t(h.innerText));out.push(t(u.innerText).replace(/%5EChapter%20Text%5Cs*/,''));});}else{const%20sel=t(String(getSelection()));const%20u=document.querySelector('%23chapters%20div.userstuff,%20%23chapters%20.userstuff,%20%23storytext,%20.storytext,%20article,%20main');if(n(sel)>50)out=[sel];else%20if(u)out.push(t(u.innerText).replace(/%5E(Chapter%7CWork)%20Text:?%5Cs*/,''));else%20out=[t(document.body.innerText)];}const%20txt=out.filter(Boolean).join('%5Cn%5Cn');const%20w=n(txt);const%20done=()=>alert('Copied%20'+w.toLocaleString()+'%20words.%20Now%20paste%20them%20into%20Fic%20Grader.');const%20fb=()=>{const%20a=document.createElement('textarea');a.value=txt;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove();done();};if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(done,fb);else%20fb();})();" title="Drag me to your bookmarks bar">Copy story for Fic Grader</a>. Then, on any AO3 work, click the bookmark. It offers to load the entire work, copies all the chapter text (with chapter titles, without tags or notes), and tells you how many words it copied. Come back here and paste into the text box.</p>
-  <p><b>2. Select all and paste.</b> On the AO3 work page (use Entire Work for multi-chapter stories), press Ctrl+A (⌘A on Mac), copy, and paste into the text box here. The grader strips AO3's tags, notes, and buttons automatically.</p>
-  <p><b>3. AO3's Download button.</b> On the work page, choose Download → HTML or PDF, then use Open files here.</p>
+<div class="helpnote" id="linkHelp" hidden>
+  <p><b>Some sites don't let other sites download their pages</b>, block the public relays, or only show a story to logged-in readers, so links can fail. These ways always work:</p>
+  <p><b>1. Select all and paste.</b> Open the story in your browser (use the site's single-page or full-story view for multi-chapter stories), press Ctrl+A (⌘A on Mac), copy, and paste into the text box here. Short menu, tag, and note lines are left out of the grade automatically.</p>
+  <p><b>2. Save or download it.</b> Use the site's Download or Export option if it has one, or save the page from your browser (File → Save Page As, or Print → Save as PDF), then use Open files here.</p>
 </div>
 <div class="helpnote" id="helpNote" hidden>
   Characters sometimes talk incorrectly on purpose. A character who says "could of" or "your welcome" may be written that way to show how they speak, so it isn't necessarily the author's mistake. This setting only affects common errors found <em>inside quotation marks</em>. Narration is always graded in full.
@@ -617,29 +614,29 @@ const Grader = (() => {
   }
 
   // ---- Lines that aren't story text ----
-  const AO3_FIELD = /^(rating|ratings|archive warnings?|categor(?:y|ies)|fandoms?|relationships?|characters?|additional tags|freeform|language|series|collections?|stats|published|updated|completed|words|chapters|comments|kudos|bookmarks|hits|tags|pairings?|word count|rated|status|spoilers?|beta(?:'?d)?(?: read)?(?: by)?|translation(?: into)?|podfic|inspired by)\s*:(.*)$/i;
-  const AO3_SECTION = /^(summary|notes|end notes|chapter notes|chapter end notes|chapter summary|author'?s? notes?|a\/n|disclaimer|dedication|warnings?)\s*(?::(.*))?$/i;
-  const AO3_JUNK = /^(work text:?|chapter text|chapter management|kudos|bookmark|comments|share|chapter index|entire work|next chapter\W*|\W*previous chapter|mark for later|subscribe|leave kudos|log in|actions|full-page index|download|see the end of the (?:work|chapter)(?: for (?:more )?notes)?\.?|(?:more )?notes for this (?:work|chapter).*)$/i;
+  const META_FIELD = /^(rating|ratings|categor(?:y|ies)|characters?|language|series|collections?|stats|published|updated|completed|words|chapters|comments|tags|word count|rated|status|spoilers?|translation(?: into)?|inspired by)\s*:(.*)$/i;
+  const NOTE_SECTION = /^(summary|notes|end notes|chapter notes|chapter end notes|chapter summary|author'?s? notes?|a\/n|disclaimer|dedication|warnings?)\s*(?::(.*))?$/i;
+  const PAGE_JUNK = /^(chapter text|comments|share|chapter index|next chapter\W*|\W*previous chapter|subscribe|log in|download|see the end of the (?:work|chapter)(?: for (?:more )?notes)?\.?|(?:more )?notes for this (?:work|chapter).*)$/i;
   const NOTE_MAX = 300;   // longest author's note (in words) that will be skipped; anything longer is graded as story text
   function skippedLines(t) {
     const L = []; { const re = /[^\n]*/g; let m; while ((m = re.exec(t))) { L.push({ s: m.index, e: m.index + m[0].length, t: m[0].trim() }); if (re.lastIndex >= t.length) break; re.lastIndex++; } }
     const out = [], skip = (i, kind) => { if (L[i].t && !L[i].skip) { L[i].skip = kind; out.push({ s: L[i].s, e: L[i].e, kind }); } };
-    const isBoundary = x => x.t && (isHeading(x.t) || /^(chapter text|work text:?)$/i.test(x.t));
+    const isBoundary = x => x.t && (isHeading(x.t) || /^chapter text$/i.test(x.t));
     for (let i = 0; i < L.length; i++) {
       const x = L[i]; if (!x.t || x.skip) continue;
       let m;
-      if (/^posted originally on/i.test(x.t) || /https?:\/\/|www\.|archiveofourown\.org/i.test(x.t) || AO3_JUNK.test(x.t) || (/^by\s+\S/.test(x.t) && x.t.split(/\s+/).length <= 6 && !/[.!?]$/.test(x.t))) { skip(i, 'meta'); continue; }
-      if ((m = AO3_FIELD.exec(x.t))) {
+      if (/^posted originally on/i.test(x.t) || /https?:\/\/|www\./i.test(x.t) || PAGE_JUNK.test(x.t) || (/^by\s+\S/.test(x.t) && x.t.split(/\s+/).length <= 6 && !/[.!?]$/.test(x.t))) { skip(i, 'meta'); continue; }
+      if ((m = META_FIELD.exec(x.t))) {
         skip(i, 'meta');
-        // value on following lines (AO3 downloads indent them): take short, non-sentence lines until a blank line
+        // value on following lines (some downloads indent them): take short, non-sentence lines until a blank line
         for (let j = i + 1; j < L.length; j++) {
           const y = L[j];
-          if (!y.t || AO3_FIELD.test(y.t) || AO3_SECTION.test(y.t) || y.t.split(/\s+/).length > 40 || /[.!?"”]$/.test(y.t)) break;
+          if (!y.t || META_FIELD.test(y.t) || NOTE_SECTION.test(y.t) || y.t.split(/\s+/).length > 40 || /[.!?"”]$/.test(y.t)) break;
           skip(j, 'meta');
         }
         continue;
       }
-      if ((m = AO3_SECTION.exec(x.t))) {
+      if ((m = NOTE_SECTION.exec(x.t))) {
         skip(i, 'meta');
         if (m[2] && m[2].trim() && !/^(end|chapter)/i.test(m[1])) continue;     // one-line "A/N: ..." note
         // Skip the note itself, but never more than a short stretch: stop at the next heading, at dialogue,
@@ -648,8 +645,8 @@ const Grader = (() => {
         let words = 0, took = 0;
         for (let j = i + 1; j < L.length; j++) {
           const y = L[j]; if (!y.t) continue;
-          if (isBoundary(y) || AO3_SECTION.test(y.t)) break;
-          if (AO3_JUNK.test(y.t)) { skip(j, 'meta'); continue; }
+          if (isBoundary(y) || NOTE_SECTION.test(y.t)) break;
+          if (PAGE_JUNK.test(y.t)) { skip(j, 'meta'); continue; }
           const w = y.t.split(/\s+/).length;
           if (took && (words + w > cap || /^["“'‘]/.test(y.t))) break;
           if (!took && w > cap) break;                                     // a huge first "note" is almost certainly story text
@@ -701,7 +698,7 @@ const Grader = (() => {
     const R = id => prof.o[id] || DEFAULTS[id];
     const dlgMode = opts.dlgMode || 'reduce';
     let norm = text.replace(/[’‘]/g, "'").replace(/[“”]/g, '"').replace(/\r/g, ' ');
-    // Chapter headings, scene breaks, AO3 info and author's notes are shown but not graded: blank them out before any checks run
+    // Chapter headings, scene breaks, story info and author's notes are shown but not graded: blank them out before any checks run
     const headings = skippedLines(norm);
     for (const h of headings) h.words = (norm.slice(h.s, h.e).match(/[A-Za-z]+(?:'[A-Za-z]+)*/g) || []).length;
     const skippedWords = headings.reduce((a, h) => a + h.words, 0);
@@ -1046,20 +1043,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   $('folderBtn').onclick = () => $('folder').click();
   if (matchMedia('(pointer: coarse)').matches || !('webkitdirectory' in document.createElement('input'))) $('folderBtn').hidden = true;   // phones can't pick folders
   $('folder').onchange = e => { const fs = [...e.target.files]; e.target.value = ''; if (fs.length) handleFiles(fs, true); };
-  $('ao3Btn').onclick = () => { const n = $('ao3Help'); n.hidden = !n.hidden; $('ao3Btn').setAttribute('aria-expanded', String(!n.hidden)); };
-  document.querySelector('.bm').onclick = e => { e.preventDefault(); setStatus('Drag the "Copy story for Fic Grader" button to your bookmarks bar, then click it while viewing an AO3 work.'); };
-  // Pasting a copied AO3 / FanFiction.net page: keep only the story text
-  input.addEventListener('paste', e => {
-    const html = e.clipboardData && e.clipboardData.getData('text/html');
-    if (!html || !/userstuff|archiveofourown|storytext/i.test(html)) return;
-    const t = htmlToText(html); if (t.split(/\s+/).length < 10) return;
-    e.preventDefault();
-    const a = input.selectionStart, b = input.selectionEnd;
-    input.value = input.value.slice(0, a) + t + input.value.slice(b);
-    input.selectionStart = input.selectionEnd = a + t.length; countWords(); showEdit();
-    const hm = htmlMeta(html); if (hm.title || hm.author) setMeta(hm.title, hm.author);
-    setStatus('Pasted the story text; AO3 tags, notes, and page buttons were removed. Check it, then press Grade.');
-  });
+  $('linkHelpBtn').onclick = () => { const n = $('linkHelp'); n.hidden = !n.hidden; $('linkHelpBtn').setAttribute('aria-expanded', String(!n.hidden)); };
   $('helpBtn').onclick = e => { e.preventDefault(); const n = $('helpNote'); n.hidden = !n.hidden; $('helpBtn').setAttribute('aria-expanded', String(!n.hidden)); };
 
   // drag and drop
@@ -1080,12 +1064,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
     let url; try { url = new URL(u); } catch { return null; }
     const host = url.hostname.replace(/^www\./, '');
-    // AO3: get every chapter on one page and skip the adult-content warning
     let m;
-    if (/(^|\.)archiveofourown\.org$/.test(host) && (m = url.pathname.match(/^\/(?:collections\/[^/]+\/)?works\/(\d+)(\/chapters\/\d+)?/))) {
-      if (url.pathname.startsWith('/downloads/')) return url.href;
-      return m[2] ? `https://archiveofourown.org/works/${m[1]}${m[2]}?view_adult=true` : `https://archiveofourown.org/works/${m[1]}?view_full_work=true&view_adult=true`;
-    }
     // Dropbox share links -> direct download
     if (/(^|\.)dropbox\.com$/.test(host)) { url.searchParams.set('dl', '1'); return url.href; }
     // Google Drive share links -> direct download
@@ -1126,9 +1105,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
       try { return { ...(await fetchBytes(make(url), 30000, headers)), via: name }; }
       catch (e) { errors.push(`${name}: ${e.message === 'Failed to fetch' ? 'unreachable' : e.message}`); }
     }
-    throw new Error(/archiveofourown\.org/i.test(url)
-      ? `AO3 blocked the download (${errors.join('; ')}). AO3 doesn't let other sites fetch its pages, and it often blocks the public relays too. Use one of the options under "AO3 link not working?" instead: the Copy story bookmark, paste the page, or AO3's Download button.`
-      : `Couldn't download it. ${errors.join('; ')}. Try downloading the file in your browser and opening it with Open file.`);
+    throw new Error(`Couldn't download it. ${errors.join('; ')}. Try downloading the file in your browser and opening it with Open file, or see "Link not working?".`);
   }
 
   // ---------- Turning downloaded or opened content into text ----------
@@ -1136,8 +1113,6 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   const FILE_RE = /\.(html?|xhtml|pdf|txt|md)$/i;
   function looksHtml(str, type) { return /html/i.test(type || '') || /<(!doctype html|html|body|div|p)[\s>]/i.test(str.slice(0, 20000)); }
   function checkLocked(str) {
-    if (/only available to registered users|This work is only available to logged.in users/i.test(str) && !/id="chapters"/.test(str))
-      throw new Error('this AO3 work is locked to logged-in users. Log in, use Download → HTML or PDF on the work page, then open the saved file');
     if (/id="new_user_session"|<title>[^<]*log ?in/i.test(str) && str.length < 60000)
       throw new Error('the link led to a login page instead of the story');
   }
@@ -1244,16 +1219,15 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
 
   async function importUrl(raw) {
     const url = normalizeUrl(raw);
-    if (!url) { setStatus('Enter a full link, for example https://archiveofourown.org/works/12345', true); return; }
+    if (!url) { setStatus('Enter a full link, for example https://example.com/my-story.pdf', true); return; }
     $('urlBtn').disabled = true;
     try {
       setStatus('Downloading…');
       const { buf, type, via } = await fetchAny(url);
       const name = decodeURIComponent(new URL(url).pathname.split('/').filter(Boolean).pop() || new URL(url).hostname);
       const head = new TextDecoder().decode(buf.slice(0, 5)), str = head.startsWith('%PDF') ? '' : new TextDecoder('utf-8').decode(buf);
-      const isAO3 = /archiveofourown\.org/i.test(url);
       // Is this a folder (or a table-of-contents page) linking to the chapter files?
-      if (str && !isAO3 && looksHtml(str, type)) {
+      if (str && looksHtml(str, type)) {
         const f = folderLinks(str, url);
         const folder = f.links.length >= 1 && (f.listing || (f.looksDir && f.ownWords < 1500) || (f.links.length >= 2 && f.ownWords < 400));
         if (folder) {
@@ -1282,22 +1256,19 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
       finishImport([{ name, text, meta: sink.meta }], [], `from the link${via ? ` (through the ${via} relay)` : ''}`);
     } catch (e) {
       console.error(e); const m = e.message || String(e); setStatus(m.charAt(0).toUpperCase() + m.slice(1), true);
-      if (/archiveofourown\.org/i.test(url)) { $('ao3Help').hidden = false; $('ao3Btn').setAttribute('aria-expanded', 'true'); }
+      $('linkHelp').hidden = false; $('linkHelpBtn').setAttribute('aria-expanded', 'true');
     } finally { $('urlBtn').disabled = false; }
   }
 
   // ---------- HTML ----------
   function htmlToText(html) {
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    doc.querySelectorAll('script,style,noscript,template,svg,nav,header,footer,form,button,iframe,.landmark,#preface,.preface:not(.chapter),dl.tags,dl.work,.work.meta,.notes,.end.notes,.summary,.afterword,#feedback,#kudos,.kudos,#comments_placeholder,.chapter.preface .meta,#chapters .meta,blockquote.userstuff,.endnotes,#afterword').forEach(e => e.remove());
+    doc.querySelectorAll('script,style,noscript,template,svg,nav,header,footer,form,button,iframe,.notes,.endnotes,.summary,.afterword,#comments').forEach(e => e.remove());
     const wc = els => els.map(e => e.textContent).join(' ').trim().split(/\s+/).length;
-    const picks = ['#chapters div.userstuff', 'div.userstuff', '#storytext', '#storycontent', '.storytext', '.chapter-content', '.entry-content', 'article', 'main', '#content'];
+    const picks = ['.chapter-content', '.entry-content', 'article', 'main', '#content'];
     let roots = [];
-    const specific = new Set(['#chapters div.userstuff', 'div.userstuff', '#storytext', '#storycontent', '.storytext']);
+    const specific = new Set(['.chapter-content']);
     for (const sel of picks) { const els = [...doc.querySelectorAll(sel)]; if (els.length && wc(els) > (specific.has(sel) ? 20 : 100)) { roots = els; break; } }
-    // AO3 multi-chapter pages: keep each chapter's title with its text
-    const chs = [...doc.querySelectorAll('#chapters > .chapter')].filter(c => c.querySelector('div.userstuff'));
-    if (chs.length) roots = chs.flatMap(c => [c.querySelector('h3.title'), c.querySelector('div.userstuff')].filter(Boolean));
     if (!roots.length) roots = [doc.body];
     roots = roots.filter(r => !roots.some(o => o !== r && o.contains(r)));
     const BLOCK = new Set(['P','DIV','H1','H2','H3','H4','H5','H6','LI','BLOCKQUOTE','SECTION','ARTICLE','TR','PRE','HR','CENTER','DD','DT','TABLE','UL','OL','FIGURE','ASIDE','MAIN']);
@@ -1434,14 +1405,13 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     const d = new DOMParser().parseFromString(html, 'text/html');
     const q = sel => { const e = d.querySelector(sel); return e ? e.textContent.replace(/\s+/g, ' ').trim() : ''; };
     const mc = sel => { const e = d.querySelector(sel); return e ? (e.getAttribute('content') || '').trim() : ''; };
-    let title = q('#workskin h2.title') || q('.preface h2.title') || q('#preface .meta h1') || q('#preface h1') || mc('meta[property="og:title"]') || q('h1') || q('title');
-    if (/archive of our own/i.test(title)) title = title.split(' - ')[0];
-    let author = q('#workskin a[rel="author"]') || q('a[rel="author"]') || q('.byline a') || q('.byline').replace(/^by\s+/i, '') || mc('meta[name="author"]');
+    let title = mc('meta[property="og:title"]') || q('h1') || q('title');
+    let author = q('a[rel="author"]') || q('.byline a') || q('.byline').replace(/^by\s+/i, '') || mc('meta[name="author"]');
     return { title: title.slice(0, 200), author: author.slice(0, 120) };
   }
   function guessMeta(text) {
     const L = text.split('\n').map(l => l.trim()).filter(Boolean).slice(0, 60);
-    const META = /^(posted originally|rating|archive warnings?|categor|fandoms?|relationships?|characters?|additional tags|language|stats|series|published|updated|words|chapters|summary|notes|===)/i;
+    const META = /^(posted originally|rating|categor|characters?|language|stats|series|published|updated|words|chapters|summary|notes|===)/i;
     let title = '', author = '';
     const bi = L.findIndex(l => /^by\s+\S/i.test(l) && l.split(/\s+/).length <= 8 && !/[.!?]$/.test(l));
     if (bi >= 0) { author = L[bi].replace(/^by\s+/i, ''); for (let j = bi - 1; j >= 0; j--) if (!META.test(L[j]) && L[j].split(/\s+/).length <= 15) { title = L[j]; break; } }
@@ -1454,14 +1424,14 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   function summaryText(r) {
     const t = ficTitle() || 'Untitled', a = ficAuthor();
     return [`“${t}”${a ? ` by ${a}` : ''}`, `Grade: ${r.letter} (${Math.round(r.overall)}/100) · ${r.total.toLocaleString()} words · ${r.profile}`,
-      r.cats.filter(c => c.score != null).map(c => `${c.name} ${Math.round(c.score)}`).join(' · '), 'Graded with Fic Grader'].join('\n');
+      r.cats.filter(c => c.score != null).map(c => `${c.name} ${Math.round(c.score)}`).join(' · '), 'Graded with Fiction Grader'].join('\n');
   }
   async function copyText(t) {
     try { await navigator.clipboard.writeText(t); return true; } catch {
       const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select();
       const ok = document.execCommand('copy'); a.remove(); return ok; }
   }
-  const safeName = s => (s || 'fic').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'fic';
+  const safeName = s => (s || 'story').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'story';
   function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
   const MARK = l => l[0] === 'A' ? '#237A57' : l[0] === 'B' ? '#2B59C3' : l[0] === 'C' ? '#A8660B' : '#B42318';
   function cardCanvas(r) {
@@ -1489,18 +1459,18 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     for (const cat of cats) { g.fillStyle = '#18233A'; g.font = `20px ${sans}`; g.fillText(cat.name, 90, by + 18);
       g.fillStyle = '#E3E8EF'; g.fillRect(420, by + 4, 330, 16); g.fillStyle = color(cat.score); g.fillRect(420, by + 4, Math.max(8, 330 * cat.score / 100), 16);
       g.fillStyle = '#5B6577'; g.fillText(String(Math.round(cat.score)), 765, by + 18); by += rowH; }
-    g.fillStyle = '#5B6577'; g.font = `18px ${sans}`; g.textAlign = 'right'; g.fillText(`Graded with Fic Grader · ${new Date().toLocaleDateString()}`, W - 90, H - 58);
+    g.fillStyle = '#5B6577'; g.font = `18px ${sans}`; g.textAlign = 'right'; g.fillText(`Graded with Fiction Grader · ${new Date().toLocaleDateString()}`, W - 90, H - 58);
     return c;
   }
   const cardBlob = r => new Promise(res => cardCanvas(r).toBlob(res, 'image/png'));
 
-  // ---------- My graded fics (kept in this browser) ----------
+  // ---------- My graded stories (kept in this browser) ----------
   const LIST_KEY = 'ficgrader-list-v1';
   const loadList = () => { try { return JSON.parse(localStorage.getItem(LIST_KEY) || '[]'); } catch { return []; } };
   const saveList = l => { try { localStorage.setItem(LIST_KEY, JSON.stringify(l)); return true; } catch { return false; } };
   function renderList() {
     const box = $('myList'); if (!box) return; const l = loadList();
-    box.innerHTML = `<h2>My graded fics</h2>${l.length ? `<table><thead><tr><th>Title</th><th>Author</th><th>Grade</th><th>Date</th><th></th></tr></thead><tbody>${l.map((x, i) =>
+    box.innerHTML = `<h2>My graded stories</h2>${l.length ? `<table><thead><tr><th>Title</th><th>Author</th><th>Grade</th><th>Date</th><th></th></tr></thead><tbody>${l.map((x, i) =>
       `<tr><td>${esc(x.title)}</td><td>${esc(x.author || '')}</td><td>${esc(x.grade)} (${x.score})</td><td>${esc(x.date)}</td><td><button class="x" data-rm="${i}" aria-label="Remove ${esc(x.title)}">×</button></td></tr>`).join('')}</tbody></table>
       <div class="acts"><button class="btn" id="csvBtn" type="button">Export list (CSV)</button><button class="btn" id="clearBtn" type="button">Clear list</button></div>`
       : '<p class="bonusrule">Nothing saved yet. Use “Add to my list” after grading to keep a running list you can export as a spreadsheet.</p>'}`;
@@ -1509,9 +1479,9 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
       const l2 = loadList(), catNames = [...new Set(l2.flatMap(x => Object.keys(x.cats || {})))];
       const cell = v => { const t = String(v ?? ''); return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
       const rows = [['Title', 'Author', 'Grade', 'Score', 'Words', 'Profile', 'Date', ...catNames], ...l2.map(x => [x.title, x.author, x.grade, x.score, x.words, x.profile, x.date, ...catNames.map(n => x.cats && x.cats[n] != null ? x.cats[n] : '')])];
-      download(new Blob(['\ufeff' + rows.map(r => r.map(cell).join(',')).join('\r\n')], { type: 'text/csv' }), 'fic-grades.csv');
+      download(new Blob(['\ufeff' + rows.map(r => r.map(cell).join(',')).join('\r\n')], { type: 'text/csv' }), 'fiction-grades.csv');
     };
-    if ($('clearBtn')) $('clearBtn').onclick = () => { if (confirm('Remove every fic from your list?')) { saveList([]); renderList(); } };
+    if ($('clearBtn')) $('clearBtn').onclick = () => { if (confirm('Remove every story from your list?')) { saveList([]); renderList(); } };
   }
   function wireShare(r) {
     const done = (b, msg) => { const o = b.textContent; b.textContent = msg; setTimeout(() => b.textContent = o, 1800); };
@@ -1519,7 +1489,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     $('cardBtn').onclick = async () => download(await cardBlob(r), `${safeName(ficTitle())} - grade.png`);
     if (navigator.share) { $('shareBtn').hidden = false; $('shareBtn').onclick = async () => {
       try { const f = new File([await cardBlob(r)], `${safeName(ficTitle())} - grade.png`, { type: 'image/png' });
-        const data = { title: ficTitle() || 'Fic grade', text: summaryText(r) };
+        const data = { title: ficTitle() || 'Fiction grade', text: summaryText(r) };
         if (navigator.canShare && navigator.canShare({ files: [f] })) data.files = [f];
         await navigator.share(data);
       } catch (e) { if (e.name !== 'AbortError') setStatus("Sharing isn't available here; use Copy summary or Save grade card instead.", true); } }; }
@@ -1558,7 +1528,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     let html = '', pos = 0;
     for (const f of accepted) {
       html += esc(res.text.slice(pos, f.s));
-      if (f.heading) { html += `<span class="hd" title="${f.kind === 'meta' ? "AO3 info or author's note" : 'Heading or scene break'}: not graded">${esc(res.text.slice(f.s, f.e))}</span>`; pos = f.e; continue; }
+      if (f.heading) { html += `<span class="hd" title="${f.kind === 'meta' ? "Story info or author's note" : 'Heading or scene break'}: not graded">${esc(res.text.slice(f.s, f.e))}</span>`; pos = f.e; continue; }
       const all = res.flags.filter(g => g.anchor === f.id).map(g => g.msg + (g.fix ? ` → ${g.fix}` : ''));
       html += `<span class="fl ${f.sev}" id="f${f.id}" data-tip="${esc(all.join('\n'))}" tabindex="0">${esc(res.text.slice(f.s, f.e))}</span>`;
       pos = f.e;
@@ -1575,11 +1545,11 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
       <div class="num">${Math.round(res.overall)}<small> / 100</small></div>
       <div class="meta">${res.total.toLocaleString()} words graded${res.skippedWords ? ` of ${(res.total + res.skippedWords).toLocaleString()}` : ''} · ${res.profile}</div>
       ${(() => { const hd = res.headings.filter(x => x.kind === 'heading').length, mt = res.headings.filter(x => x.kind === 'meta').length, parts = [];
-        if (hd) parts.push(`${hd} heading${hd === 1 ? '' : 's'}/scene break${hd === 1 ? '' : 's'}`); if (mt) parts.push(`${mt} line${mt === 1 ? '' : 's'} of AO3 info or author's notes`);
+        if (hd) parts.push(`${hd} heading${hd === 1 ? '' : 's'}/scene break${hd === 1 ? '' : 's'}`); if (mt) parts.push(`${mt} line${mt === 1 ? '' : 's'} of story info or author's notes`);
         return parts.length ? `<div class="meta">Not graded: ${parts.join(', ')} (${res.skippedWords.toLocaleString()} words)</div>` : ''; })()}
       <div class="meta">${errCount} error${errCount === 1 ? '' : 's'}, ${warnCount} style flag${warnCount === 1 ? '' : 's'}</div></div></div>`;
     h += `<div class="share"><button class="btn" id="copyBtn" type="button">Copy summary</button><button class="btn" id="shareBtn" type="button" hidden>Share…</button><button class="btn" id="cardBtn" type="button">Save grade card</button><button class="btn" id="listAddBtn" type="button">Add to my list</button></div>`;
-    if (res.skippedWords > 0.15 * (res.total + res.skippedWords) && res.skippedWords > 200) h += `<div class="warnbox">${Math.round(100 * res.skippedWords / (res.total + res.skippedWords))}% of the text (${res.skippedWords.toLocaleString()} words) was treated as headings, AO3 info, or author's notes and left out of the grade. Those parts are grayed out in the manuscript; if story text is among them, let me know what the lines above it look like.</div>`;
+    if (res.skippedWords > 0.15 * (res.total + res.skippedWords) && res.skippedWords > 200) h += `<div class="warnbox">${Math.round(100 * res.skippedWords / (res.total + res.skippedWords))}% of the text (${res.skippedWords.toLocaleString()} words) was treated as headings, story info, or author's notes and left out of the grade. Those parts are grayed out in the manuscript; if story text is among them, let me know what the lines above it look like.</div>`;
     if (res.total < 300) h += `<div class="warnbox">This passage is short, so rates per 1,000 words swing a lot. Grade at least 500 words for a steadier score.</div>`;
     const r1 = v => (Math.round(v * 10) / 10).toFixed(1);
     const fmt1 = v => v >= 10 ? Math.round(v).toString() : (Math.round(v * 10) / 10).toString();
@@ -1639,7 +1609,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   function saveReport() {
     if (!last) return;
     const r = last, L = [];
-    L.push(`FIC GRADER REPORT`, `Title: ${ficTitle() || 'Untitled'}${ficAuthor() ? `   Author: ${ficAuthor()}` : ''}`, `Grade: ${r.letter} (${Math.round(r.overall)}/100)   Profile: ${r.profile}   Words: ${r.total}`, `Overused words & phrases: ${r.overuse.map(o => `${o.label} ${o.c}x (${o.rate.toFixed(1)}/1k, ${o.ratioTxt}) ${o.pen.toFixed(1)} pts`).join(', ') || 'none'}`, '');
+    L.push(`FICTION GRADER REPORT`, `Title: ${ficTitle() || 'Untitled'}${ficAuthor() ? `   Author: ${ficAuthor()}` : ''}`, `Grade: ${r.letter} (${Math.round(r.overall)}/100)   Profile: ${r.profile}   Words: ${r.total}`, `Overused words & phrases: ${r.overuse.map(o => `${o.label} ${o.c}x (${o.rate.toFixed(1)}/1k, ${o.ratioTxt}) ${o.pen.toFixed(1)} pts`).join(', ') || 'none'}`, '');
     for (const c of r.cats) {
       L.push(`== ${c.name}: ${c.score == null ? 'not scored' : `score ${Math.round(c.score)}, ${c.points.toFixed(1)} of ${c.avail.toFixed(1)} pts`}`);
       for (const m of c.metrics) {
