@@ -426,7 +426,7 @@ const Grader = (() => {
     [/\bloosing (?=(?:everything|control|track|sight|hope|faith|interest|my|your|our|their|his|weight|blood|consciousness|patience|touch|count)\b)/gi, 'losing '],
     [/\b(?:came|come|comes|coming|broke|break|breaks|breaking|let|cut|hang|set|turned|shook|shake|shaking|work|worked|pulled|tore|wriggled|slipped|slip) lose\b/gi, m => m[0].replace(/lose$/i, 'loose')],
     // affect / effect
-    [/\b(?:it|this|that|which|won't|doesn't|didn't|don't|can't|couldn't|wouldn't|shouldn't|might|may|will|would|could|should|to|not|really|deeply|greatly|seriously|negatively|positively|badly) effect(?:s|ed|ing)? (?=(?:me|him|her|them|us|you|it|my|his|their|our|your|everyone|anyone|how|whether)\b)/gi, m => m[0].replace(/effect/i, 'affect')],
+    [/\b(?:it|this|that|which|won't|doesn't|didn't|don't|can't|couldn't|wouldn't|shouldn't|might|may|will|would|could|should|to|not|really|deeply|greatly|seriously|negatively|positively|badly) effect(?:s|ed|ing)? (?=(?:me|him|her|them|us|you|it|my|his|their|our|your|everyone|anyone|how|whether)\b)|\b[a-z]+ effect(?:s|ed) (?=(?:how|whether)\b)/gi, m => m[0].replace(/effect/i, 'affect')],
     [/\b(?:an?|any|no|little|much|big|huge|strong|lasting|profound|positive|negative|side|special|sound|desired|opposite|domino|ripple|butterfly|calming|soothing) affects?\b(?! (?:me|him|her|them|us|you|it|my|his|their|our|your|the|a|how|whether)\b)|\b(?:in|take|took|takes|taking|to that|to this|cause and) affect\b/gi, m => m[0].replace(/affect/i, 'effect')],
     // then / than
     [/(?<=(?:^|[.!?"]\s+))Than\b|\b(?:and|but|since|until|till|by|back|just|only|right) than\b(?=\s*[.,!?;]|\s+(?:he|she|they|I|we|you|it|the|a|there)\b)/g, m => m[0].replace(/[Tt]han$/, t => t[0] === 'T' ? 'Then' : 'then')],
@@ -1306,19 +1306,31 @@ const Grader = (() => {
 
     // Comma splices: two complete clauses joined by only a comma ("He smiled, she looked away.")
     const SUBORD = /^(?:when|whenever|if|as|after|before|while|because|since|although|though|once|until|unless|whether|even|by the time|now that|so that)\b/i;
-    const SPLICE_SKIP = /^(?:thought|thinks|said|says|knew|guessed|supposed|realized|realised|figured|admitted|noted|decided|mused|added|replied|whispered|murmured|hoped|suspected|assumed|imagined|reckoned)$/;
+    const SPLICE_SKIP = /^(?:thought|think|thinks|said|says|say|knew|know|guessed|guess|supposed|suppose|realized|realised|figured|admitted|noted|decided|mused|added|replied|whispered|murmured|hoped|hope|suspected|assumed|imagined|reckoned|reckon|wrote|remembered|remember|recalled|explained|continued|insisted|believe|believed|mean|meant|fear|feared|daresay|expect|expected|am)$/;
     const spl = [];
     for (const x of narrOnly) {
       const st = norm.slice(x.s, x.e); if (SUBORD.test(st.trim())) continue;
-      const re = /, (he|she|they|I|we|it) (\w+(?:'\w+)?)/g; let m;
+      const re = /, (he|she|they|I|we|it|[A-Z][a-z]+) (\w+(?:'\w+)?)/g; let m;
       while ((m = re.exec(st))) {
         const before = st.slice(0, m.index), bw = before.match(/[A-Za-z']+/g) || [];
         const second = m[2].toLowerCase(); if (SPLICE_SKIP.test(second)) continue;
-        if (/^(?:(?:and|but|or|so|then|yet) )?(?:when|whenever|if|as|after|before|while|because|since|although|though|once|until|unless|whether)\b/i.test(before.split(/[,;]/).pop().trim())) continue;   // "…and when they didn't, he went"
+        if (/^[A-Z][a-z]+$/.test(m[1]) && !(isName(m[1].toLowerCase()) && (PAST_V.has(second) || (/ed$/.test(second) && !ED_ADJ.has(second))))) continue;   // a name as the second subject: "Harry laughed, Ron rolled his eyes"
+        // The stretch right before this comma has to be a complete clause of its own: it needs its own subject and verb, and can't be a
+        // dependent clause ("when they tried…", "which held…", "that he…") or a phrase ("like many people in Europe", "his head twisted")
+        const seg = before.split(/[,;:—]/).pop().trim(), sw = seg.match(/[A-Za-z']+/g) || [];
+        if (/\b(?:when|whenever|if|as|after|before|while|because|since|although|though|once|until|unless|whether|which|who|whom|whose|where|wherever|that|like|than)\b/i.test(seg)) continue;
+        if (/^, (?:I|you|we) (?:can |could |must |)(?:tell you|dare say|see)\b/.test(m[0] + st.slice(m.index + m[0].length, m.index + m[0].length + 12))) continue;   // "I was scared, I can tell you"
+        if (/^, \w+(?: (?:very|much|then|now|later|soon))? \w+(?: \w+)?,/.test(st.slice(m.index, m.index + 40)) && /^, \w+(?: (?:very|much))? \w+(?:ed|ote|ew|ought|old|aid|ard|ound|t)\b(?: \w+)?,/.test(st.slice(m.index, m.index + 40))) continue;   // an aside: "…, he wrote, through his bankers", "…, she told us, Ambrosch…"
+        if (/^(?:the|each|every|any) (?:moment|minute|instant|second|day|time|next time|first time|last time)\b|^(?:by|at) the time\b/i.test(seg)) continue;   // "The moment he sat down, I noticed"
+        if (/^(?:I|you|he|she|we|they|[A-Z][a-z]+)(?: (?:very|much|then|now|later|soon|had|has|have))* (?:\w+ed|thought|knew|felt|found|told \w+|wrote|said|heard|saw|supposed|feared)$/.test(seg) && /,\s*$/.test(before.slice(0, before.length - seg.length))) continue;   // closing an aside: "This lesson, she very much feared, they would…"
+        if (/^(?:a little|a bit|somewhat|slightly|rather|very|too|so|quite|half|still|more|less)\b/i.test(seg)) continue;   // "A little overwhelmed, I began"
         const v2 = second.includes("'") || AUXV.has(second) || IRREG.has(second) || (/ed$/.test(second) && !ED_ADJ.has(second));
-        const hasSubj = bw.length && (SUBJ.has(bw[0].toLowerCase()) || /^[A-Z]/.test(bw[0]) && !SUBORD.test(bw[0]));
+        // the first clause must start with a real subject: a pronoun, "the/a/his… noun", or a character's name (not "Having finished", "With a sigh", "Covered in mud")
+        const w0 = (sw[0] || '').toLowerCase();
+        const hasSubj = bw.length && (SUBJ.has(w0) || /^(?:the|a|an|his|her|their|my|our|your|its|this|that|these|those)$/.test(w0) || (isName(w0) && !/(?:ing|ed)$/.test(w0) && !FUNC.has(w0)));
         const v1 = bw.some(w => { const l = w.toLowerCase(); return l.includes("'") || AUXV.has(l) || IRREG.has(l) || (/ed$/.test(l) && !ED_ADJ.has(l)); });
-        if (v2 && hasSubj && v1 && bw.length >= 2) { const a = x.s + m.index; spl.push(F(a, a + m[0].length, 'warn', 'Comma splice: two sentences joined by only a comma', 'commaSplice', 'use a period, a semicolon, or "and"/"but"')); break; }
+        const segVerb = sw.slice(1).some(w => { const l = w.toLowerCase(); return l.includes("'") || AUXV.has(l) || PAST_V.has(l) || PRES3.has(l) || (/ed$/.test(l) && l.length > 3 && !ED_ADJ.has(l)); });
+        if (v2 && hasSubj && v1 && segVerb && sw.length >= 2) { const a = x.s + m.index; spl.push(F(a, a + m[0].length, 'warn', 'Comma splice: two sentences joined by only a comma', 'commaSplice', 'use a period, a semicolon, or "and"/"but"')); break; }
       }
     }
     M('punct', 'commaSplice', 'Comma splices', k(spl.length, narr), `${spl.length} found`, 'Two complete sentences joined by only a comma: "He smiled, she looked away." Approximate.', { flags: spl });
@@ -1388,6 +1400,12 @@ const Grader = (() => {
       const sn = S[sentAt(h.s)]; if (!sn || seenSent.has(sn)) continue;
       const st = norm.slice(sn.s, sn.e); if (/[?!]["')\]]*\s*$/.test(st) || /\b(?:thought|thinks|wondered|knew|knows|realized|realises|realizes)\b/i.test(st)) continue;
       if (/\b(?:I|we) (?:am|are|have|do|think|know|see|remember|believe|feel|suppose|still|often|always|never|sometimes)\b|\bI'm\b|\bI've\b/.test(st)) continue;   // the narrator speaking in the present
+      const before = norm.slice(Math.max(sn.s, h.s - 80), h.s), para = paras[h.para] ? norm.slice(paras[h.para].s, paras[h.para].e) : st;
+      if (/\bthey (?:say|said|tell|call|claim)\b/i.test(st) || (h.w !== 'is' && /\byou\b/i.test(st) && /\bthey\b/i.test(before))) continue;   // generic "they": "whose hair, they say…", "where they have the trout"
+      if (/\b(?:people|everyone|everybody|nobody|no one|anyone|one|men|women|children|a man|a woman|a child|a person|those who|whoever|Americans|the English|the French)\b/.test(before)) continue;   // general statements
+      if (/\b(?:I|we) (?:am|are|have|do|think|know|see|remember|believe|feel|suppose|still|often|always|never|sometimes)\b|\bI'm\b|\bI've\b/.test(para)) continue;   // a paragraph where the narrator speaks in the present
+      if (/:/.test(before) || /\b(?:as if|as though)\s+(?:\w+\s+)?$/i.test(before)) continue;                                 // quoted text after a colon; "as if she is"
+      if (/\b(?:said|says|told \w+|tells \w+|knew|knows|thought|explained|claimed|insisted|admitted|realized|realised|decided|heard|learned|learnt|read|wrote|promised|swore|mentioned|announced|warned|reminded \w+|noted|replied|answered|added|agreed|confirmed|guessed|figured|suspected|believed|hoped|meant|pointed out|was sure|were sure|was certain|knew that)(?: that)?\s+(?:\w+\s+){0,2}$/i.test(before)) continue;   // reported speech: "told her that he is a doctor"
       if (/\b(?:urged|urge|urges|insisted|insist|insists|suggested|suggest|demanded|demand|proposed|recommended|requested|asked|begged|ordered|required) that (?:\w+ ){0,2}$/i.test(norm.slice(Math.max(0, h.s - 60), h.s).replace(/\b(?:he|she|they)\s*$/i, ''))) continue;   // subjunctive: "urged that they go"
       seenSent.add(sn); tn.push(F(h.s, h.e, 'error', `Tense switch: "${h.raw}" in a ${tenseMode}-tense story`, 'tense', 'keep the narration in one tense'));
     }
