@@ -317,7 +317,7 @@ const Grader = (() => {
     [/\b[Ii]f(?: only)? (?:I|you|he|she|they|we|it) (?:would have|would've|'d have) (?:known|seen|been|gone|done|had|listened|told|asked|thought|stayed|left|come|tried|realized|realised|noticed|heard|waited|called|said|looked|stopped|let)\b/g, m => m[0].replace(/(?:would have|would've|'d have)/, 'had')],
     [/\bper say\b/gi, 'per se'],
     [/\bfor all intensive purposes\b/gi, 'for all intents and purposes'],
-    [/\b(could|would|should|must|might) of\b/gi, m => m[1] + ' have'],
+    [/\b(could|would|should|must|might) of (?=(?:been|done|gone|had|seen|known|made|said|told|got|gotten|come|taken|given|thought|went|did|let|put|kept|left|found|heard|felt|meant|run|ran|stayed|tried|asked|killed|died|called|stopped|helped|waited|noticed|realized|realised|guessed|warned|listened|missed|loved|wanted|needed|used|happened|\w+ed)\b)/gi, m => m[1] + ' have '],
     [/\b(could|would|should|must|might)'ve of\b/gi, m => m[1] + ' have'],
     [/\birregardless\b/gi, 'regardless'],
     [/\bnip(?:ped|s)? (?:it|this|that) in the butt\b/gi, 'nip it in the bud'],
@@ -331,7 +331,7 @@ const Grader = (() => {
     [/\bfree reign\b/gi, 'free rein'],
     [new RegExp(`\\breign(?:ed|ing|s)? ${SELF} in\\b`, 'gi'), 'rein (someone) in'],
     [new RegExp(`\\breign(?:ed|ing|s)? in ${P} (?:temper|anger|emotions|feelings|impulses|horse|tongue)\\b`, 'gi'), 'rein in'],
-    [/\bmake due\b/gi, 'make do'],
+    [/\bmake due\b(?! (?:allowance|allowances|provision|note|payment|diligence|care|regard|reference|process|consideration))/gi, 'make do'],
     [/\bmute point\b/gi, 'moot point'],
     [/\bwreck(?:ed|s|ing)? havoc\b/gi, 'wreak havoc'],
     [/\bbaited breath\b/gi, 'bated breath'],
@@ -400,6 +400,22 @@ const Grader = (() => {
   ];
   // ---- Confused words: only in patterns where the wrong word is clear ----
   const TIER2 = [
+    // ---- their / there / they're ----
+    [/\btheir(?=\s*[.,!?;:"]|\s+(?:and|but|or|because|when|while|until|if)\b(?! (?:our|my|your|his|her|its|their)\b))/gi, 'there'],
+    [/\btheir (?:has|had|have|will|won't|would|could|should|must|might|may|seems|seemed|seem|goes|go|comes|came|used to|isn't|aren't|wasn't|weren't|'s|'re|'ll)\b/gi, m => m[0].replace(/^their/i, 'there')],
+    [/(?<=\b(?:to|into|onto|of|at|from|for|by|with|without|about|near|behind|under|over|on|in|inside|outside|between|among|toward|towards|through|and|visited|left|called|saw|see|met|love|loved|hugged|missed|lost|took|take|packed|cleaned|raised|told|thanked|grabbed|shook|raised|lowered|closed|opened|crossed|folded|rubbed|wiped|held|hold|dropped|threw|shoved|pulled|pushed|put|kept|ate|drove|found|lost|sold|bought|made|did|washed|combed|brushed|cut|followed|joined|hated) )there (car|cars|house|houses|parents|mother|father|mom|mum|dad|home|homes|friends|friend|room|rooms|eyes|hands|faces|heads|children|kids|feet|hair|lives|bodies|arms|legs|mouths|lips|voices|family|families|clothes|bags|things|phones|names|son|sons|daughter|daughters|brother|sister|wife|husband|shoulders|backs|seats|horses|weapons|swords|packs|coats|boots|shoes|jobs|money|stuff|way|best|first|last|leader|team|father's|mother's)\b/gi, m => 'their ' + m[1]],
+    [/(?<=(?:^|[.!?"]\s+))There (?:hands|eyes|faces|heads|lips|voices|bodies|parents|friends|mother|father|house|car|home|clothes|feet|hair|kids|children) (?=(?:was|were|is|are|had|looked|seemed|shook|met|widened|locked)\b)/g, m => 'Their ' + m.slice(6)],
+    [/(?<!\b(?:is|was|are|were|isn't|wasn't|aren't|weren't|will|won't|would|could|be|been|ain't|if|whether|that) )\bthere (?:going to|gonna|trying to|not going|getting (?:married|ready|closer)|doing (?:it|this|that|something|fine|great|well|okay))\b/gi, m => m[0].replace(/^there/i, "they're")],
+    // ---- it's / its ----
+    [/\bits'/gi, 'its'],
+    [/\bits (?:just|really|so|too|all|me|you|him|her|us|them|that|this|your|my|his|their|our|always|never|probably|definitely|actually|almost|nearly|kind of|sort of|time to|time for|gotten|a lot|been)\b(?!-)(?! \w+ing\b)/gi, m => m[0].replace(/^its/i, "it's")],
+    [/\bits (?:not|getting|going)\b(?!-)(?! \w+ing\b| round\b| on\b)(?= (?:a|an|the|to|so|too|very|really|that|late|dark|cold|worse|better|harder|easier|anywhere|fair|funny|true|over|my|your|his|her|our|their)\b|\s*[.,!?;"])/gi, m => m[0].replace(/^its/i, "it's")],
+    [/\bits (?:fine|good|bad|great|nice|hard|easy|cold|hot|dark|weird|funny|late|early|true|over|done|important|impossible|possible|obvious|clear|beautiful|okay|ok|alright|safe|dangerous|quiet|nothing|everything|fun|cool|creepy|strange|real|mine|yours|ours)(?=\s*[.,!?;:"]|\s+(?:to|that|and|but|now|though|anyway|here|there)\b)/gi, m => m[0].replace(/^its/i, "it's")],
+    [/\bit's (?:lid|claws|fangs|teeth|jaws|handle|pages|cover|spine|blade|hilt|engine|doors|windows|walls|roof|foundations|branches|petals|horns|mane|hooves|feathers|beak|scales|brakes|screen|battery|strap|strings|keys|bars|lock|hinges|tip|base|legs|paws|wings|eyes|fur|tail|body|shell|rider|origin|meaning|mark|course|toll|own)\b/gi, m => m[0].replace(/^it's/i, 'its')],
+    // ---- her's / your's / our's / their's ----
+    [/\b(her|your|our|their)'s\b/gi, m => ({ her: 'hers', your: 'yours', our: 'ours', their: 'theirs' })[m[1].toLowerCase()]],
+    // ---- to / too ----
+    [/\b(?:want|wanted|wants|need|needed|needs|have|has|had|going|trying|tried|try|able|used|supposed|ready|about|like|love|hate|decided|refused|began|started) too (?:be|go|see|get|make|do|have|take|come|find|know|say|tell|give|keep|let|help|try|leave|stay|talk|eat|sleep|walk|run|play|work|look|think|feel|hear|stop|kill|die|leave)\b/gi, m => m[0].replace(/ too /i, ' to ')],
     [/\b(blonde|brunette) (man|boy|guy|men|boys|guys|husband|boyfriend|brother|son|father|dad|prince|king|lad|gentleman|teenager|detective|captain|soldier|doctor|agent|officer)\b/gi, m => (/^blonde$/i.test(m[1]) ? 'blond ' : 'brunet / dark-haired ') + m[2]],
     [/\bblond (woman|girl|women|girls|fianc[ée]e|wife|girlfriend|sister|daughter|mother|lady|princess|queen|actress|waitress)\b/gi, m => 'blonde ' + m[1]],
     [/\b(?:with|such|full|absolute|quiet|calm|sudden|growing|utter|complete|total|grim|newfound|new-found) surety\b|\bsurety (?:that|of (?:his|her|their|the))\b/gi, m => m[0].replace(/surety/i, 'certainty')],
@@ -411,7 +427,7 @@ const Grader = (() => {
     [/\b(?:a|the|hopeless|such a|total|true|big|incurable) romanticist\b/gi, m => m[0].replace(/romanticist/i, 'romantic')],
     [/\buncaring of\b/gi, 'not caring about'],
     [/\bcohesive (?:thought|thoughts|sentence|sentences|words?|answer|response|reply|argument)\b/gi, m => m[0].replace(/cohesive/i, 'coherent')],
-    [/\bmore (dumb|smart|big|small|tall|short|fast|slow|old|young|hard|soft|loud|dark|bright|cold|hot|warm|cool|rich|poor|strong|weak|nice|mean|cute|sweet|thin|fat|deep|high|low|long|late|safe|brave|calm|clean|clear|cheap|kind|wise|wild|tough|sad|mad)(?= than\b|[.,!?;]| and\b| or\b)/gi, m => { const w = m[1].toLowerCase(); return (/e$/.test(w) ? w + 'r' : /^(?:big|hot|fat|thin|sad|mad)$/.test(w) ? w + w.slice(-1) + 'er' : w + 'er'); }],
+    [/\bmore (dumb|smart|big|small|tall|short|fast|slow|old|young|hard|soft|loud|dark|bright|cold|hot|warm|cool|rich|poor|strong|weak|nice|mean|cute|sweet|thin|fat|deep|high|low|long|late|safe|brave|calm|clean|clear|cheap|kind|wise|wild|tough|sad|mad)(?= than\b|[.!?;])/gi, m => { const w = m[1].toLowerCase(); return (/e$/.test(w) ? w + 'r' : /^(?:big|hot|fat|thin|sad|mad)$/.test(w) ? w + w.slice(-1) + 'er' : w + 'er'); }],
     [/\banymore (?:of|than)\b/gi, m => m[0].replace(/anymore/i, 'any more')],
     [/\bteam (mates?|work)\b/gi, m => 'team' + m[1]],
     [/\bdancefloors?\b/gi, m => m[0].replace(/dancefloor/i, 'dance floor')], [/\bsmalltalk\b/gi, 'small talk'],
@@ -428,7 +444,7 @@ const Grader = (() => {
     [/\b(rather|other) then\b(?!,)/gi, m => m[1] + ' than'],
     [/\brather (\w+) then (?=\w)/gi, m => `rather ${m[1]} than `],
     [/\b(better|more|less|bigger|smaller|faster|older|younger|taller|worse|greater|higher|lower|sooner|later|stronger|weaker|smarter|prettier|easier|harder) then (?=(?:I|you|he|she|we|they|me|him|her|us|them|the|a|an|his|my|your|their|our|anyone|anything|anybody|everyone|everything|ever|usual|expected|before|last|any|most|some|\d)\b|\w+'s\b)/gi, m => m[1] + ' than '],
-    [/\byour (going to (?:be|have|get|make|do|need|want|regret|love|like|see|say|find|feel|go|take|give|tell|kill|die|lose|miss|hate|help|stay|wait|hurt|pay)|gonna|not|a|an|such a|so)\b(?!-)(?! called\b)/gi, m => "you're " + m[1]],
+    [/\byour (going to (?:be|have|get|make|do|need|want|regret|love|like|see|say|find|feel|go|take|give|tell|kill|die|lose|miss|hate|help|stay|wait|hurt|pay)|gonna|not|a|an|such a|so)\b(?!-)(?! called\b)(?! \w+ing\b)/gi, m => "you're " + m[1]],
     [/(?<!\b(?:it's|it is|that's|that is|is|was|within|exercise|exercising|of|know) )\byour (welcome|wrong|kidding|joking|lying|crazy|insane|beautiful|amazing|right)(?=\s*[.!?,;:"]|\s+(?:and|but|too|about|me|to me|again)\b)/gi, m => "you're " + m[1]],
     // "you're" + a noun that can't follow "you are" on its own; nouns that can ("you're friends", "you're family") only when a verb follows
     [/\byou're (own|house|mother|father|mom|mum|dad|brother|sister|friend|car|room|phone|hand|hands|face|eyes|name|life|fault|turn|job|problem|opinion|body|head|heart|hair|voice)\b/gi, m => 'your ' + m[1]],
@@ -437,7 +453,7 @@ const Grader = (() => {
     [new RegExp(`\\bloose ${P} (mind|temper|job|way|grip|balance|nerve|patience|footing|life|lives|virginity|hearing|sight|train of thought)\\b`, 'gi'), m => m[0].replace(/^loose/i, 'lose')],
     [/\blose (fitting|thread|threads|strands?|ends|tooth|teeth|change|clothes|shirt|dress|cannon|floorboard|screw)\b/gi, m => 'loose ' + m[1]],
     [/\bit's (own|tail|head|place|body|eyes|wings|mouth|legs|paws|fur|name|shape|size|color|colour|edge|surface|side|hinges|owner|contents|master|purpose|leaves|roots|weight)\b/gi, m => 'its ' + m[1]],
-    [/\bits (a|an|not|been|going to|gonna|okay|what|like|about|because|getting|already|alright|raining|nothing|no big deal|my fault|your fault)\b(?!-)/gi, m => "it's " + m[1]],
+    [/\bits (a|an|been|going to|gonna|okay|what|like|about|because|already|alright|raining|nothing|no big deal|my fault|your fault)\b(?!-)(?! \w+ing\b)/gi, m => "it's " + m[1]],
     [/\bwho's (car|turn|house|idea|fault|side|job|name|book|phone|room|voice|hand|face|dog|cat|child|kid|bed|coat|jacket|bag)\b/gi, m => 'whose ' + m[1]],
     [/\bwhose (there|going|coming|calling|next|ready|asking|talking|in charge)\b/gi, m => "who's " + m[1]],
     [/\btheir (is|are|was|were|isn't|aren't|wasn't|weren't)\b/gi, m => 'there ' + m[1]],
