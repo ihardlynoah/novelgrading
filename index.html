@@ -641,6 +641,13 @@ const Grader = (() => {
     `(?:brain|mind) (?:blue-?screened|blue-?screening|short-?circuited|short-?circuiting|short-?circuits|glitched|went offline|rebooted)`, `(?:brain|mind)\\.exe`,
     `in record time`, `(?:nobody|no one) (?:had|needed|has|needs) to know`,
     `(?:a )?(?:(?:low|small|soft|strangled|punched-out|wounded|broken|choked|needy|quiet|little) )?(?:sound|noise) (?:in|at|from) the back of ${P} throat`,
+    // "made a noise in the back of his throat" and its relatives
+    `(?:sound|noise)(?: of \\w+)? (?:(?:low|deep|somewhere deep|somewhere low) )?(?:in|at|from) (?:(?:deep|low) in )?(?:the (?:back|base) of )?${P} throat`,
+    `(?:sound|noise|growl|whine|whimper|moan|groan|laugh|hum) (?:escaped|built in|caught in|lodged in|rose in|formed in|stuck in|bubbled up|rumbled up|clawed up|tore from) (?:(?:from )?the back of )?${P} throat`,
+    `(?:growl(?:ed|s|ing)?|hum(?:med|s|ming)?|rumbl(?:ed|es|ing)|purr(?:ed|s|ing)?|whine[ds]?|keen(?:ed|s|ing)?) (?:low|deep) in ${P} (?:throat|chest)`,
+    `(?:rumbl(?:ed|es|ing)|vibrat(?:ed|es|ing)) (?:low |deep )?in ${P} chest`,
+    `(?:made|makes|making|let out|lets out|letting out) (?:a|an) (?:[\\w-]+,? )?(?:choked|strangled|punched-out|wounded|noncommittal|non-committal|wordless|helpless|needy|involuntary|undignified|pained|garbled|inarticulate|frustrated|annoyed|disgruntled|indignant|thoughtful|questioning|skeptical|sceptical|dismissive|displeased|affronted|agreeable|approving|disapproving|distressed|hurt|offended|exasperated|protesting|aggrieved|affirmative|vague) (?:sound|noise)`,
+    `(?:made|makes|making|let out|lets out|letting out) (?:a|an) (?:(?:small|little|soft|quiet|low|tiny) )?(?:sound|noise) of (?:protest|assent|agreement|disagreement|frustration|surprise|pain|pleasure|displeasure|approval|disapproval|discomfort|distress|annoyance|acknowledge?ment|contentment|interest|disgust|dismay)`,
     `like (?:it's|it was|it is|this is|that's|that was|this was) the (?:\\w+est|most \\w+) thing in the world`,
     `(?:it|that|this|which) felt (?:amazing|incredible|fantastic)`, `(?:it|that|this) (?:was|is) the (?:type|kind|sort) of \\w+ (?:when|where) you`,
     `(?:look|air|expression|voice|tone|face|smile|posture|walk|confidence|gait|eyes|grin|energy|manner|laugh) of (?:someone|somebody|a man|a woman) who`,
