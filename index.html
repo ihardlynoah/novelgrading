@@ -903,7 +903,7 @@ const Grader = (() => {
     const headings = skippedLines(norm);
     for (const h of headings) h.words = (norm.slice(h.s, h.e).match(/[A-Za-z]+(?:'[A-Za-z]+)*/g) || []).length;
     const skippedWords = headings.reduce((a, h) => a + h.words, 0);
-    { const chars = norm.split(''); for (const h of headings) for (let i = h.s; i < h.e; i++) chars[i] = ' '; norm = chars.join(''); }
+    if (headings.length) { const parts = []; let pos = 0; for (const h of [...headings].sort((a, b) => a.s - b.s)) { if (h.s < pos) continue; parts.push(norm.slice(pos, h.s), ' '.repeat(h.e - h.s)); pos = h.e; } parts.push(norm.slice(pos)); norm = parts.join(''); }
     const N = norm.length;
 
     // dialogue mask (quotation marks)
@@ -928,6 +928,7 @@ const Grader = (() => {
     let wi = 0;
     for (const s of sents) { s.words = []; while (wi < W.length && W[wi].s < s.s) wi++; let j = wi; while (j < W.length && W[j].s < s.e) s.words.push(W[j++]); }
     const S = sents.filter(s => s.words.length);
+    const sentAt = pos => { let lo = 0, hi = S.length - 1; while (lo <= hi) { const m = (lo + hi) >> 1; if (pos < S[m].s) hi = m - 1; else if (pos >= S[m].e) lo = m + 1; else return m; } return -1; };
     for (const s of S) { s.nw = s.words.filter(x => !x.dlg); s.startsNarr = !s.words[0].dlg; s.narr = s.nw.length >= s.words.length / 2; }
     { let q = 0; for (const p of paras) { p.words = []; while (q < W.length && W[q].s < p.s) q++; let j = q; while (j < W.length && W[j].s < p.e) p.words.push(W[j++]); } }
 
@@ -946,7 +947,15 @@ const Grader = (() => {
     }
     const metrics = [];
     // When several patterns match overlapping text, keep only the longest match so one phrase is counted once
-    const uniq = list => { const kept = []; for (const x of [...list].sort((a, b) => (b.e - b.s) - (a.e - a.s) || a.s - b.s)) if (!kept.some(k => x.s < k.e && k.s < x.e)) kept.push(x); return kept.sort((a, b) => a.s - b.s); };
+    const uniq = list => {
+      const byStart = [...list].sort((a, b) => a.s - b.s), out = [];
+      for (let i = 0; i < byStart.length;) {                       // overlapping matches form small clusters; resolve each on its own
+        let j = i + 1, end = byStart[i].e; while (j < byStart.length && byStart[j].s < end) { end = Math.max(end, byStart[j].e); j++; }
+        const kept = []; for (const x of byStart.slice(i, j).sort((a, b) => (b.e - b.s) - (a.e - a.s) || a.s - b.s)) if (!kept.some(k => x.s < k.e && k.s < x.e)) kept.push(x);
+        out.push(...kept.sort((a, b) => a.s - b.s)); i = j;
+      }
+      return out;
+    };
     const M = (cat, id, name, value, display, note, o = {}) => {
       const r = R(id);
       const score = o.na ? null : (o.score != null ? o.score : rangeScore(value, r));
@@ -956,12 +965,12 @@ const Grader = (() => {
 
     // ===== Word overuse & variety
     // Names: capitalised when not at the start of a sentence, or a proper noun in the reference corpus
-    const cnt = new Map(), nonInit = new Map(), capNon = new Map();
+    const cnt = new Map(), nonInit = new Map(), capNon = new Map(), capAny = new Set();
     for (const x of W) {
-      cnt.set(x.w, (cnt.get(x.w) || 0) + 1);
+      cnt.set(x.w, (cnt.get(x.w) || 0) + 1); if (x.cap) capAny.add(x.w);
       if (!x.initial) { nonInit.set(x.w, (nonInit.get(x.w) || 0) + 1); if (x.cap) capNon.set(x.w, (capNon.get(x.w) || 0) + 1); }
     }
-    const isName = w => PROPER.has(w) || ((nonInit.get(w) || 0) > 0 ? (capNon.get(w) || 0) / nonInit.get(w) >= 0.6 : !FREQ.has(w) && W.some(x => x.w === w && x.cap));
+    const isName = w => PROPER.has(w) || ((nonInit.get(w) || 0) > 0 ? (capNon.get(w) || 0) / nonInit.get(w) >= 0.6 : !FREQ.has(w) && capAny.has(w));
 
     const fil = scan(/\b(very|really|just|quite|suddenly|rather|somewhat|actually|basically|literally|totally|simply|pretty much|kind of|sort of|a little bit|a bit|completely|absolutely|definitely|certainly|truly|extremely|incredibly|seriously|honestly|practically|virtually|essentially|utterly|fairly|in order to|the fact that|at that moment|at this point|needless to say|somehow|all of a sudden|for some reason|it seemed|as if to say)\b/gi, { narr: true })
       .map(x => F(x.s, x.e, 'warn', `Filler: "${x.m[0]}"`, 'filler', 'cut or use a stronger word'));
@@ -1009,15 +1018,20 @@ const Grader = (() => {
       return { c, rate, ratio, excess, known, expected: expPer1k * total / 1000, expRate: expPer1k, pen: Math.max(rarePen, densePen), why: densePen >= rarePen ? 'dense' : 'rare' };
     };
     // phrases: 2-3 consecutive words with only spaces between them, containing a real (non-function, non-name) word
+    // Counted first, then positions are collected only for phrases used often enough to be flagged (keeps long books fast and small)
+    const spaceAfter = new Uint8Array(W.length); for (let j = 0; j + 1 < W.length; j++) spaceAfter[j] = /^[ \t]+$/.test(norm.slice(W[j].e, W[j + 1].s)) ? 1 : 0;
+    const skipTok = W.map(x => x.w.includes("'") || isName(x.w)), funcTok = W.map(x => FUNC.has(x.w) || TAG_PLAIN.has(x.w));
+    const phraseKey = (i, n) => {
+      if (i + n > W.length) return null;
+      for (let j = i; j < i + n; j++) if (skipTok[j] || (j < i + n - 1 && !spaceAfter[j])) return null;
+      let allFunc = true; for (let j = i; j < i + n; j++) if (!funcTok[j]) { allFunc = false; break; }
+      if (allFunc) return null;                                                            // also skips plain tags: "said the", "asked her"
+      return n === 3 ? W[i].w + ' ' + W[i + 1].w + ' ' + W[i + 2].w : W[i].w + ' ' + W[i + 1].w;
+    };
+    const phCount = new Map();
+    for (let i = 0; i < W.length; i++) for (const n of [3, 2]) { const key = phraseKey(i, n); if (key) phCount.set(key, (phCount.get(key) || 0) + 1); }
     const phr = new Map();
-    for (let i = 0; i < W.length; i++) for (const n of [3, 2]) {
-      if (i + n > W.length) continue;
-      let ok = true; for (let j = i; j < i + n - 1; j++) if (!/^[ \t]+$/.test(norm.slice(W[j].e, W[j + 1].s))) { ok = false; break; }
-      if (!ok) continue;
-      const toks = W.slice(i, i + n).map(x => x.w);
-      if (toks.some(t => t.includes("'") || isName(t)) || toks.every(t => FUNC.has(t) || TAG_PLAIN.has(t))) continue;   // also skips plain tags: "said the", "asked her"
-      const key = toks.join(' '); if (!phr.has(key)) phr.set(key, []); phr.get(key).push(i);
-    }
+    for (let i = 0; i < W.length; i++) for (const n of [3, 2]) { const key = phraseKey(i, n); if (key && phCount.get(key) >= O.minCount) { if (!phr.has(key)) phr.set(key, []); phr.get(key).push(i); } }
     const phCand = [];
     for (const [key, idx] of phr) {
       const n = key.split(' ').length, known = PH_FREQ.has(key);
@@ -1109,7 +1123,7 @@ const Grader = (() => {
     const PASS_RE = /\b(am|is|are|was|were|be|been|being)\s+(?:(\w+ly)\s+)?([a-z]+)\b/gi;
     const pas = scan(PASS_RE, { narr: true, test: m => { const w = m[3].toLowerCase(); return !ED_ADJ.has(w) && (IRREG_PP.has(w) || (/ed$/.test(w) && w.length > 4)); } })
       .map(x => F(x.s, x.e, 'warn', `Possible passive: "${x.m[0]}"`, 'passive'));
-    const pasS = new Set(pas.map(f => S.findIndex(s => f.s >= s.s && f.s < s.e))).size;
+    const pasS = new Set(pas.map(f => sentAt(f.s))).size;
     const pasPct = S.length ? pasS / S.length * 100 : 0;
     M('structure', 'passive', 'Passive voice', pasPct, `${fmt(pasPct, 0)}% of sentences`, 'Approximate: some flagged hits will be adjectives ("was closed").', { flags: pas });
 
@@ -1297,7 +1311,7 @@ const Grader = (() => {
     const tenseMode = pastN >= 15 && presN <= 0.25 * pastN ? 'past' : presN >= 15 && pastN <= presN ? 'present' : null;
     const tn = [], seenSent = new Set();
     for (const h of tenseMode === 'past' ? presHits : tenseMode === 'present' ? pastTagHits : []) {
-      const sn = S.find(x => h.s >= x.s && h.s < x.e); if (!sn || seenSent.has(sn)) continue;
+      const sn = S[sentAt(h.s)]; if (!sn || seenSent.has(sn)) continue;
       const st = norm.slice(sn.s, sn.e); if (/[?!]["')\]]*\s*$/.test(st) || /\b(?:thought|thinks|wondered|knew|knows|realized|realises|realizes)\b/i.test(st)) continue;
       seenSent.add(sn); tn.push(F(h.s, h.e, 'error', `Tense switch: "${h.raw}" in a ${tenseMode}-tense story`, 'tense', 'keep the narration in one tense'));
     }
@@ -1830,11 +1844,17 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     const text = input.value;
     if (!ficTitle() && !ficAuthor()) { const g = guessMeta(text); setMeta(g.title, g.author); }
     if (!text.trim()) { report.innerHTML = '<div class="empty">Paste some text into the page first, then press Grade.</div>'; return; }
-    const res = Grader.analyze(text, { profile: profileSel.value, dlgMode: $('dlgMode').value, english: $('english').value });
-    last = res;
-    renderManuscript(res);
-    renderReport(res);
-    input.hidden = true; ms.hidden = false; $('editBtn').hidden = false; $('saveBtn').hidden = false; $('legend').hidden = false;
+    const run = () => {
+      const res = Grader.analyze(text, { profile: profileSel.value, dlgMode: $('dlgMode').value, english: $('english').value });
+      last = res;
+      renderManuscript(res);
+      renderReport(res);
+      input.hidden = true; ms.hidden = false; $('editBtn').hidden = false; $('saveBtn').hidden = false; $('legend').hidden = false;
+      $('gradeBtn').disabled = false; if (big) setStatus('');
+    };
+    // Long books take a while (longest on phones): show a message and let the page repaint before the work starts
+    const big = text.length > 350000;
+    if (big) { $('gradeBtn').disabled = true; setStatus(`Grading ${Math.round(text.length / 5.7 / 1000)}k words… this can take up to a minute on a phone.`); setTimeout(run, 60); } else run();
   }
 
   function renderManuscript(res) {
@@ -1848,17 +1868,17 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     for (const f of res.flags) { const a = occ[f.s]; f.anchor = a !== -1 ? a : null; }
     for (const hd of res.headings) accepted.push({ ...hd, heading: true });
     accepted.sort((a, b) => a.s - b.s);
-    const byId = new Map(res.flags.map(f => [f.id, f]));
-    let html = '', pos = 0;
+    const tipsFor = new Map(); for (const g of res.flags) if (g.anchor != null) { if (!tipsFor.has(g.anchor)) tipsFor.set(g.anchor, []); tipsFor.get(g.anchor).push(g.msg + (g.fix ? ` → ${g.fix}` : '')); }
+    tipText.map = new Map([...tipsFor].map(([id, l]) => [id, l.join('\n')]));
+    const parts = []; let pos = 0;
     for (const f of accepted) {
-      html += esc(res.text.slice(pos, f.s));
-      if (f.heading) { html += `<span class="hd" title="${f.kind === 'meta' ? "Story info or author's note" : 'Heading or scene break'}: not graded">${esc(res.text.slice(f.s, f.e))}</span>`; pos = f.e; continue; }
-      const all = res.flags.filter(g => g.anchor === f.id).map(g => g.msg + (g.fix ? ` → ${g.fix}` : ''));
-      html += `<span class="fl ${f.sev}" id="f${f.id}" data-tip="${esc(all.join('\n'))}" tabindex="0">${esc(res.text.slice(f.s, f.e))}</span>`;
+      parts.push(esc(res.text.slice(pos, f.s)));
+      if (f.heading) { parts.push(`<span class="hd" title="${f.kind === 'meta' ? "Story info or author's note" : 'Heading or scene break'}: not graded">${esc(res.text.slice(f.s, f.e))}</span>`); pos = f.e; continue; }
+      parts.push(`<span class="fl ${f.sev}" id="f${f.id}" tabindex="0">${esc(res.text.slice(f.s, f.e))}</span>`);
       pos = f.e;
     }
-    html += esc(res.text.slice(pos));
-    ms.innerHTML = html;
+    parts.push(esc(res.text.slice(pos)));
+    ms.innerHTML = parts.join('');
   }
 
   function renderReport(res) {
@@ -1916,8 +1936,10 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse');
   });
 
+  function tipText(el) { return tipText.map ? tipText.map.get(+el.id.slice(1)) || '' : ''; }
+  window.novelTip = tipText;
   function showTip(el) {
-    tip.textContent = el.dataset.tip; tip.hidden = false;
+    tip.textContent = tipText(el); tip.hidden = false;
     const r = el.getBoundingClientRect();
     const top = r.bottom + 8 + tip.offsetHeight > innerHeight ? r.top - tip.offsetHeight - 8 : r.bottom + 8;
     tip.style.top = top + 'px'; tip.style.left = Math.max(8, Math.min(innerWidth - tip.offsetWidth - 8, r.left)) + 'px';
