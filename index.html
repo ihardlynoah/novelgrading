@@ -395,6 +395,11 @@ const Grader = (() => {
   const SELF = '(?:himself|herself|themselves|themself|myself|yourself|ourselves)';
   // ---- Misused phrases: fixed expressions that are wrong as written ----
   const TIER1 = [
+    // modal + "of" + a past participle, including the negatives ("could not of known", "must of cost"); not "all I could of the ways",
+    // "the might of his power", "must of necessity"
+    [/\b(could|would|should|must|might)(n't| not)? of (?=(?:been|done|gone|had|seen|known|made|said|told|got|gotten|come|taken|given|thought|went|did|let|put|kept|left|found|heard|felt|meant|run|ran|cost|bought|brought|caught|taught|fought|sold|held|hurt|hit|lost|won|sent|spent|built|slept|paid|laid|sat|stood|understood|forgot|forgotten|eaten|written|spoken|broken|chosen|driven|fallen|stolen|woken|drunk|begun|sung|swum|rung|\w+ed|\w+en|\w+[wr]n)\b)/gi, m => `${m[1]}${m[2] || ''} have `],
+    [/\bbetween you and I\b/gi, 'between you and me'],
+    [/\b(?:a )?(?:new|different|same|another|change|changed|changing) tact\b/gi, m => m[0].replace(/tact$/i, 'tack')],
     [/\bwish(?:ed|es|ing)? (?:that )?(?:I|you|he|she|they|we|it|[A-Z][a-z]+)(?: would have| would've|'d have| woulda)\b(?= (?:been|gone|known|seen|done|had|taken|given|made|come|said|told|thought|let|put|kept|left|found|heard|felt|meant|run|stayed|\w+ed)\b)/g, m => m[0].replace(/(?: would have| would've|'d have| woulda)$/, ' had')],
     [/\b[Ii]f(?: only)? (?:I|you|he|she|they|we|it) (?:would have|would've|'d have) (?:known|seen|been|gone|done|had|listened|told|asked|thought|stayed|left|come|tried|realized|realised|noticed|heard|waited|called|said|looked|stopped|let)\b/g, m => m[0].replace(/(?:would have|would've|'d have)/, 'had')],
     [/\bper say\b/gi, 'per se'],
@@ -482,6 +487,21 @@ const Grader = (() => {
   ];
   // ---- Confused words: only in patterns where the wrong word is clear ----
   const TIER2 = [
+    // then for than after a comparison ("better late then never", "more fun then I expected", "farther then her")
+    [/\b(better|worse|more|less|fewer|rather|other|bigger|smaller|larger|faster|slower|older|younger|taller|shorter|greater|higher|lower|longer|farther|further|stronger|weaker|smarter|easier|harder|happier|heavier|lighter|closer|louder|quieter|warmer|colder|brighter|darker|richer|poorer|wider|deeper|sooner) (late |fun |time |money |often |so |much |far |more |less )?then (?=(?:never|ever|I|you|he|she|we|they|me|him|her|us|them|anyone|anything|everyone|usual|expected|before|that|this|it|a|an|the)\b)/gi,
+      m => `${m[1]} ${m[2] || ''}than `],
+    // "their" for "they're" only where a possessive can't fit ("their coming", "their very eyes", "their right hands" are fine)
+    [/\btheir (?=(?:gonna|going to (?:be|have|get|go|do|make|take|need|want|see|try|kill|win|lose|leave|stay|come|find|tell|give|say|hurt|love|hate)|here|there)\b)|(?:^|(?<=[.!?]["”]?\s+|["“]))Their (?=going to\b)/gmi, "they're "],
+    [/\b(?:the|an|this|that|no) affect (?=(?:was|is|of|on|had|has|will|would|it|this|that)\b)/gi, m => m[0].replace(/affect/i, 'effect')],
+    [/\beffected (?=(?:him|her|them|me|us|everyone|everybody|everything|the (?:game|outcome|result|way|mood|weather|decision|vote|team|crops|economy))\b)/gi, 'affected '],
+    [/\bloosing (?=(?:my|his|her|their|our|your|the|it|him|them|control|sleep|weight|hope|patience|interest|touch|track|money|blood)\b)/gi, 'losing '],
+    [/\bpeak(ed|s|ing)? (?=(?:at (?:him|her|them|me|us|it|the|his|my|their|our|your)\b(?! (?:\d|age|height|level|point|number|rate))|into|through|around the|over (?:the|his|her) shoulder|out from|under the|inside)\b)/gi, m => `peek${m[1] || ''} `],
+    [/\bpayed (?=(?:the|for|him|her|them|me|us|back|up|attention|a|his|their|my|our|your|cash|rent|money)\b)/gi, 'paid '],
+    [/\bcomplement(ed|ing|s)? (?=(?:(?:him|her|them|me|us|you) on\b|(?:his|her|their|my|your) (?:tie|dress|hair|outfit|cooking|eyes|smile|shoes|taste|work|writing|singing|garden|car)\b))/gi, m => `compliment${m[1] || ''} `],
+    [/\b(?:the )?principle(?:'s)? (?=office\b)|\bschool principle\b|\bthe principle of (?:the|our|my|his|her) (?:school|academy|college|high school)\b/gi, m => m[0].replace(/principle/i, 'principal')],
+    [/\b(he|she|they|we|I) past (?=(?:the|a|his|her|their|my|by|him|them|us|me)\b)/gi, m => `${m[1]} passed `],
+    [/\b(walked|ran|drove|went|rode|hurried|rushed|strolled|stormed|brushed|pushed|slipped|flew|swept|moved|sailed|raced|marched|wandered|limped|stumbled|sped|zoomed|crept|edged|shuffled) passed (?=(?:the|a|an|him|her|them|me|us|his|my|their|our|your|it)\b)/gi, m => `${m[1]} past `],
+    [/\b(had|has|have) lead (?=(?:the|them|him|her|us|me|to|a|an|his|their|our|my|up|out|into)\b)/gi, m => `${m[1]} led `],
     // your / you're
     [/\byour (?:the|gonna|about to)\b(?!-)/gi, m => m[0].replace(/^your/i, "you're")],
     // lose / loose
@@ -604,6 +624,7 @@ const Grader = (() => {
   // ---- Grammar: clear-cut patterns only ----
   const PAST_PART = {went:"gone",came:"come",saw:"seen",ate:"eaten",wrote:"written",drank:"drunk",began:"begun",swam:"swum",rang:"rung",sang:"sung",took:"taken",gave:"given",drove:"driven",rode:"ridden",spoke:"spoken",froze:"frozen",chose:"chosen",stole:"stolen",knew:"known",threw:"thrown",grew:"grown",flew:"flown",fell:"fallen",did:"done",ran:"run",shook:"shaken",woke:"woken",tore:"torn",wore:"worn",hid:"hidden",bit:"bitten",broke:"broken",forgot:"forgotten",sank:"sunk",shrank:"shrunk",sprang:"sprung",blew:"blown",drew:"drawn",arose:"arisen",forgave:"forgiven",mistook:"mistaken",withdrew:"withdrawn"};
   const GRAMMAR = [
+    [/\beach of (?:the|them|us|those|these|his|her|their|my|our|your) (?:(?!to\b)\w+ )?(?:have|are|were|do|don't)\b/gi, m => m[0].replace(/(have|are|were|do|don't)$/i, w => ({ have: 'has', are: 'is', were: 'was', do: 'does', "don't": "doesn't" })[w.toLowerCase()])],
     // a / an (lower-case words only, so initialisms like "an FBI agent" are left alone; "a unicorn", "a one-off", "an hour", "an honest" are correct)
     [/\b([Aa]) ((?![Uu]|[Oo]ne\b|[Oo]nce\b|[Ee]u|[Ee]we|[Oo]uija)[AEIOaeio][a-z]+)\b(?!-)/g, m => `${m[1]}n ${m[2]}`],
     [/\b([Aa]) (hour|hours|honest|honestly|honour|honor|heir|honorable|honourable)\b/g, m => `${m[1]}n ${m[2]}`],
@@ -1479,6 +1500,18 @@ const Grader = (() => {
       return out;
     }
     const t1 = errs(TIER1, 'tier1'), t2 = errs(TIER2, 'tier2'), gr = errs(GRAMMAR, 'grammar'), ty = errs(TYPOS, 'typos');
+    // Contractions written without the apostrophe the same way throughout (5+ times, and at least 80% of the time), are the
+    // writer's style (Faulkner's and McCarthy's "dont", "aint", "didnt"), so each counts once. Real misspellings ("definately") always count.
+    { const byForm = new Map();
+      for (const f of ty) { const key = norm.slice(f.s, f.e).toLowerCase(); if (!byForm.has(key)) byForm.set(key, []); byForm.get(key).push(f); }
+      for (const [key, fs] of byForm) {
+        const fix = typeof fs[0].fix === 'string' ? fs[0].fix.trim().replace(/[’‘]/g, "'") : '';
+        if (fs.length < 5 || !fix || /\s/.test(key.trim()) || !/'/.test(fix) || fix.replace(/'/g, '').toLowerCase() !== key.trim()) continue;
+        const std = (norm.match(new RegExp(`(?<![\\p{L}'])${fix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}'])`, 'giu')) || []).length;
+        if (std > 0.25 * fs.length) continue;                                            // mixed (under 80% one way): every slip counts
+        fs[0].msg += ` (spelled this way all ${fs.length} times: counted once, as a style choice)`;
+        for (const f of fs.slice(1)) { f.w = 0; f.msg += ' (same spelling throughout: counted once)'; }
+      } }
     const wsum = a => a.reduce((s, f) => s + f.w, 0);
     M('errors', 'tier1', 'Misused phrases', k(wsum(t1)), `${t1.length} found`, 'Fixed phrases that are always wrong in narration: "per say," "could of," "for all intensive purposes," "I wish I would have"…', { flags: t1, weight: 1.5 });
     M('errors', 'tier2', 'Confused words', k(wsum(t2)), `${t2.length} found`, 'Than/then, your/you\'re, lose/loose, its/it\'s, whose/who\'s, affect/effect, breath/breathe, fewer/less, among/between — clear-cut patterns only.', { flags: t2 });
@@ -1546,8 +1579,8 @@ const Grader = (() => {
     // ===== Scoring
     // Errors aren't a share of the grade: they come straight off it. The other categories make a style score out of 100, and each
     // error costs a fixed number of points per error per 1,000 words (calibrated to cost what it did when errors were 4× a category)
-    const ERR_PTS = { tier1: 1.5, tier2: 1.5, grammar: 2, typos: 2, povSlip: 2, tense: 3 };
-    const ALLOW = {};
+    const ERR_PTS = { tier1: 3, tier2: 2.5, grammar: 3, typos: 2.5, povSlip: 3, tense: 4 };
+    const ALLOW = { povSlip: 0.2, tense: 0.2 };                                           // the first 0.2 per 1,000 words are free: classics have the odd deliberate one
     const DED_SCALE = { errors: 35 };                                          // points off that read as a 0 score, for the section's color
     const CAT_FLOOR = -25;
     const CATS = [
@@ -2317,7 +2350,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
         <dt></dt><dd><b>Far over normal:</b> ${o.midRatio}× normal or more and ${o.midRate}+ use${o.midRate === 1 ? '' : 's'} per 1,000 words (single words, ${o.midCount}+ uses): (uses per 1,000 words − 0.5) × log₁₀(times normal ÷ 2) points, up to ${o.maxPerMid}. Each item counts under whichever rule gives the most.</dd>` : ''}</dl>`; }
     if (m.role === 'deduct') { const per = (res.errPts || {})[m.id] || 2;
       const allow = ((res.dedAllow || {})[m.id]) || 0, what = m.id === 'cliches' ? 'cliché' : 'error';
-      return `<dl class="rule"><dt>Points off</dt><dd>${num(per)} point${per === 1 ? '' : 's'} off the final score for every ${what} ${/narration/.test(m.unit) ? 'per 1,000 narration words' : 'per 1,000 words'}${allow ? `, after the first ${num(allow)} per 1,000 words (published novels use about 0–0.25)` : ''}. None found costs nothing.</dd>${!['povSlip', 'tense', 'cliches'].includes(m.id) && res.dlgMode === 'reduce' ? '<dt></dt><dd class="between">Errors inside dialogue count a quarter (see “Mistakes in character speech”).</dd>' : ''}</dl>`; }
+      return `<dl class="rule"><dt>Points off</dt><dd>${num(per)} point${per === 1 ? '' : 's'} off the final score for every ${what} ${/narration/.test(m.unit) ? 'per 1,000 narration words' : 'per 1,000 words'}${allow ? `, after the first ${num(allow)} per 1,000 words (the occasional one is normal in published novels)` : ''}. None found costs nothing.</dd>${!['povSlip', 'tense', 'cliches'].includes(m.id) && res.dlgMode === 'reduce' ? '<dt></dt><dd class="between">Errors inside dialogue count a quarter (see “Mistakes in character speech”).</dd>' : ''}</dl>`; }
     if (!m.rule) return `<dl class="rule"><dt>Scoring</dt><dd>For information only; not graded</dd></dl>`;
     const [lo, hi] = m.rule.good, [blo, bhi] = m.rule.bad, u = m.unit;
     let good, bad;
