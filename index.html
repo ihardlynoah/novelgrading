@@ -222,7 +222,7 @@ const Grader = (() => {
 
   const DEFAULTS = {
     crutch: lower(1, 25), vocab: higher(100, 50), openerTop: lower(30, 60), echoes: lower(4, 15), filler: lower(4, 15), adverbs: lower(1.5, 4),
-    hedging: lower(2, 8), cliches: lower(0.5, 3), redund: lower(0.3, 3),
+    hedging: lower(2, 8), cliches: lower(0.5, 3), redund: lower(0.3, 3), epithets: lower(0.5, 3), coyBody: lower(0.2, 2),
     filter: lower(6, 18), emotions: lower(1, 5), body: lower(5, 15), sensory: higher(30, 5),
     sentAvg: band(10, 22, 5, 32), sentSpread: higher(0.55, 0.2), passive: lower(10, 25),
     progressive: lower(6, 18), openers: lower(0.5, 4), ingOpeners: lower(5, 15),
@@ -233,7 +233,7 @@ const Grader = (() => {
   };
   const UNITS = {
     echoes: 'per 1,000 words', filler: 'per 1,000 narration words', adverbs: '% of narration words', hedging: 'per 1,000 narration words',
-    cliches: 'per 1,000 words', redund: 'per 1,000 words', filter: 'per 1,000 narration words', emotions: 'per 1,000 narration words',
+    cliches: 'per 1,000 words', redund: 'per 1,000 words', epithets: 'per 1,000 narration words', coyBody: 'per 1,000 narration words', filter: 'per 1,000 narration words', emotions: 'per 1,000 narration words',
     body: 'per 1,000 words', sensory: '% non-visual sense words', sentAvg: 'words per sentence', sentSpread: 'spread', crutch: 'overuse points', vocab: 'MTLD', openerTop: '% of sentences',
     passive: '% of sentences', progressive: 'per 1,000 narration words', openers: 'runs per 1,000 words', ingOpeners: '% of sentences',
     adjStack: 'per 1,000 words', paragraphs: 'issues', dlgRatio: '% dialogue', fancyTags: '% of tags', tagAdverbs: 'per 1,000 words',
@@ -520,6 +520,32 @@ const Grader = (() => {
     `embarrassingly (?:needy|hard|wet|loud|eager|breathless)`
   ];
   const CLICHES = [...CLICHE_GENERAL, ...CLICHE_ROMANCE].map(s => new RegExp('\\b' + s, 'gi'));
+  // ---- Epithets: a character called by a trait ("the older man", "the blonde") instead of a name or pronoun ----
+  const EP_COMP = 'older|younger|taller|shorter|smaller|bigger|larger|elder|slighter|broader';
+  const EP_HAIR = 'blond|blonde|brunet|brunette|redhead|raven-haired|dark-haired|fair-haired|light-haired|black-haired|brown-haired|silver-haired|white-haired|golden-haired|red-haired|curly-haired|messy-haired|shaggy-haired';
+  const EP_WHO = 'man|woman|boy|girl|guy|lad|lass|teen|teenager|male|female|kid';
+  // the epithet used as a subject: followed by a verb, a possessive, or the end of a clause
+  const EP_ACT = `'s\\b|[,.;:!?]| (?:said|asked|replied|answered|sighed|smiled|grinned|smirked|laughed|chuckled|muttered|murmured|whispered|nodded|shrugged|frowned|huffed|snorted|scoffed|groaned|hummed|glanced|looked|stared|rolled|raised|pulled|pushed|leaned|turned|stepped|walked|moved|reached|froze|flinched|blushed|winked|was|had|could|would|did|didn't|wasn't|hadn't|couldn't|just|only|then|still|also)\\b`;
+  const EPITHETS = [
+    `the (?:${EP_COMP}|${EP_HAIR}|ginger) (?:${EP_WHO}|one)\\b`,
+    `the other (?:${EP_WHO})\\b`,
+    `the (?:${EP_COMP}|${EP_HAIR}) of the (?:two|three|pair|trio)(?=${EP_ACT})`,
+    `the (?:${EP_COMP}|${EP_HAIR}) of the (?:boys|girls|men|women|brothers|sisters)\\b`,
+    `the (?:${EP_COMP}|${EP_HAIR}|ginger)(?=${EP_ACT})`
+  ].map(s => new RegExp('\\b' + s, 'gi'));
+  // ---- Clinical or coy body words ----
+  const COY_ADJ = 'lithe|slender|lean|petite|muscular|toned|lanky|slim|curvy|willowy|feminine|masculine|slight|delicate|trembling|shaking|naked|nude|sleeping|limp|smaller|larger|bigger';
+  const COY_BODY = [
+    [`ministrations`, 'say what they are actually doing'], [`appendages?`, 'name the body part'],
+    [`(?:his|her|their|my|your) digits`, 'fingers'], [`the (?:male|female)(?=${EP_ACT})`, 'use the name or a pronoun'],
+    [`(?:his|her|their|my|your) (?:${COY_ADJ}) (?:form|frame)`, 'use the name or a pronoun'],
+    [`the (?:smaller|larger|bigger|older|younger|taller|shorter) (?:body|form|frame)`, 'use the name or a pronoun'],
+    [`(?:his|her|their|my|your) (?:womanhood|nether regions|lower regions|southern regions|nether|mound|hardness|wetness)`, 'be plain or cut away'],
+    [`(?:throbbing|pulsing|swollen) (?:member|shaft|manhood|length)`, 'be plain or cut away'],
+    [`(?:most )?sensitive (?:nub|bud|pearl)`, 'be plain or cut away'], [`(?:love|pleasure) (?:button|tunnel|muscle|stick|canal)`, 'be plain or cut away'],
+    [`(?:wet |warm |moist |hot )?(?:mouth|oral) cavern|(?:wet|warm|moist|hot) cavern`, 'mouth'], [`(?:twin|his|her|their|my|your) (?:globes|mounds)`, 'be plain or cut away'],
+    [`(?:ample|heaving) (?:bosom|breasts|chest)`, 'be plain or cut away'], [`(?:his|her|their|my|your) bosom`, 'chest']
+  ].map(([s, f]) => [new RegExp('\\b(?:' + s + ')(?![\\w-])', 'gi'), f]);
   const REDUND = [
     [`nodded ${P} heads?`, 'nodded'], [`shrugged ${P} shoulders`, 'shrugged'], [`whispered (?:quietly|softly)`, 'whispered'],
     [`(?:shouted|yelled|screamed|bellowed|roared) loudly`, 'drop "loudly"'], [`stood up`, 'stood (often)'], [`sat down`, 'sat (often)'], [`blinked ${P} (?:eyes|eyelids)`, 'blinked'],
@@ -779,6 +805,12 @@ const Grader = (() => {
 
     const cl = []; for (const x of uniq(CLICHES.flatMap(re => scan(re)))) cl.push(F(x.s, x.e, 'warn', `Cliché: "${x.m[0]}"`, 'cliches', 'rewrite in your own words'));
     M('words', 'cliches', 'Clichés', k(cl.length), `${cl.length} found`, 'Stock phrases readers have seen many times.', { flags: cl });
+
+    const ep = uniq(EPITHETS.flatMap(re => scan(re, { narr: true }))).map(x => F(x.s, x.e, 'warn', `Epithet: "${x.m[0]}"`, 'epithets', "use the character's name or a pronoun"));
+    M('words', 'epithets', 'Epithets for characters', k(ep.length, narr), `${fmt(k(ep.length, narr))} / 1k`, '"The older man", "the blonde", "the taller of the two" in place of a name. Fine for a stranger the viewpoint character doesn\'t know; for known characters, a name or pronoun reads more naturally.', { flags: ep });
+
+    const coy = uniq(COY_BODY.flatMap(([re, fix]) => scan(re, { narr: true }).map(y => ({ ...y, fix })))).map(x => F(x.s, x.e, 'warn', `Clinical or coy: "${x.m[0]}"`, 'coyBody', x.fix));
+    M('words', 'coyBody', 'Clinical or coy body words', k(coy.length, narr), `${coy.length} found`, '"Ministrations", "appendage", "the male", "her lithe form": words that sound like a lab report or a euphemism and pull the reader out of the scene.', { flags: coy });
 
     const rd = []; for (const x of uniq(REDUND.flatMap(([re, fix]) => scan(re).map(y => ({ ...y, fix }))))) rd.push(F(x.s, x.e, 'warn', `Redundant: "${x.m[0]}"`, 'redund', x.fix));
     M('words', 'redund', 'Redundancies', k(rd.length), `${rd.length} found`, 'Phrases where part of the wording repeats what the verb already says.', { flags: rd });
