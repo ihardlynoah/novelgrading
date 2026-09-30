@@ -1819,7 +1819,8 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
       if (!('str' in it)) continue;
       const x = it.transform[4], y = it.transform[5], h = Math.abs(it.transform[3]) || it.height || 10;
       if (it.str.length) {
-        if (!cur || Math.abs(y - cur.y) > h * 0.5) {
+        const ratio = cur ? Math.max(h, cur.h) / Math.min(h, cur.h) : 1;
+        if (!cur || Math.abs(y - cur.y) > Math.min(h, cur.h) * 0.5 || (ratio > 1.6 && Math.abs(y - cur.y) > 1)) {
           if (cur) out.push(cur);
           cur = { page: p, x, y, h, right: x + it.width, text: it.str };
         } else {
@@ -1834,39 +1835,59 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   }
   function linesToText(lines, pages) {
     const pct = (arr, q) => { const a = [...arr].sort((m, n) => m - n); return a.length ? a[Math.min(a.length - 1, Math.floor(q * a.length))] : 0; };
-    // drop page numbers and running headers/footers
+    for (const l of lines) l.text = l.text.normalize('NFKC').replace(/­/g, '');          // ligatures (ﬁ → fi) and soft hyphens
+    const bodyH = pct(lines.map(l => l.h), 0.5) || 10;
+    // drop page numbers and running headers/footers: lines at the top or bottom of a page that repeat on many pages,
+    // or on 3+ pages when set smaller than the body text (chapter-name headers change from chapter to chapter)
     const perPage = new Map();
     for (const l of lines) { if (!perPage.has(l.page)) perPage.set(l.page, []); perPage.get(l.page).push(l); }
     for (const L of perPage.values()) L.forEach((l, i) => { l.edge = i < 2 || i >= L.length - 2; });
-    const keyPages = new Map();
-    for (const l of lines) { if (!l.edge) continue; const key = l.text.trim().replace(/\d+/g, '#').toLowerCase(); if (!keyPages.has(key)) keyPages.set(key, new Set()); keyPages.get(key).add(l.page); }
+    const keyOf = l => l.text.trim().replace(/\d+/g, '#').toLowerCase(), keyPages = new Map();
+    for (const l of lines) { if (!l.edge) continue; const key = keyOf(l); if (!keyPages.has(key)) keyPages.set(key, new Set()); keyPages.get(key).add(l.page); }
     const repeatMin = Math.max(2, Math.ceil(pages * 0.4));
     lines = lines.filter(l => {
       const t = l.text.trim();
-      if (/^(page\s*)?\d+(\s*(of|\/)\s*\d+)?$/i.test(t)) return false;
-      return pages < 2 || !l.edge || keyPages.get(t.replace(/\d+/g, '#').toLowerCase()).size < repeatMin;
+      if (/^(page\s*)?\d+(\s*(of|\/)\s*\d+)?$/i.test(t) || /^[-–—]\s*\d+\s*[-–—]$/.test(t)) return false;
+      if (pages < 2 || !l.edge) return true;
+      const n = keyPages.get(keyOf(l)).size;
+      return n < repeatMin && !(n >= 3 && l.h < bodyH * 0.95);
     });
     // per-page geometry
-    const geo = new Map();
+    // normal line spacing comes from the tightest spacing in the whole document, so a page of one-line dialogue paragraphs
+    // (a gap after every line) doesn't make the gaps look normal
+    const geo = new Map(), allDys = [];
     for (let pg = 1; pg <= pages; pg++) {
-      const L = lines.filter(l => l.page === pg);
-      const dys = []; for (let i = 1; i < L.length; i++) { const d = L[i - 1].y - L[i].y; if (d > 0) dys.push(d); }
-      geo.set(pg, { left: pct(L.map(l => l.x), 0.1), right: pct(L.map(l => l.right), 0.9), dy: pct(dys, 0.5) });
+      const L = lines.filter(l => l.page === pg && Math.abs(l.h - bodyH) < bodyH * 0.2);
+      for (let i = 1; i < L.length; i++) { const d = L[i - 1].y - L[i].y; if (d > 0) allDys.push(d); }
+      geo.set(pg, { left: pct(L.map(l => l.x), 0.1), right: pct(L.map(l => l.right), 0.9) });
     }
-    const paras = []; let cur = '';
+    const lineDy = pct(allDys, 0.2); for (const g of geo.values()) g.dy = lineDy;
+    // How does this document mark paragraphs: extra space between them, or an indented first line?
+    let gapN = 0, indN = 0, pairs = 0;
+    lines.forEach((l, i) => { const prev = lines[i - 1]; if (!prev || prev.page !== l.page) return; const g = geo.get(l.page); pairs++;
+      if (g.dy > 0 && prev.y - l.y > 1.3 * g.dy) gapN++; if (l.x - g.left > 0.8 * l.h && l.right > g.right - 2 * l.h) indN++; });
+    const gapStyle = pairs && gapN / pairs > 0.04, indentStyle = pairs && indN / pairs > 0.03;
+    const paras = []; let cur = '', prefix = '';
     lines.forEach((l, i) => {
-      const t = l.text.replace(/\s+/g, ' ').trim();
+      let t = l.text.replace(/\s+/g, ' ').trim();
+      const big = l.h > bodyH * 1.3;
+      if (big && /^[\p{L}“"‘']{1,2}$/u.test(t) && lines[i + 1] && lines[i + 1].page === l.page) { prefix = t; return; }   // a drop cap: glue it to the word it starts
+      if (prefix && !big) { t = prefix + t; prefix = ''; }                             // the first normal-size line after the drop cap
       const prev = lines[i - 1];
       let brk = !prev;
       if (prev) {
-        const g = geo.get(l.page), pg = geo.get(prev.page);
-        const prevShort = prev.right < pg.right - 2.5 * prev.h;
+        const g = geo.get(l.page), pg = geo.get(prev.page), prevT = prev.text.trim();
+        const prevBig = prev.h > bodyH * 1.3, sizeChange = big !== prevBig || Math.abs(l.h - prev.h) > bodyH * 0.25;
+        const centered = x => { const gg = geo.get(x.page), lm = x.x - gg.left, rm = gg.right - x.right; return lm > 2 * x.h && rm > 2 * x.h && Math.abs(lm - rm) < 2 * x.h && x.right - x.x < 0.6 * (gg.right - gg.left); };   // short, with equal space both sides ("* * *", a heading)
         const indented = l.x - g.left > 0.8 * l.h;
-        const gap = prev.page === l.page && g.dy > 0 && (prev.y - l.y) > 1.45 * g.dy;
-        brk = prevShort || indented || gap;
+        const gap = prev.page === l.page && g.dy > 0 && (prev.y - l.y) > 1.3 * g.dy;
+        const endsSentence = /[.!?:"”’)\]…—]$/.test(prevT), prevShort = prev.right < pg.right - 2.5 * prev.h;
+        brk = sizeChange || centered(prev) || centered(l) || gap || (indented && (indentStyle || !gapStyle))
+          || (!gapStyle && !indentStyle && prevShort && endsSentence)                    // no clear paragraph style: fall back to short lines that end a sentence
+          || (gapStyle && prev.page !== l.page && prevShort && endsSentence);            // across a page break the gap can't be measured
       }
       if (brk) { if (cur) paras.push(cur); cur = t; }
-      else if (/[A-Za-z]-$/.test(cur) && /^[a-z]/.test(t)) cur = cur.slice(0, -1) + t;
+      else if (/\p{L}-$/u.test(cur) && /^\p{Ll}/u.test(t)) cur = cur.slice(0, -1) + t;
       else cur += ' ' + t;
     });
     if (cur) paras.push(cur);
