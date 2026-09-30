@@ -296,6 +296,8 @@ const Grader = (() => {
   const SELF = '(?:himself|herself|themselves|themself|myself|yourself|ourselves)';
   // ---- Misused phrases: fixed expressions that are wrong as written ----
   const TIER1 = [
+    [/\bwish(?:ed|es|ing)? (?:that )?(?:I|you|he|she|they|we|it|[A-Z][a-z]+)(?: would have| would've|'d have| woulda)\b/g, m => m[0].replace(/(?: would have| would've|'d have| woulda)$/, ' had')],
+    [/\b[Ii]f(?: only)? (?:I|you|he|she|they|we|it) (?:would have|would've|'d have) (?:known|seen|been|gone|done|had|listened|told|asked|thought|stayed|left|come|tried|realized|realised|noticed|heard|waited|called|said|looked|stopped|let)\b/g, m => m[0].replace(/(?:would have|would've|'d have)/, 'had')],
     [/\bper say\b/gi, 'per se'],
     [/\bfor all intensive purposes\b/gi, 'for all intents and purposes'],
     [/\b(could|would|should|must|might) of\b/gi, m => m[1] + ' have'],
@@ -381,6 +383,10 @@ const Grader = (() => {
   ];
   // ---- Confused words: only in patterns where the wrong word is clear ----
   const TIER2 = [
+    [/\bless (?:people|persons|men|women|children|kids|friends|times|days|hours|minutes|seconds|weeks|months|years|words|things|options|choices|mistakes|problems|questions|students|cars|books|calories|items|members|guests|visitors|customers|employees|chances|reasons|steps|pages|dollars|coins|cookies|trees|houses|rooms|errors|ideas|jobs|players|games|points|votes|miles|bullets|lives|soldiers|men|patients|pieces|drinks|meals|shots|rules|toys|bottles|cases|attempts|servants|guards|teachers|classes|lessons|seats|chairs|tables|windows|doors|lines|scenes|chapters)\b/gi, m => m[0].replace(/^less/i, 'fewer')],
+    [/\bfewer (?:time|money|water|food|sleep|attention|interest|patience|space|room|energy|effort|information|advice|trouble|noise|pain|love|hope|fear|help|work|traffic|weight|light|air|sugar|salt|milk|furniture|luggage|equipment|evidence|damage|violence|blood|stress|confidence|experience|knowledge|homework|research|coffee|alcohol|food|rain|snow|progress|luck|courage)\b/gi, m => m[0].replace(/^fewer/i, 'less')],
+    [/\bamong (?:the )?(?:two|both)\b|\b[Aa]mong (?:him|her|me|you|us|them|[A-Z][a-z]+) and (?:him|her|me|you|us|them|[A-Z][a-z]+)\b(?!,| (?:and|or)\b)/g, m => m[0].replace(/^[Aa]mong/, 'between')],
+    [/\bbetween (?:all (?:of )?(?:them|us|you|the \w+|those \w+|these \w+)|(?:the |all )?(?:three|four|five|six|seven|eight|nine|ten|several|many|dozens|hundreds) of (?:them|us|you|the \w+|those \w+))/gi, m => m[0].replace(/^between/i, 'among')],
     [/\b(?:(?:be|being|been|was|were|is|are|am|stay|stayed|remain|remained|keep it|keeps it|kept it)(?: (?:always|never|not|so|very|more|too|quite|extra|really|super|pretty|fairly|\w+ly))? discrete|(?:very|more|most|so|too|quite|extremely|super|pretty|fairly|as) discrete|discretely)\b/gi, m => m[0].replace(/discrete/i, 'discreet')],
     [/\ba discrete (?:glance|look|cough|nod|signal|exit|word|inquiry|enquiry|distance|text|message|meeting|place|location|spot|corner|way|gesture|wave|tap|nudge|peek|check|question|call|note|smile|wink|sign)\b/gi, m => m[0].replace(/discrete/i, 'discreet')],
     [/\b(better|more|less|rather|other|bigger|smaller|faster|older|younger|taller|worse|greater|higher|lower|sooner|later|stronger|weaker|smarter|prettier|easier|harder) then\b/gi, m => m[1] + ' than'],
@@ -1062,8 +1068,8 @@ const Grader = (() => {
     }
     const t1 = errs(TIER1, 'tier1'), t2 = errs(TIER2, 'tier2');
     const wsum = a => a.reduce((s, f) => s + f.w, 0);
-    M('errors', 'tier1', 'Misused phrases', k(wsum(t1)), `${t1.length} found`, 'Fixed phrases that are always wrong in narration: "per say," "could of," "for all intensive purposes"…', { flags: t1, weight: 1.5 });
-    M('errors', 'tier2', 'Confused words', k(wsum(t2)), `${t2.length} found`, 'Than/then, your/you\'re, lose/loose, its/it\'s, whose/who\'s, affect/effect, breath/breathe — clear-cut patterns only.', { flags: t2 });
+    M('errors', 'tier1', 'Misused phrases', k(wsum(t1)), `${t1.length} found`, 'Fixed phrases that are always wrong in narration: "per say," "could of," "for all intensive purposes," "I wish I would have"…', { flags: t1, weight: 1.5 });
+    M('errors', 'tier2', 'Confused words', k(wsum(t2)), `${t2.length} found`, 'Than/then, your/you\'re, lose/loose, its/it\'s, whose/who\'s, affect/effect, breath/breathe, fewer/less, among/between — clear-cut patterns only.', { flags: t2 });
 
     // Third-person narration that suddenly addresses "you" ("like when you slowly walk in front of doctors"). Only checked when the
     // narration is clearly third person, so first- and second-person stories aren't affected. One flag per sentence.
