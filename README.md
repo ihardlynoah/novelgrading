@@ -1,4 +1,4 @@
-# Fic Grader
+# Fiction Grader
 
 A single-page, fully client-side web app (`index.html`). Everything, including the PDF reader, is inlined, so there's no build step and no server code.
 
