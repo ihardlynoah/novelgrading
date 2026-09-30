@@ -2101,29 +2101,51 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   }
   window.__ficPdf = { itemsToLines, linesToText };
   function itemsToLines(items, p) {
-    const out = []; let cur = null;
+    const runs = [];
     for (let it of items) {
-      if (!('str' in it)) continue;
+      if (!('str' in it) || !it.str.length || !it.str.trim() && !it.width) continue;
+      let str = it.str;
+      if (/^(?:\p{L} ){2,}\p{L}$/u.test(str)) str = str.replace(/ /g, '');           // letter-spaced heading: "C H A P T E R"
       const x = it.transform[4], y = it.transform[5], h = Math.abs(it.transform[3]) || it.height || 10;
-      if (/^(?:\p{L} ){2,}\p{L}$/u.test(it.str)) it = { ...it, str: it.str.replace(/ /g, '') };   // letter-spaced heading: "C H A P T E R"
-      if (it.str.length) {
-        const ratio = cur ? Math.max(h, cur.h) / Math.min(h, cur.h) : 1;
-        if (!cur || Math.abs(y - cur.y) > Math.min(h, cur.h) * 0.5 || (ratio > 1.6 && Math.abs(y - cur.y) > 1)) {
-          if (cur) out.push(cur);
-          cur = { page: p, x, y, h, right: x + it.width, text: it.str, hw: new Map([[h, it.str.length]]) };
-        } else {
-          // a gap before closing punctuation (or after an opening quote) is kerning, not a space: "word," not "word ,"
-          if (x - cur.right > h * 0.12 && !/\s$/.test(cur.text) && !/^\s/.test(it.str) && !/^[,.;:!?)\]}”’…]/.test(it.str) && !/[“‘(\[]$/.test(cur.text)) cur.text += ' ';
-          cur.text += it.str; cur.right = Math.max(cur.right, x + it.width); cur.x = Math.min(cur.x, x);
-          cur.hw.set(h, (cur.hw.get(h) || 0) + it.str.length);
-        }
-      }
-      if (it.hasEOL && cur) { out.push(cur); cur = null; }
+      runs.push({ page: p, x, y, h, right: x + (it.width || 0), text: str });
     }
-    if (cur) out.push(cur);
-    // a line's size is the size of most of its text, so a small-caps opening or a bigger quote mark doesn't make it look like a heading
-    for (const l of out) { let best = 0; for (const [h, n] of l.hw) if (n > best) { best = n; l.h = h; } delete l.hw; }
-    return out.filter(l => l.text.trim());
+    return byPosition(runs);
+  }
+  // Book PDFs don't always draw text in reading order (InDesign may draw every italic phrase after the rest of the page, or the
+  // running heads last), and a raised footnote mark sits off the baseline. Rebuild the page from where the text sits: pieces on the
+  // same baseline are one line, read left to right, and lines are read top to bottom.
+  function byPosition(runs) {
+    // a drop cap's baseline sits a line or two below the line it starts, so it's placed by its top instead
+    const hs = runs.map(r => r.h).sort((a, b) => a - b), medH = hs[Math.floor(hs.length / 2)] || 10;
+    const top = r => r.h > 1.8 * medH && /^[\p{L}“"‘']{1,2}$/u.test(r.text.trim()) ? r.y + r.h * 0.7 : r.y;
+    const sorted = runs.map((r, i) => ({ ...r, i, key: top(r) })).sort((a, b) => b.key - a.key || a.x - b.x), lines = [];
+    for (const r of sorted) {
+      let home = null;
+      for (let k = lines.length - 1; k >= 0 && k >= lines.length - 4; k--) {
+        const L = lines[k], lo = Math.min(L.h, r.h), hi = Math.max(L.h, r.h);
+        const sameBase = hi / lo <= 1.6 && Math.abs(L.y - r.y) <= 0.5 * lo;
+        const raised = r.h < 0.8 * L.h && r.text.trim().length <= 4 && r.y - L.y > -0.2 * L.h && r.y - L.y < 0.7 * L.h && r.x >= L.x - L.h && r.x <= L.right + L.h;   // superscript / subscript
+        if (sameBase || raised) { home = L; if (raised) r.raised = true; break; }
+      }
+      if (home) home.parts.push(r); else lines.push({ page: r.page, y: r.y, h: r.h, parts: [r] });
+    }
+    for (const L of lines) {
+      let parts = L.parts.filter(r => !(r.raised && /^\s*(?:\d{1,3}|[*†‡§])\s*$/.test(r.text))).sort((a, b) => a.x - b.x || a.i - b.i);   // drop footnote marks
+      if (!parts.length) parts = L.parts;
+      // the line's size is the size of most of its text, so a small-caps opening or a bigger quote mark doesn't make it look like a heading
+      const byH = new Map(); for (const r of parts) byH.set(r.h, (byH.get(r.h) || 0) + r.text.length);
+      const h = [...byH].sort((a, b) => b[1] - a[1])[0][0], main = parts.find(r => r.h === h);
+      let text = '', right = -Infinity, space = false;
+      for (const r of parts) {
+        if (!r.text.trim()) { space = true; continue; }                                  // a space piece only marks a word gap (it may span text drawn later)
+        // a gap before closing punctuation (or after an opening quote) is kerning, not a space: "word," not "word ,"
+        if (text && (space || r.x - right > h * 0.12) && !/\s$/.test(text) && !/^\s/.test(r.text) && !/^[,.;:!?)\]}”’…]/.test(r.text) && !/[“‘(\[]$/.test(text)) text += ' ';
+        text += r.text; right = Math.max(right, r.right); space = false;
+      }
+      Object.assign(L, { x: Math.min(...parts.map(r => r.x)), right, y: main.y, h, text });
+      delete L.parts;
+    }
+    return lines.filter(l => l.text && l.text.trim()).sort((a, b) => top(b) - top(a));
   }
   // A hyphen at the end of a line is either hyphenation ("some-/thing") or part of a compound ("red-and-/white", "self-/sufficiency").
   // Keep it when the joined word isn't a word but the parts are (or the first part is a usual compound prefix).
@@ -2156,7 +2178,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     // or on 3+ pages when set smaller than the body text (chapter-name headers change from chapter to chapter)
     const perPage = new Map();
     for (const l of lines) { if (!perPage.has(l.page)) perPage.set(l.page, []); perPage.get(l.page).push(l); }
-    for (const L of perPage.values()) L.forEach((l, i) => { l.edge = i < 2 || i >= L.length - 2; });
+    for (const L of perPage.values()) L.forEach((l, i) => { l.edge = i < 2 || i >= L.length - 2; l.outer = i === 0 || i === L.length - 1; });
     const keyOf = l => l.text.trim().replace(/\d+/g, '#').toLowerCase(), keyPages = new Map();
     for (const l of lines) { if (!l.edge) continue; const key = keyOf(l); if (!keyPages.has(key)) keyPages.set(key, new Set()); keyPages.get(key).add(l.page); }
     const repeatMin = Math.max(2, Math.ceil(pages * 0.4)), exactPages = new Map();
@@ -2168,7 +2190,8 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
       if (pages < 2 || !l.edge) return true;
       if (/^(?:chapter|part|book|volume)$/i.test(t) || l.h > bodyH * 1.15) return true;  // "CHAPTER" over its number, and big headings, are never running headers
       const n = keyPages.get(keyOf(l)).size;
-      if (Grader.chapterLine(t) && !(exactPages.get(t).size >= 2 && exactPages.get(t).first !== l)) return true;   // "Chapter 3": keep unless it's the same header on page after page
+      if (Grader.chapterLine(t) || Grader.chapterLine(t.replace(/^\d+\s+|\s+\d+$/g, ''))) return keyPages.get(keyOf(l)).size < 2;                         // "Chapter 3" once is a heading; on page after page it's a running head
+      if (n >= 3 && l.outer && t.length >= 3 && !/[.!?"”’]$/.test(t) && !/^["“‘]/.test(t)) return false;   // the same line at the very top or bottom of 3+ pages
       return n < repeatMin && !(n >= 3 && l.h < bodyH * 0.95);
     });
     // per-page geometry
