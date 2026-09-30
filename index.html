@@ -1251,11 +1251,30 @@ const Grader = (() => {
     // Appositives: a noun phrase set off by commas that renames the noun before it ("Sarah, a tall woman with red hair, walked in").
     // Approximate: the renaming phrase must start with a determiner and contain no subject pronoun or helping verb (which would make it a clause),
     // and a following "and"/"or"/"the…" means it's a list, not an appositive.
-    const APP_SKIP = 'Then|Now|Still|Yes|No|Well|Oh|So|But|And|Or|Yet|However|Meanwhile|Later|Finally|Suddenly|Instead|Again|Outside|Inside|Here|There|Maybe|Perhaps|Sometimes|Once|Afterward|Afterwards|Eventually|Anyway|Besides|Otherwise|Still|Somehow|Okay|OK|Hey|Please|Thanks|Sorry|Honestly|Really|Instead|Of|In|On|At|For|With|After|Before|When|While|If|As|Because|Though|Although|Since|Until|The|A|An|He|She|They|I|We|It|You|His|Her|Their|My|Our|Your|This|That|These|Those';
+    const APP_SKIP = 'Then|Now|Still|Yes|No|Well|Oh|Ah|Aha|Alas|Hmm|Hm|Ugh|Sir|Madam|So|But|And|Or|Yet|However|Meanwhile|Later|Finally|Suddenly|Instead|Again|Outside|Inside|Here|There|Maybe|Perhaps|Sometimes|Once|Afterward|Afterwards|Eventually|Anyway|Besides|Otherwise|Still|Somehow|Okay|OK|Hey|Please|Thanks|Sorry|Honestly|Really|Instead|Of|In|On|At|For|With|After|Before|When|While|If|As|Because|Though|Although|Since|Until|The|A|An|He|She|They|I|We|It|You|His|Her|Their|My|Our|Your|This|That|These|Those';
     const appRe = new RegExp(`(\\b(?!(?:${APP_SKIP})\\b)[A-Z][a-z]+(?: [A-Z][a-z]+)?|\\b(?:[Tt]he|[Hh]is|[Hh]er|[Tt]heir|[Mm]y|[Oo]ur|[Yy]our|[Ii]ts)(?: [a-z]+){1,2})(, | ?(?:—|--) ?)((?:a|an|the|his|her|their|my|our|your|its|one of|someone|something|the only) [^,.;:!?"—()]{1,60}?)(?:,|—|--)`, 'g');
     const CLAUSE = /\b(?:he|she|they|I|we|it|you|who|which|that|whose|whom|was|were|is|are|am|had|has|have|did|does|do|would|could|should|will|can|might|must|seemed|felt|looked|said)\b/i;
+    const ADJ_SUFFIX = /(?:[^e]y|ic|al|ous|ful|less|ish|ive|ent|ant|able|ible|ern|en|ed)$/;
+    const PLAIN_ADJ = new Set(words(`high low old young new big small long short tall wide deep dark light bright pale clear sweet sour harsh soft hard cold warm hot cool thin thick
+      broad narrow flat round sharp dull quiet loud fine rough smooth strong weak rich poor fair plain proud calm grim stern bold brave wild tame vast huge tiny buxom racy lonely
+      lovely ugly kind cruel gentle strange odd queer grand great good bad sad glad keen dim dry wet raw ripe stiff slim slender lean fat stout sleek neat trim
+      white black red green blue yellow grey gray brown pink purple golden silver scarlet crimson`));
+    const PREP_AFTER = /^(?:in|on|at|under|over|against|across|around|behind|up|down|out|off|full|still|by|beside|between|to|toward|towards|through|into|from)$/;
+    const notAppositive = (ph, e) => {
+      const ws = ph.toLowerCase().match(/[a-z]+(?:[-'][a-z]+)*/g) || [];
+      if (CLAUSE.test(ws.slice(0, 4).join(' '))) return true;                           // "the sun was", "the moment he": a clause
+      if (ws.some((w, i) => i >= 2 && !SUBJ.has(ws[i - 1]) && (PAST_V.has(w) || (/ed$/.test(w) && w.length > 4 && !ED_ADJ.has(w))))) return true;   // ("people she trusted" is fine)   // "the Middle West now seemed…", "the two women preceded us" (not "the hired man")
+      if (ws.length === 2 && /^\s*[a-z]/.test(norm.slice(e, e + 4)) && (ADJ_SUFFIX.test(ws[1]) || PLAIN_ADJ.has(ws[1]))) return true;   // paired adjectives: "a critical, unpleasant story", "her clear, sweet voice"
+      if (/^(?:a (?:little|bit|trifle|moment|second|minute|while|few)|an (?:instant|hour)|the (?:next|following|same|previous) (?:day|morning|afternoon|evening|night|week|year|moment|instant))\b/.test(ph.toLowerCase())) return true;   // "a little taken aback", "a moment later"
+      // absolute phrases describe what someone is doing rather than renaming them: "his hands still in his pockets", "her teeth chattering",
+      // "the girl almost trotting now", "a hand cradling her head"
+      if (ws.slice(2).some(w => /ing$/.test(w) && w.length > 4 && !/^(?:thing|nothing|something|anything|everything|king|ring|string|wing|spring|morning|evening|ceiling|building|feeling|darling|wedding|clothing|meeting|painting|beginning|ending|opening)$/.test(w))) return true;
+      if (/^(?:his|her|their|its|my|our|your)$/.test(ws[0]) && ws.slice(2).some(w => PREP_AFTER.test(w))) return true;
+      if (ws.length >= 3 && /ly$/.test(ws[ws.length - 1]) && !ADV_EXCL.has(ws[ws.length - 1])) return true;   // "the girl falteringly"
+      return false;
+    };
     const appos = scan(appRe, { narr: true, test: (m, s, e) =>
-      !CLAUSE.test(m[3].split(' ').slice(0, 4).join(' ')) &&                       // "the sun was", "the moment he": a clause, not a renaming phrase
+      !notAppositive(m[3], e) && !/,\s*(?:to|in|at|for|with|by|on)\s+$/i.test(norm.slice(Math.max(0, s - 7), s)) &&   // an aside: "I found, to my great delight, a vast number…"
       !/^\s*(?:and|or|nor|a|an|the|his|her|their|my|our|your)\b/i.test(norm.slice(e, e + 12)) })
       .map(x => { const a = x.s + x.m[1].length + x.m[2].length; return F(a, a + x.m[3].length, 'warn', `Appositive: "${x.m[3]}"`, 'appositives', 'give the detail its own sentence, or cut it'); });
     M('structure', 'appositives', 'Appositives', k(appos.length, narr), `${fmt(k(appos.length, narr))} / 1k`, 'Noun phrases set off by commas that rename the noun before them: "Sarah, a tall woman with red hair, walked in." Useful for a first introduction; stacked up, they stall the sentence and read like an info-dump. Approximate.', { flags: appos });
