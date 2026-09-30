@@ -250,9 +250,9 @@ const Grader = (() => {
     sentAvg: band(10, 22, 5, 32), sentSpread: higher(0.55, 0.2), passive: lower(10, 25),
     progressive: lower(6, 18), openers: lower(0.5, 4), ingOpeners: lower(5, 15),
     adjStack: lower(0.5, 3), appositives: lower(3, 10), paragraphs: lower(0.25, 3), readability: higher(8, 2), daleChall: higher(6.5, 3.5),
-    dlgRatio: band(15, 60, 0, 85), fancyTags: lower(20, 60), tagAdverbs: lower(1, 5), dlgPunct: lower(0, 4),
+    dlgRatio: band(20, 50, 5, 75), fancyTags: lower(20, 60), tagAdverbs: lower(1, 5), dlgPunct: lower(0, 4),
     excl: lower(1, 5), ellipses: lower(2, 8), dashes: lower(6, 15),
-    tier1: lower(0, 4), tier2: lower(0, 4), grammar: lower(0, 3), typos: lower(0, 3), povSlip: lower(0, 3), tense: lower(0, 2), longSent: lower(0.5, 3), fragments: lower(3, 12), simStack: lower(0.2, 2), commaSplice: lower(0.5, 3), britishisms: lower(0.3, 3)
+    tier1: lower(0, 4), tier2: lower(0, 4), grammar: lower(0, 3), typos: lower(0, 3), povSlip: lower(0, 3), tense: lower(0, 2), longSent: lower(1, 4), fragments: lower(3, 12), simStack: lower(0.2, 2), commaSplice: lower(0.5, 3), britishisms: lower(0.3, 3)
   };
   const UNITS = {
     echoes: 'per 1,000 words', filler: 'per 1,000 narration words', adverbs: '% of narration words', hedging: 'per 1,000 narration words',
@@ -263,12 +263,30 @@ const Grader = (() => {
     dlgPunct: 'per 1,000 words', excl: 'per 1,000 narration words', ellipses: 'per 1,000 words', dashes: 'per 1,000 words',
     tier1: 'per 1,000 words', tier2: 'per 1,000 words', grammar: 'per 1,000 words', typos: 'per 1,000 words', povSlip: 'per 1,000 words', tense: 'per 1,000 narration words', longSent: 'per 1,000 narration words', fragments: 'per 1,000 narration words', simStack: 'per 1,000 narration words', commaSplice: 'per 1,000 narration words', britishisms: 'per 1,000 words'
   };
+  // Style profiles: genre targets that replace the defaults above, and category weights (w) that replace the usual ones.
+  // Calibrated on acclaimed novels of each kind (dialogue share: Woolf ~3%, Gatsby 27%, Hemingway 37–39%, Austen 36–51%,
+  // Hammett 49%, Christie ~60%, Anne of Green Gables 59%; readability: Hemingway grade 3.8, Hammett ~4.5, Christie 5.4–6.3).
   const PROFILES = {
     general: { label: 'General fiction', o: {} },
-    literary: { label: 'Literary', o: { sentAvg: band(12, 28, 6, 40), dashes: lower(10, 22), dlgRatio: band(5, 50, 0, 80), filter: lower(8, 20) } },
-    thriller: { label: 'Thriller / action', o: { sentAvg: band(8, 18, 4, 28), dlgRatio: band(20, 65, 0, 90), excl: lower(2, 8) } },
-    romance: { label: 'Romance', o: { sentAvg: band(9, 20, 5, 30), dlgRatio: band(25, 65, 5, 90), emotions: lower(3, 8), filter: lower(8, 20), body: lower(8, 20), sensory: higher(35, 10) } },
-    ya: { label: 'YA / middle grade', o: { sentAvg: band(9, 18, 5, 28), dlgRatio: band(20, 65, 0, 90), excl: lower(2, 6), body: lower(7, 18) } }
+    literary: { label: 'Literary', w: { words: 1.5, structure: 1.5, dialogue: 0.5 },   // style choices (splices, fragments, long sentences) are often deliberate
+      o: { sentAvg: band(8, 28, 4, 40), dashes: lower(10, 22), dlgRatio: band(3, 45, 0, 70), filter: lower(8, 20), fragments: lower(6, 16), commaSplice: lower(1.5, 5),
+           longSent: lower(3.5, 8), appositives: lower(5, 14), adjStack: lower(1, 4), paragraphs: lower(1.5, 5), readability: higher(5, 0), daleChall: higher(5.5, 3) } },
+    thriller: { label: 'Thriller / mystery / crime', w: { structure: 1.5, show: 0.75 },
+      o: { sentAvg: band(8, 18, 4, 28), dlgRatio: band(25, 60, 10, 80), excl: lower(2, 8), fragments: lower(6, 16), paragraphs: lower(0.2, 2), longSent: lower(0.5, 3),
+           passive: lower(8, 20), ingOpeners: lower(4, 12), filter: lower(5, 15), readability: higher(5, 1), daleChall: higher(5.5, 3) } },
+    romance: { label: 'Romance', w: { show: 1.25 },
+      o: { sentAvg: band(9, 22, 5, 32), dlgRatio: band(30, 60, 10, 80), emotions: lower(3, 8), filter: lower(8, 20), body: lower(8, 20), sensory: higher(35, 10),
+           epithets: lower(0.25, 2), coyBody: lower(0.1, 1.5), longSent: lower(1.5, 5.5), readability: higher(5.5, 1), daleChall: higher(5.8, 3) } },
+    horror: { label: 'Horror', o: { sentAvg: band(10, 26, 5, 36), dlgRatio: band(10, 45, 0, 70), sensory: higher(35, 10), emotions: lower(2, 6), ellipses: lower(3, 10),
+           longSent: lower(2.5, 6), paragraphs: lower(1, 4) } },
+    fantasy: { label: 'Fantasy / science fiction', invented: true,               // made-up words ("stormlight", "thoat") aren't overuse
+      o: { sentAvg: band(10, 26, 5, 36), dlgRatio: band(15, 55, 5, 80), longSent: lower(1.5, 5), passive: lower(12, 28) } },
+    historical: { label: 'Historical', o: { sentAvg: band(12, 26, 6, 36), dlgRatio: band(20, 55, 5, 80), longSent: lower(3, 8), britishisms: lower(3, 15),
+           fancyTags: lower(35, 75), commaSplice: lower(1, 4) } },
+    ya: { label: 'Young adult', o: { sentAvg: band(9, 18, 5, 28), dlgRatio: band(25, 55, 10, 80), excl: lower(2, 6), body: lower(7, 18), filler: lower(6, 18),
+           readability: band(4, 9, 2, 12), daleChall: band(5, 7.5, 3.5, 9) } },
+    mg: { label: 'Middle grade', o: { sentAvg: band(7, 16, 4, 24), dlgRatio: band(25, 60, 10, 80), excl: lower(2.5, 7), body: lower(7, 18), filler: lower(6, 18),
+           longSent: lower(1, 3.5), readability: lower(7.5, 11), daleChall: lower(6.5, 8.5) } }
   };
 
   function rangeScore(v, r) {
@@ -1076,12 +1094,12 @@ const Grader = (() => {
 
     // Overused words and phrases, compared against Google Books English Fiction
     const O = OVERUSE;
-    const judge = (c, expPer1k, known, allowRare) => {
+    const judge = (c, expPer1k, known, allowRare, rareMult = 1) => {
       const rate = k(c), ratio = rate / expPer1k, excess = rate - expPer1k;
-      const rare = allowRare && ratio >= O.minRatio && rate >= O.minRate;
+      const rare = allowRare && ratio >= O.minRatio * rareMult && rate >= O.minRate;
       const dense = ratio >= O.densityRatio && excess >= O.minExcess;
       if (c < O.minCount || !(rare || dense)) return null;
-      const rarePen = rare ? Math.min(O.maxPerRare, 0.5 + 1.25 * Math.log10(ratio / O.minRatio)) : 0;
+      const rarePen = rare ? Math.min(O.maxPerRare, 0.5 + 1.25 * Math.log10(ratio / (O.minRatio * rareMult))) : 0;
       const densePen = dense ? Math.min(O.maxPerItem, 0.5 + O.densePerExtra * (excess - O.minExcess)) : 0;   // rate only, so a short section and a whole book are judged alike
       return { c, rate, ratio, excess, known, expected: expPer1k * total / 1000, expRate: expPer1k, pen: Math.max(rarePen, densePen), why: densePen >= rarePen ? 'dense' : 'rare' };
     };
@@ -1126,7 +1144,9 @@ const Grader = (() => {
     const wordsOver = [];
     for (const [w, c] of cntFree) {
       if (FUNC.has(w) || NOT_OVERUSE.has(w) || w.includes("'") || w.length < 3 || isName(w) || isSubjectOrPlural(w, c)) continue;
-      const known = FREQ.has(w), j = judge(c, (known ? FREQ.get(w) : FREQ_FLOOR) / 1e6, known, true);
+      const known = FREQ.has(w);
+      if (prof.invented && !known) continue;                                              // fantasy/SF: invented words ("stormlight", "thoat") are world-building
+      const j = judge(c, (known ? FREQ.get(w) : FREQ_FLOOR) / 1e6, known, true, prof.invented ? 5 : 1);   // ...and rare genre words ("dragon", "starship") need 5× the usual ratio
       if (j) wordsOver.push({ ...j, w, kind: 'word' });
     }
     const overuse = [...phrases, ...wordsOver].sort((a, b) => b.pen - a.pen || b.c - a.c);
@@ -1265,14 +1285,18 @@ const Grader = (() => {
     const nS = S.filter(x => x.narr && x.nw.length).length, nWords = narr;
     const syll = narrW.reduce((a, x) => a + syl(x.raw), 0);
     const fk = nS && nWords ? 0.39 * (nWords / nS) + 11.8 * (syll / nWords) - 15.59 : 0;
-    // ===== Readability (narration only). Below grade 8 costs points, more the lower it goes. YA / middle grade is meant to read simpler, so neither is scored there.
-    const fkYA = opts.profile === 'ya', rdNA = fkYA || narr < 100;
-    M('readability', 'readability', 'Flesch–Kincaid grade level', fk, `grade ${fmt(Math.max(0, fk))}`, fkYA ? 'Estimated school grade of the narration (dialogue excluded) from sentence length and syllables per word. For information only with the YA / middle grade profile.' : 'Estimated school grade of the narration (dialogue excluded) from sentence length and syllables per word. Grade 8 or above scores full marks; below that the score drops evenly, reaching zero at grade 2.', { na: rdNA });
+    // ===== Readability (narration only). Below grade 8 costs points, more the lower it goes; each profile sets its own range
+    // (literary and thrillers read simpler; young adult has a band; middle grade only loses points for reading too hard).
+    const rdNA = narr < 100;
+    const ruleTxt = (r, u) => r.good[0] === -Infinity ? `${u}${r.good[1]} or below scores full marks; above that the score drops evenly, reaching zero at ${r.bad[1]}.`
+      : r.good[1] === Infinity ? `${u}${r.good[0]} or above scores full marks; below that the score drops evenly, reaching zero at ${r.bad[0]}.`
+      : `${u}${r.good[0]}–${r.good[1]} scores full marks; outside that the score drops evenly, reaching zero at ${r.bad[0]} and ${r.bad[1]}.`;
+    M('readability', 'readability', 'Flesch–Kincaid grade level', fk, `grade ${fmt(Math.max(0, fk))}`, 'Estimated school grade of the narration (dialogue excluded) from sentence length and syllables per word. ' + ruleTxt(R('readability'), 'Grade '), { na: rdNA });
     // Dale–Chall: share of words outside the familiar-word list, plus sentence length. Names count as familiar.
     const hard = narrW.filter(x => !dcFamiliar(x.w) && !isName(x.w)).length, hardPct = nWords ? hard / nWords * 100 : 0;
     const dc = nS && nWords ? 0.1579 * hardPct + 0.0496 * (nWords / nS) + (hardPct > 5 ? 3.6365 : 0) : 0;
     const dcGrade = dc < 5 ? 'grade 4 or below' : dc < 6 ? 'grades 5–6' : dc < 7 ? 'grades 7–8' : dc < 8 ? 'grades 9–10' : dc < 9 ? 'grades 11–12' : 'college';
-    M('readability', 'daleChall', 'Dale–Chall score', dc, `${fmt(dc)} (${dcGrade})`, `${fmt(hardPct)}% of narration words are outside the Dale–Chall list of ~3,000 familiar words (dialogue excluded). ` + (fkYA ? 'For information only with the YA / middle grade profile.' : 'A score of 6.5 or above (about grade 8) scores full marks; below that the score drops evenly, reaching zero at 3.5.'), { na: rdNA });
+    M('readability', 'daleChall', 'Dale–Chall score', dc, `${fmt(dc)} (${dcGrade})`, `${fmt(hardPct)}% of narration words are outside the Dale–Chall list of ~3,000 familiar words (dialogue excluded). ` + ruleTxt(R('daleChall'), 'A score of '), { na: rdNA });
 
     // ===== Dialogue
     const hasDlg = dlgWords >= 20;
@@ -1426,6 +1450,7 @@ const Grader = (() => {
       { id: 'dialogue', name: 'Dialogue', w: 1 }, { id: 'punct', name: 'Punctuation', w: 0.5 }, { id: 'readability', name: 'Readability', w: 1 }
     ];
     for (const c of CATS) {
+      if (prof.w && prof.w[c.id] != null) c.w = prof.w[c.id];
       c.metrics = metrics.filter(m => m.cat === c.id);
       const sc2 = c.metrics.filter(m => m.score != null && m.weight > 0);
       const ww = sc2.reduce((a, m) => a + m.weight, 0);
@@ -1652,6 +1677,18 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     if (!parts.length) throw new Error('no readable text was found in this epub (it may be protected by DRM)');
     return parts.join('\n\n');
   }
+  // Plain-text books (Project Gutenberg and the like) are often hard-wrapped at ~70 characters, with blank lines between paragraphs.
+  // Rejoin the wrapped lines so each paragraph is one line; otherwise every line reads as its own paragraph and dialogue that
+  // wraps onto a second line isn't recognized.
+  function unwrapLines(str) {
+    const t = str.replace(/\r\n?/g, '\n'), lines = t.split('\n'), full = lines.filter(l => l.trim());
+    if (full.length < 20 || !/\n[ \t]*\n/.test(t)) return str;
+    const lens = full.map(l => l.length).sort((a, b) => a - b), p90 = lens[Math.floor(lens.length * 0.9)];
+    if (p90 < 40 || p90 > 100) return str;                                              // lines aren't wrapped at a fixed width
+    let wrapped = 0; for (let i = 0; i + 1 < lines.length; i++) if (lines[i].trim() && lines[i + 1].trim() && lines[i].length >= p90 * 0.75) wrapped++;
+    if (wrapped < full.length * 0.4) return str;                                        // most lines run on into the next one
+    return t.replace(/([^\n])\n(?=[ \t]*[^\s])/g, (m, a, off) => a + ' ');
+  }
   async function bytesToText(buf, type, label, sink = {}) {
     const head = new TextDecoder().decode(buf.slice(0, 5));
     if (head.startsWith('%PDF') || /application\/pdf/i.test(type || '')) {
@@ -1677,7 +1714,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     }
     else if ((start.match(/\uFFFD/g) || []).length > 40) throw new Error("this file isn't text, HTML, or PDF");
     if (looksHtml(str, type)) { checkLocked(str); sink.meta = htmlMeta(str); return htmlToText(str); }
-    return str;
+    return unwrapLines(str);
   }
   function mhtmlToHtml(str) {
     const b = str.match(/boundary="?([^"\r\n;]+)"?/i); if (!b) return null;
@@ -2115,8 +2152,8 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   const countOf = (m, n) => `${n.toLocaleString()} ${(COUNT_LABEL[m.id] || [m.name.toLowerCase(), m.name.toLowerCase()])[n === 1 ? 0 : 1]}`;
   // The full-marks range of a check, in words ("Target: 10–22 words per sentence")
   function targetText(m) {
-    if (m.id === 'readability') return 'Target: grade 8 or above';
-    if (m.id === 'daleChall') return 'Target: 6.5 or above (about grade 8)';
+    if ((m.id === 'readability' || m.id === 'daleChall') && m.rule) { const [lo, hi] = m.rule.good, g = m.id === 'readability' ? 'grade ' : '';
+      return lo === -Infinity ? `Target: ${g}${hi} or below` : hi === Infinity ? `Target: ${g}${lo} or above` : `Target: ${g}${lo}–${hi}`; }
     if (!m.rule) return (m.note || '').split(/(?<=\.)\s/)[0];
     const [lo, hi] = m.rule.good, u = m.unit ? (m.unit.startsWith('%') ? m.unit : ' ' + m.unit) : '';
     return lo === -Infinity ? `Target: ${hi}${u} or less` : hi === Infinity ? `Target: ${lo}${u} or more` : `Target: ${lo}–${hi}${u}`;
