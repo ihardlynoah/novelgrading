@@ -107,6 +107,13 @@ summary .val{color:var(--muted);font-size:12.5px;text-align:right;white-space:no
 .cardnav .lbl{min-width:140px;text-align:center;font-size:13px;color:var(--muted)}
 .cardnav .dots{display:flex;gap:5px}.cardnav .dots i{width:7px;height:7px;border-radius:50%;background:var(--rule)}.cardnav .dots i.on{background:var(--pencil)}
 .cardacts{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.scope{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px;font-size:13px;color:var(--muted)}
+.scope select{max-width:100%;font-size:13px;padding:3px 6px;border:1px solid var(--rule);border-radius:5px;background:var(--sheet);color:var(--ink)}
+.chapters{margin:14px 0 6px}.chapters h3{font-size:15px;margin:0 0 6px}
+.chapters table{width:100%;border-collapse:collapse;font-size:13px}
+.chapters td,.chapters th{padding:4px 5px;text-align:left;border-bottom:1px solid var(--rule);vertical-align:top}
+.chapters th{font-weight:600;color:var(--muted);font-size:12px}.chapters td.g{white-space:nowrap;font-weight:600}.chapters td.n{white-space:nowrap;color:var(--muted)}
+.chapters tr.go{cursor:pointer}.chapters tr.go:hover td{background:var(--pencil-bg)}.chapters .iss{color:var(--muted)}
 .mylist{margin-top:22px;border-top:1px solid var(--rule);padding-top:12px}
 .mylist table{width:100%;border-collapse:collapse;font-size:13px}
 .mylist td,.mylist th{padding:4px 4px;text-align:left;border-bottom:1px solid var(--rule);vertical-align:top}
@@ -1414,7 +1421,33 @@ const Grader = (() => {
 
     return { text, headings, skippedWords, overuseRules: OVERUSE, total, narr, dlgWords, sentences: S.length, paragraphs: paras.length, flags, metrics, cats: CATS, base, overuse, overusePts, overall, letter, profile: prof.label, dlgMode };
   }
-  return { analyze, PROFILES };
+  // ---- Chapters: split at chapter headings ("Chapter 12", "Book II", "Prologue", "IV", "12", file separators). A run of heading lines
+  // with no prose between them ("Book I / The Shimerdas / I") starts one chapter, titled with all of them.
+  const CHAP_KEY = new RegExp(`^(?:(?:chapter|part|book|volume|act|episode)\\s+${NUMWORD}\\b|(?:prologue|epilogue|interlude)\\b)`, 'i');
+  function chapters(text) {
+    const norm = text.replace(/[’‘]/g, "'").replace(/[“”]/g, '"').replace(/\r/g, ' '), N = norm.length;
+    const matter = matterRanges(norm), front = matter.find(r => r.s === 0), back = matter.find(r => r.s > 0);
+    const from = front ? front.e : 0, to = back ? back.s : N;
+    const L = []; { const re = /[^\n]*/g; let m; while ((m = re.exec(norm))) { L.push({ s: m.index, e: m.index + m[0].length, t: m[0].trim() }); if (re.lastIndex >= N) break; re.lastIndex++; } }
+    const isChap = t => t && t.split(/\s+/).length <= 10 && (CHAP_KEY.test(t) || /^(?:\d{1,3}|[IVXLC]{1,7})\.?$/.test(t) || /^===\s.+\s===$/.test(t));
+    const isTitleLine = t => t && t.split(/\s+/).length <= 10 && (isHeading(t) || isChap(t));
+    const starts = []; let curPart = '';
+    for (let i = 0; i < L.length; i++) {
+      if (L[i].s < from || L[i].s >= to || !isChap(L[i].t)) continue;
+      const title = [L[i].t.replace(/^===\s|\s===$/g, '')]; let j = i + 1;
+      for (; j < L.length && L[j].s < to; j++) { if (!L[j].t) continue; if (!isTitleLine(L[j].t)) break;
+        if (!title.join(' ').toLowerCase().split(/[^\p{L}\d]+/u).join(' ').includes(L[j].t.toLowerCase().split(/[^\p{L}\d]+/u).join(' '))) title.push(L[j].t); }   // skip parts already in the title
+      let t = title.join(' · ');
+      const part = /^(?:book|part|volume)\s+\S+/i.exec(title[0]);                       // chapters inside "Book II" become "Book II · III"
+      if (part) curPart = part[0].replace(/[:.,;]+$/, ''); else if (curPart && !/^(?:prologue|epilogue|interlude)/i.test(t)) t = `${curPart} · ${t}`;
+      starts.push({ s: L[i].s, title: t.slice(0, 80) }); i = j - 1;
+    }
+    const wc = (a, b) => (norm.slice(a, b).match(/\p{L}+(?:'\p{L}+)*/gu) || []).length;
+    if (starts.length && wc(from, starts[0].s) >= 150) starts.unshift({ s: from, title: 'Opening' });
+    const out = starts.map((c, k) => ({ title: c.title, s: c.s, e: k + 1 < starts.length ? starts[k + 1].s : to })).map(c => ({ ...c, words: wc(c.s, c.e) })).filter(c => c.words >= 30);
+    return out.length >= 2 ? out : [];
+  }
+  return { analyze, PROFILES, chapters };
 })();
 /*GRADER-END*/
 </script>
@@ -1428,7 +1461,7 @@ const Grader = (() => {
   let last = null;
 
   const countWords = () => { const n = (input.value.match(/\p{L}+(?:['’]\p{L}+)*/gu) || []).length; $('wc').textContent = `${n.toLocaleString()} words`; };
-  input.addEventListener('input', countWords);
+  input.addEventListener('input', () => { countWords(); scope = null; });
 
   const SAMPLE = `It was a dark and stormy night. Sarah felt very scared as she walked slowly down the hallway. She saw the door at the end. She heard a noise. She began to run.
 
@@ -1442,7 +1475,7 @@ Sarah let out a breath she didn't know she was holding. Her heart skipped a beat
 
 The old house creaked around them. Somewhere below, water dripped, and the air smelled of dust and wet stone. John was standing by the window, watching the rain.`;
 
-  $('sampleBtn').onclick = () => { setStatus(''); setMeta('Sample passage', ''); input.value = SAMPLE; countWords(); showEdit(); input.focus(); };
+  $('sampleBtn').onclick = () => { setStatus(''); setMeta('Sample passage', ''); input.value = SAMPLE; scope = null; countWords(); showEdit(); input.focus(); };
   $('loadBtn').onclick = () => $('file').click();
   $('file').onchange = e => { const fs = [...e.target.files]; e.target.value = ''; if (fs.length) handleFiles(fs); };
   $('folderBtn').onclick = () => $('folder').click();
@@ -1627,7 +1660,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   }
   function finishImport(parts, failed, where) {
     if (!parts.length) throw new Error(`Nothing could be read${failed.length ? ': ' + failed.map(f => `${f.name} (${f.err})`).join('; ') : '.'}`);
-    input.value = combine(parts); countWords(); showEdit();
+    input.value = combine(parts); countWords(); showEdit(); scope = null;
     const found = parts.map(p => p.meta).find(m => m && (m.title || m.author)) || {}, guess = guessMeta(input.value);
     setMeta(found.title || guess.title, found.author || guess.author);
     const names = parts.map(p => p.name);
@@ -1894,7 +1927,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
 
   // ---------- Export & share ----------
   function summaryText(r) {
-    const t = ficTitle() || 'Untitled', a = ficAuthor();
+    const t = shownTitle(), a = ficAuthor();
     return [`“${t}”${a ? ` by ${a}` : ''}`, `Grade: ${r.letter} (${Math.round(r.overall)}/100) · ${r.total.toLocaleString()} words · ${r.profile}`,
       r.cats.filter(c => c.score != null).map(c => `${c.name} ${Math.round(c.score)}`).join(' · '), 'Graded with Novel Grader'].join('\n');
   }
@@ -1918,7 +1951,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     const metrics = res.metrics.map(m => [m.id, r3(m.value), m.display, r3(m.score), m.role, r3(m.avail), r3(m.points), m.flagTotal ?? m.flags.length,
       m.flags.slice(0, SNAP_FLAGS).map((f, i) => [res.text.slice(f.s, f.e).replace(/\s+/g, ' ').slice(0, 70), SEV.indexOf(f.sev), typeof f.fix === 'string' ? f.fix : 0, i ? 0 : f.msg, f.dlg ? 1 : 0]),
       skM.get(m.id)?.note === m.note ? 0 : m.note, m.naNote || 0]);
-    return { v: 2, o, t: ficTitle(), a: ficAuthor(), at: new Date().toISOString().slice(0, 10), n: res.total, sk: res.skippedWords, g: res.letter, s: r3(res.overall), b: r3(res.base),
+    return { v: 2, o, t: ficTitle() ? shownTitle() : scopeTitle, a: ficAuthor(), ch: res.scope == null && res.chapterRows && res.chapterRows.length === (res.chapters || []).length ? res.chapterRows.map(c => [c.title, c.words, c.letter, c.score, c.issue]) : undefined, at: new Date().toISOString().slice(0, 10), n: res.total, sk: res.skippedWords, g: res.letter, s: r3(res.overall), b: r3(res.base),
       m: metrics, c: res.cats.map(c => [c.id, r3(c.score), r3(c.points), r3(c.avail)]),
       u: res.overuse.slice(0, 15).map(x => [x.w, x.kind === 'phrase' ? 1 : 0, x.c, r3(x.rate), r3(x.expRate), r3(x.ratio), x.known ? 1 : 0, r3(x.pen)]),
       h: [res.headings.filter(h => h.kind === 'heading').length, res.headings.filter(h => h.kind === 'meta').length, res.headings.some(h => h.kind === 'matter' && h.s === 0) ? 1 : 0, res.headings.some(h => h.kind === 'matter' && h.s > 0) ? 1 : 0],
@@ -1936,7 +1969,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
       ratioTxt: `${known ? '' : 'at least '}${ratio >= 100 ? Math.round(ratio).toLocaleString() : fmt1(ratio)}× normal`, rateTxt: `${fmt1(rate)} per 1,000 words (normal ${expRate < 0.1 ? 'under 0.1' : fmt1(expRate)})` }));
     const headings = [...Array(d.h[0]).fill({ kind: 'heading' }), ...Array(d.h[1]).fill({ kind: 'meta' }), ...(d.h[2] ? [{ kind: 'matter', s: 0 }] : []), ...(d.h[3] ? [{ kind: 'matter', s: 1 }] : [])];
     return { text, total: d.n, skippedWords: d.sk, letter: d.g, overall: d.s, base: d.b, profile: sk.profile, dlgMode: d.o.dlgMode, overuseRules: sk.overuseRules, opts: d.o,
-      metrics, cats, overuse, headings, flags: metrics.flatMap(m => m.flags), sevCounts: { error: d.e[0], warn: d.e[1] }, shared: true, sharedAt: d.at, title: d.t, author: d.a };
+      metrics, cats, overuse, headings, flags: metrics.flatMap(m => m.flags), chapterRows: (d.ch || []).map(([title, words, letter, score, issue]) => ({ title, words, letter, score, issue })), sevCounts: { error: d.e[0], warn: d.e[1] }, shared: true, sharedAt: d.at, title: d.t, author: d.a };
   }
   const b64url = bytes => { let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
   const unb64url = str => Uint8Array.from(atob(str.replace(/-/g, '+').replace(/_/g, '/')), ch => ch.charCodeAt(0));
@@ -1980,7 +2013,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   function cardFooter(f, r) {   // story, grade and credit along the bottom of every card except the report card
     const { g, W, H, wrap } = f;
     g.textAlign = 'left'; g.fillStyle = '#18233A'; g.font = `600 22px ${CARD_SERIF}`;
-    wrap(`${ficTitle() || 'Untitled'}${ficAuthor() ? ' by ' + ficAuthor() : ''}`, 90, H - 90, 640, 26, 1);
+    wrap(`${shownTitle()}${ficAuthor() ? ' by ' + ficAuthor() : ''}`, 90, H - 90, 640, 26, 1);
     g.fillStyle = MARK(r.letter); g.font = `600 22px ${CARD_SANS}`; g.fillText(`Grade ${r.letter} · ${Math.round(r.overall)}/100 · ${r.total.toLocaleString()} words`, 90, H - 60);
     g.fillStyle = '#5B6577'; g.font = `18px ${CARD_SANS}`; g.textAlign = 'right'; g.fillText('Graded with Novel Grader', W - 90, H - 60); g.textAlign = 'left';
   }
@@ -2077,7 +2110,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
           g.fillText(line, x, y + n * lh); n++; line = words[i]; } else line = test; }
       g.fillText(line, x, y + n * lh); return y + (n + 1) * lh; };
     g.fillStyle = '#18233A'; g.font = `600 50px ${serif}`; g.textBaseline = 'alphabetic';
-    let y = wrap(ficTitle() || 'Untitled', 90, 135, 700, 60, 2);
+    let y = wrap(shownTitle(), 90, 135, 700, 60, 2);
     g.font = `26px ${sans}`; g.fillStyle = '#5B6577'; if (ficAuthor()) { y = wrap('by ' + ficAuthor(), 90, y + 4, 700, 34, 1); }
     g.font = `20px ${sans}`; g.fillText(`${r.total.toLocaleString()} words · ${r.profile}`, 90, y + 14);
     // grade mark
@@ -2100,7 +2133,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     const sq = sc => sc >= 85 ? '🟩' : sc >= 70 ? '🟨' : sc >= 50 ? '🟧' : '🟥';
     const rows = r.cats.filter(c => c.score != null).map(c => { const n = Math.max(1, Math.min(5, Math.round(c.score / 20)));   // at least one coloured square, so a 0 still reads as a (red) result
       return sq(c.score).repeat(n) + '⬜'.repeat(5 - n) + ' ' + (SHORT_CAT[c.id] || c.name); });
-    const w = worstIssues(r)[0], title = ficTitle();
+    const w = worstIssues(r)[0], title = ficTitle() ? shownTitle() : scopeTitle;
     const url = /^https?:/.test(location.protocol) ? location.origin + location.pathname.replace(/index\.html$/, '') : 'https://ihardlynoah.github.io/novelgrading/';
     return [`Novel Grader: ${r.letter} (${Math.round(r.overall)}/100)`, `${title ? `“${title}” · ` : ''}${r.total.toLocaleString()} words`, ...rows,
       ...(w ? [`🔎 ${w.head}`] : []), url].join('\n');
@@ -2156,7 +2189,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
         await navigator.share(data);
       } catch (e) { if (e.name !== 'AbortError') setStatus("Sharing isn't available here; use Save this card instead.", true); } }; }
     $('listAddBtn').onclick = () => {
-      const l = loadList(), entry = { title: ficTitle() || 'Untitled', author: ficAuthor(), grade: r.letter, score: Math.round(r.overall), words: r.total, profile: r.profile,
+      const l = loadList(), entry = { title: shownTitle(), author: ficAuthor(), grade: r.letter, score: Math.round(r.overall), words: r.total, profile: r.profile,
         date: new Date().toISOString().slice(0, 10), cats: Object.fromEntries(r.cats.filter(c => c.score != null).map(c => [c.name, Math.round(c.score)])) };
       const i = l.findIndex(x => x.title === entry.title && x.author === entry.author);
       if (i >= 0) l[i] = entry; else l.push(entry);
@@ -2164,23 +2197,51 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     };
   }
 
+  // What is being graded: the whole work, or one chapter of it (index into the detected chapters)
+  let scope = null, scopeTitle = '', chapterCache = { key: '', rows: [] };
+  const shownTitle = () => (ficTitle() || 'Untitled') + (scopeTitle ? ` — ${scopeTitle}` : '');
   function grade() {
-    const text = input.value;
+    const full = input.value, chs = full.trim() ? Grader.chapters(full) : [];
+    if (scope != null && !chs[scope]) scope = null;
+    const text = scope == null ? full : full.slice(chs[scope].s, chs[scope].e);
+    scopeTitle = scope == null ? '' : chs[scope].title;
     if (!ficTitle() && !ficAuthor()) { const g = guessMeta(text); setMeta(g.title, g.author); }
     if (!text.trim()) { report.innerHTML = '<div class="empty">Paste some text into the page first, then press Grade.</div>'; return; }
     const run = () => {
       const res = Grader.analyze(text, { profile: profileSel.value, dlgMode: $('dlgMode').value, english: $('english').value });
+      res.chapters = chs; res.scope = scope; res.fullText = full;
       last = res;
       renderManuscript(res);
       renderReport(res);
       input.hidden = true; ms.hidden = false; $('editBtn').hidden = false; $('saveBtn').hidden = false; $('legend').hidden = false;
       $('gradeBtn').disabled = false; if (big) setStatus('');
+      if (scope == null && chs.length) gradeChapters(res);
     };
     // Long books take a while (longest on phones): show a message and let the page repaint before the work starts
     const big = text.length > 350000;
     if (big) { $('gradeBtn').disabled = true; setStatus(`Grading ${Math.round(text.length / 5.7 / 1000)}k words… this can take up to a minute on a phone.`); setTimeout(run, 60); } else run();
   }
 
+  // Grade each chapter in the background and fill in the whole-work Chapters table as results arrive
+  function gradeChapters(res) {
+    const o = { profile: profileSel.value, dlgMode: $('dlgMode').value, english: $('english').value };
+    const key = JSON.stringify(o) + res.fullText.length + ':' + res.fullText.slice(0, 200) + res.fullText.slice(-200);
+    if (chapterCache.key !== key) chapterCache = { key, rows: [] };
+    const rows = chapterCache.rows; res.chapterRows = rows;
+    const fill = i => { const tr = document.querySelector(`#chapSum tr[data-ch="${i}"]`); if (!tr || !rows[i]) return;
+      const c = rows[i]; tr.querySelector('.g').innerHTML = `<span style="color:${MARK(c.letter)}">${esc(c.letter)}</span> ${c.score}`; tr.querySelector('.iss').textContent = c.issue; };
+    let i = 0;
+    const step = () => {
+      if (last !== res) return;                                   // a newer grade replaced this one
+      for (; i < res.chapters.length; i++) {
+        if (rows[i]) { fill(i); continue; }
+        const ch = res.chapters[i], r = Grader.analyze(res.fullText.slice(ch.s, ch.e), o), w = worstIssues(r)[0];
+        rows[i] = { title: ch.title, words: r.total, letter: r.letter, score: Math.round(r.overall), issue: w ? `${w.cat}: ${w.head}` : 'No issue cost more than a fraction of a point' };
+        fill(i); i++; setTimeout(step, 0); return;                // one chapter at a time keeps the page responsive
+      }
+    };
+    step();
+  }
   function renderManuscript(res) {
     const n = res.text.length, occ = new Int32Array(n).fill(-1);
     const sorted = [...res.flags].sort((a, b) => RANK[a.sev] - RANK[b.sev] || a.s - b.s);
@@ -2210,7 +2271,11 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     const errCount = res.sevCounts ? res.sevCounts.error : res.flags.filter(f => f.sev === 'error').length, warnCount = res.sevCounts ? res.sevCounts.warn : res.flags.filter(f => f.sev === 'warn').length;
     const scored = res.metrics.filter(m => m.score != null && m.weight > 0).sort((a, b) => a.score - b.score).filter(m => m.score < 70).slice(0, 3);
     const sharedNote = res.shared ? `<div class="warnbox">Shared report${res.sharedAt ? ` from ${esc(res.sharedAt)}` : ''}. The story text isn't included, only short quoted examples. <button class="btn" id="ownBtn" type="button">Grade your own story</button></div>` : '';
-    let h = sharedNote + `${ficTitle() || ficAuthor() ? `<div class="ficname">${esc(ficTitle() || 'Untitled')}${ficAuthor() ? ` <span class="by">by ${esc(ficAuthor())}</span>` : ''}</div>` : ''}<div class="head"><div class="mark ${gClass}">${res.letter}</div><div>
+    const chs = res.chapters || [], rowsShared = res.shared ? res.chapterRows || [] : null;
+    const chooser = chs.length && !res.shared ? `<label class="scope">Grade: <select id="scopeSel"><option value="">Whole work (${chs.length} chapters)</option>${chs.map((c, i) => `<option value="${i}"${res.scope === i ? ' selected' : ''}>${esc(c.title)} · ${c.words.toLocaleString()} words</option>`).join('')}</select></label>` : '';
+    const chapTable = (res.scope == null && chs.length) || (rowsShared && rowsShared.length) ? `<div class="chapters" id="chapSum"><h3>Chapters</h3><table><thead><tr><th>Chapter</th><th>Words</th><th>Grade</th><th>Biggest issue</th></tr></thead><tbody>${
+      (rowsShared && rowsShared.length ? rowsShared : chs).map((c, i) => `<tr data-ch="${i}"${res.shared ? '' : ' class="go" title="Grade just this chapter"'}><td>${esc(c.title)}</td><td class="n">${c.words.toLocaleString()}</td><td class="g">${c.letter ? `<span style="color:${MARK(c.letter)}">${esc(c.letter)}</span> ${c.score}` : '…'}</td><td class="iss">${c.issue ? esc(c.issue) : res.shared ? '' : 'grading…'}</td></tr>`).join('')}</tbody></table></div>` : '';
+    let h = sharedNote + chooser + `${ficTitle() || ficAuthor() ? `<div class="ficname">${esc(shownTitle())}${ficAuthor() ? ` <span class="by">by ${esc(ficAuthor())}</span>` : ''}</div>` : ''}<div class="head"><div class="mark ${gClass}">${res.letter}</div><div>
       <div class="num">${Math.round(res.overall)}<small> / 100</small></div>
       <div class="meta">${res.total.toLocaleString()} words graded${res.skippedWords ? ` of ${(res.total + res.skippedWords).toLocaleString()}` : ''} · ${res.profile}</div>
       ${(() => { const hd = res.headings.filter(x => x.kind === 'heading').length, mt = res.headings.filter(x => x.kind === 'meta').length, parts = [];
@@ -2221,7 +2286,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     h += `<div class="share"><button class="btn" id="copyBtn" type="button">Copy summary</button><button class="btn" id="emojiBtn" type="button" title="Copy a Wordle-style summary to paste anywhere">Copy results 🟩</button><button class="btn" id="cardBtn" type="button" aria-expanded="false" aria-controls="cardPanel">Share cards…</button><button class="btn" id="linkBtn" type="button" title="Copy a link that opens this full report (the story text isn't included)">Copy report link</button><button class="btn" id="listAddBtn" type="button">Add to my list</button></div>
       <div class="cardpanel" id="cardPanel" hidden><div class="cards" id="cards" tabindex="0" aria-label="Share card options; swipe or use the arrows"></div>
       <div class="cardnav"><button type="button" id="cardPrev" aria-label="Previous card">‹</button><span class="lbl" id="cardLabel"></span><span class="dots" id="cardDots"></span><button type="button" id="cardNext" aria-label="Next card">›</button></div>
-      <div class="cardacts"><button class="btn" id="cardSave" type="button">Save this card</button><button class="btn" id="cardShare" type="button" hidden>Share this card…</button></div></div>`;
+      <div class="cardacts"><button class="btn" id="cardSave" type="button">Save this card</button><button class="btn" id="cardShare" type="button" hidden>Share this card…</button></div></div>` + chapTable;
     if (res.skippedWords > 0.15 * (res.total + res.skippedWords) && res.skippedWords > 200) h += `<div class="warnbox">${Math.round(100 * res.skippedWords / (res.total + res.skippedWords))}% of the text (${res.skippedWords.toLocaleString()} words) was treated as headings, front or back matter, story info, or author's notes and left out of the grade. Those parts are grayed out in the manuscript; if story text is among them, let me know what the lines above it look like.</div>`;
     if (res.total < 300) h += `<div class="warnbox">This passage is short, so rates per 1,000 words swing a lot. Grade at least 500 words for a steadier score.</div>`;
     const r1 = v => (Math.round(v * 10) / 10).toFixed(1);
@@ -2252,6 +2317,8 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     h += `<div class="mylist" id="myList"></div>`;
     report.innerHTML = h;
     wireShare(res); renderList();
+    if ($('scopeSel')) $('scopeSel').onchange = e => { scope = e.target.value === '' ? null : +e.target.value; grade(); };
+    report.querySelectorAll('#chapSum tr.go').forEach(tr => tr.onclick = () => { scope = +tr.dataset.ch; grade(); report.scrollTop = 0; scrollTo({ top: report.getBoundingClientRect().top + scrollY - 10 }); });
     report.scrollTop = 0;
     $('expandAll').onclick = () => { const all = report.querySelectorAll('details'), open = [...all].some(d => !d.open);
       all.forEach(d => d.open = open); $('expandAll').textContent = open ? 'Hide grading rules' : 'Show all grading rules'; };
