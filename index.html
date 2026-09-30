@@ -1448,6 +1448,12 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     let url; try { url = new URL(u); } catch { return null; }
     const host = url.hostname.replace(/^www\./, '');
     let m;
+    // AO3: skip the adult-content warning and get every chapter on one page
+    if (/(^|\.)archiveofourown\.org$/.test(host)) {
+      if (url.pathname.startsWith('/downloads/')) return url.href;
+      if ((m = url.pathname.match(/^\/(?:collections\/[^/]+\/)?works\/(\d+)(\/chapters\/\d+)?/)))
+        return m[2] ? `https://archiveofourown.org/works/${m[1]}${m[2]}?view_adult=true` : `https://archiveofourown.org/works/${m[1]}?view_full_work=true&view_adult=true`;
+    }
     // Dropbox share links -> direct download
     if (/(^|\.)dropbox\.com$/.test(host)) { url.searchParams.set('dl', '1'); return url.href; }
     // Google Drive share links -> direct download
@@ -1496,6 +1502,8 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   const FILE_RE = /\.(html?|xhtml|pdf|txt|md)$/i;
   function looksHtml(str, type) { return /html/i.test(type || '') || /<(!doctype html|html|body|div|p)[\s>]/i.test(str.slice(0, 20000)); }
   function checkLocked(str) {
+    if (/only available to registered users|This work is only available to logged.in users/i.test(str) && !/id="chapters"/.test(str))
+      throw new Error('this story is only available to logged-in readers. Log in on the site, save or download the story, then open the file here (see "Link not working?")');
     if (/id="new_user_session"|<title>[^<]*log ?in/i.test(str) && str.length < 60000)
       throw new Error('the link led to a login page instead of the story');
   }
@@ -1606,11 +1614,17 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     $('urlBtn').disabled = true;
     try {
       setStatus('Downloading…');
-      const { buf, type, via } = await fetchAny(url);
+      let { buf, type, via } = await fetchAny(url);
       const name = decodeURIComponent(new URL(url).pathname.split('/').filter(Boolean).pop() || new URL(url).hostname);
-      const head = new TextDecoder().decode(buf.slice(0, 5)), str = head.startsWith('%PDF') ? '' : new TextDecoder('utf-8').decode(buf);
-      // Is this a folder (or a table-of-contents page) linking to the chapter files?
-      if (str && looksHtml(str, type)) {
+      const head = new TextDecoder().decode(buf.slice(0, 5)); let str = head.startsWith('%PDF') ? '' : new TextDecoder('utf-8').decode(buf);
+      // Still got an adult-content warning page instead of the story (e.g. through a relay)? Ask again with the warning skipped.
+      if (str && /could have adult content|adult content warning|view_adult=true/i.test(str) && !/class="userstuff|id="chapters"/.test(str) && !/view_adult=true/.test(url)) {
+        const u2 = new URL(url); u2.searchParams.set('view_adult', 'true'); setStatus('Skipping the content warning…');
+        ({ buf, type, via } = await fetchAny(u2.href)); str = new TextDecoder('utf-8').decode(buf);
+      }
+      const isAO3 = /archiveofourown\.org/i.test(url);
+      // Is this a folder (or a table-of-contents page) linking to the chapter files? (AO3 work pages link to their own chapters, so they're skipped)
+      if (str && !isAO3 && looksHtml(str, type)) {
         const f = folderLinks(str, url);
         const folder = f.links.length >= 1 && (f.listing || (f.looksDir && f.ownWords < 1500) || (f.links.length >= 2 && f.ownWords < 400));
         if (folder) {
@@ -1646,12 +1660,16 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   // ---------- HTML ----------
   function htmlToText(html) {
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    doc.querySelectorAll('script,style,noscript,template,svg,nav,header,footer,form,button,iframe,.notes,.endnotes,.summary,.afterword,#comments').forEach(e => e.remove());
+    // Page furniture, plus archive-site extras (tags, summary, notes, kudos, comments) that aren't story text
+    doc.querySelectorAll('script,style,noscript,template,svg,nav,header,footer,form,button,iframe,.notes,.endnotes,.summary,.afterword,#comments,.landmark,#preface,.preface:not(.chapter),dl.tags,dl.work,.work.meta,#feedback,#kudos,.kudos,#comments_placeholder,.chapter.preface .meta,#chapters .meta,blockquote.userstuff,#afterword').forEach(e => e.remove());
     const wc = els => els.map(e => e.textContent).join(' ').trim().split(/\s+/).length;
-    const picks = ['.chapter-content', '.entry-content', 'article', 'main', '#content'];
+    const picks = ['#chapters div.userstuff', 'div.userstuff', '#storytext', '#storycontent', '.storytext', '.chapter-content', '.entry-content', 'article', 'main', '#content'];
     let roots = [];
-    const specific = new Set(['.chapter-content']);
+    const specific = new Set(['#chapters div.userstuff', 'div.userstuff', '#storytext', '#storycontent', '.storytext', '.chapter-content']);
     for (const sel of picks) { const els = [...doc.querySelectorAll(sel)]; if (els.length && wc(els) > (specific.has(sel) ? 20 : 100)) { roots = els; break; } }
+    // Multi-chapter works: keep each chapter's title with its text
+    const chs = [...doc.querySelectorAll('#chapters > .chapter')].filter(c => c.querySelector('div.userstuff'));
+    if (chs.length) roots = chs.flatMap(c => [c.querySelector('h3.title'), c.querySelector('div.userstuff')].filter(Boolean));
     if (!roots.length) roots = [doc.body];
     roots = roots.filter(r => !roots.some(o => o !== r && o.contains(r)));
     const BLOCK = new Set(['P','DIV','H1','H2','H3','H4','H5','H6','LI','BLOCKQUOTE','SECTION','ARTICLE','TR','PRE','HR','CENTER','DD','DT','TABLE','UL','OL','FIGURE','ASIDE','MAIN']);
@@ -1789,8 +1807,9 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     const d = new DOMParser().parseFromString(html, 'text/html');
     const q = sel => { const e = d.querySelector(sel); return e ? e.textContent.replace(/\s+/g, ' ').trim() : ''; };
     const mc = sel => { const e = d.querySelector(sel); return e ? (e.getAttribute('content') || '').trim() : ''; };
-    let title = mc('meta[property="og:title"]') || q('h1') || q('title');
-    let author = q('a[rel="author"]') || q('.byline a') || q('.byline').replace(/^by\s+/i, '') || mc('meta[name="author"]');
+    let title = q('#workskin h2.title') || q('.preface h2.title') || mc('meta[property="og:title"]') || q('h1') || q('title');
+    if (/\[Archive of Our Own\]\s*$/i.test(title)) title = title.replace(/\s*\[Archive of Our Own\]\s*$/i, '').split(' - ')[0];
+    let author = q('#workskin a[rel="author"]') || q('a[rel="author"]') || q('.byline a') || q('.byline').replace(/^by\s+/i, '') || mc('meta[name="author"]');
     return { title: title.slice(0, 200), author: author.slice(0, 120) };
   }
   function guessMeta(text) {
