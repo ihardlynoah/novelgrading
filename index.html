@@ -1528,21 +1528,35 @@ const Grader = (() => {
     M('errors', 'tense', 'Tense switches', k(tn.length, narr), `${tn.length} found`, 'Narration that slips between past and present tense ("He walked in. She looks up."). Only checked when one tense clearly dominates, and only for he/she/they in a paragraph otherwise told in the past; a first-person narrator commenting in the present, thoughts and questions are skipped.', { flags: tn, na: !tenseMode, naNote: narr >= 100 ? 'tense is mixed throughout' : undefined });
 
     // ===== Scoring
+    // Errors aren't a share of the grade: they come straight off it. The other categories make a style score out of 100, and each
+    // error costs a fixed number of points per error per 1,000 words (calibrated to cost what it did when errors were 4× a category)
+    const ERR_PTS = { tier1: 1.5, tier2: 1.5, grammar: 2, typos: 2, povSlip: 2, tense: 3 };
     const CATS = [
-      { id: 'errors', name: 'Common errors', w: 4 }, { id: 'overuse', name: 'Overuse', w: 2 }, { id: 'words', name: 'Word choice & variety', w: 1 },
+      { id: 'errors', name: 'Common errors', w: 0, deduct: true }, { id: 'overuse', name: 'Overuse', w: 2 }, { id: 'words', name: 'Word choice & variety', w: 1 },
       { id: 'show', name: 'Show vs. tell', w: 1 }, { id: 'structure', name: 'Sentences & paragraphs', w: 1 },
       { id: 'dialogue', name: 'Dialogue', w: 1 }, { id: 'punct', name: 'Punctuation', w: 0.5 }, { id: 'readability', name: 'Readability', w: 1 }
     ];
     for (const c of CATS) {
-      if (prof.w && prof.w[c.id] != null) c.w = prof.w[c.id];
+      if (prof.w && prof.w[c.id] != null && !c.deduct) c.w = prof.w[c.id];
       c.metrics = metrics.filter(m => m.cat === c.id);
       const sc2 = c.metrics.filter(m => m.score != null && m.weight > 0);
       const ww = sc2.reduce((a, m) => a + m.weight, 0);
       c.score = ww ? Math.max(0, sc2.reduce((a, m) => a + m.score * m.weight, 0) / ww) : null;   // a section can't go below 0
     }
-    const sc3 = CATS.filter(c => c.score != null), cw = sc3.reduce((a, c) => a + c.w, 0);
+    const sc3 = CATS.filter(c => c.score != null && !c.deduct), cw = sc3.reduce((a, c) => a + c.w, 0);
     const base = cw ? sc3.reduce((a, c) => a + c.score * c.w, 0) / cw : 0;
+    let deduction = 0;
+    for (const c of CATS.filter(c => c.deduct)) {
+      c.avail = 0; c.points = 0;
+      for (const m of c.metrics) {
+        if (m.score == null) { m.role = 'na'; continue; }
+        m.role = 'deduct'; m.avail = 0; m.points = -Math.max(0, m.value) * (ERR_PTS[m.id] || 2); c.points += m.points;
+      }
+      deduction -= c.points;
+      c.score = c.metrics.some(m => m.role === 'deduct') ? Math.max(0, 100 - deduction * 100 / 35) : null;   // for display: 35 points off reads as 0
+    }
     for (const c of CATS) {
+      if (c.deduct) continue;
       c.avail = c.score == null ? 0 : 100 * c.w / cw; c.points = c.score == null ? 0 : c.score * c.w / cw;
       const mw = c.metrics.filter(m => m.score != null && m.weight > 0).reduce((a, m) => a + m.weight, 0);
       for (const m of c.metrics) {
@@ -1550,10 +1564,10 @@ const Grader = (() => {
         else m.role = m.cat === 'readability' ? 'info' : 'na';
       }
     }
-    const overall = Math.max(0, Math.min(100, base));
+    const overall = Math.max(0, Math.min(100, base - deduction));
     const letter = letterFor(overall);
 
-    return { text, headings, skippedWords, overuseRules: OVERUSE, total, narr, dlgWords, sentences: S.length, paragraphs: paras.length, flags, metrics, cats: CATS, base, overuse, overusePts, overall, letter, profile: prof.label, dlgMode };
+    return { text, headings, skippedWords, overuseRules: OVERUSE, total, narr, dlgWords, sentences: S.length, paragraphs: paras.length, flags, metrics, cats: CATS, base, deduction, errPts: ERR_PTS, overuse, overusePts, overall, letter, profile: prof.label, dlgMode };
   }
   // ---- Chapters: split at chapter headings ("Chapter 12", "Book II", "Prologue", "IV", "12", file separators). A run of heading lines
   // with no prose between them ("Book I / The Shimerdas / I") starts one chapter, titled with all of them.
@@ -2265,6 +2279,8 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
       return `<dl class="rule"><dt>Good</dt><dd>${num(m.rule.good[1])} overuse point or less (full marks)</dd><dt>Bad</dt><dd>${num(m.rule.bad[1])} overuse points or more (zero). The score drops evenly in between, and keeps dropping past the zero point (down to −100 at twice the distance).</dd>
         <dt>Points</dt><dd><b>Dense:</b> ${o.densityRatio}× normal or more and ${o.minExcess}+ extra uses per 1,000 words. 0.5 points at ${o.minExcess} extra, then ${o.densePerExtra} more for each additional extra use per 1,000 words, up to ${o.maxPerItem} per item.</dd>
         <dt></dt><dd><b>Rare but repeated:</b> ${o.minRatio}× normal or more (single words). 0.5 at ${o.minRatio}×, 1.75 at ${o.minRatio * 10}×, up to ${o.maxPerRare}. Needs ${o.minCount}+ uses.</dd></dl>`; }
+    if (m.role === 'deduct') { const per = (res.errPts || {})[m.id] || 2;
+      return `<dl class="rule"><dt>Points off</dt><dd>${num(per)} point${per === 1 ? '' : 's'} off the final score for every error ${/narration/.test(m.unit) ? 'per 1,000 narration words' : 'per 1,000 words'}. None found costs nothing.</dd>${m.id !== 'povSlip' && m.id !== 'tense' && res.dlgMode === 'reduce' ? '<dt></dt><dd class="between">Errors inside dialogue count a quarter (see “Mistakes in character speech”).</dd>' : ''}</dl>`; }
     if (!m.rule) return `<dl class="rule"><dt>Scoring</dt><dd>For information only; not graded</dd></dl>`;
     const [lo, hi] = m.rule.good, [blo, bhi] = m.rule.bad, u = m.unit;
     let good, bad;
@@ -2323,7 +2339,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     const metrics = res.metrics.map(m => [m.id, r3(m.value), m.display, r3(m.score), m.role, r3(m.avail), r3(m.points), m.flagTotal ?? m.flags.length,
       m.flags.slice(0, SNAP_FLAGS).map((f, i) => [res.text.slice(f.s, f.e).replace(/\s+/g, ' ').slice(0, 70), SEV.indexOf(f.sev), typeof f.fix === 'string' ? f.fix : 0, i ? 0 : f.msg, f.dlg ? 1 : 0]),
       skM.get(m.id)?.note === m.note ? 0 : m.note, m.naNote || 0]);
-    return { v: 2, o, t: ficTitle() ? shownTitle() : scopeTitle, a: ficAuthor(), ch: res.scope == null && res.chapterRows && res.chapterRows.length === (res.chapters || []).length ? res.chapterRows.map(c => [c.title, c.words, c.letter, c.score, c.issue]) : undefined, at: new Date().toISOString().slice(0, 10), n: res.total, sk: res.skippedWords, g: res.letter, s: r3(res.overall), b: r3(res.base),
+    return { v: 2, o, t: ficTitle() ? shownTitle() : scopeTitle, a: ficAuthor(), ch: res.scope == null && res.chapterRows && res.chapterRows.length === (res.chapters || []).length ? res.chapterRows.map(c => [c.title, c.words, c.letter, c.score, c.issue]) : undefined, at: new Date().toISOString().slice(0, 10), n: res.total, sk: res.skippedWords, g: res.letter, s: r3(res.overall), b: r3(res.base), ep: res.errPts,
       m: metrics, c: res.cats.map(c => [c.id, r3(c.score), r3(c.points), r3(c.avail)]),
       u: res.overuse.slice(0, 15).map(x => [x.w, x.kind === 'phrase' ? 1 : 0, x.c, r3(x.rate), r3(x.expRate), r3(x.ratio), x.known ? 1 : 0, r3(x.pen)]),
       h: [res.headings.filter(h => h.kind === 'heading').length, res.headings.filter(h => h.kind === 'meta').length, res.headings.some(h => h.kind === 'matter' && h.s === 0) ? 1 : 0, res.headings.some(h => h.kind === 'matter' && h.s > 0) ? 1 : 0],
@@ -2341,7 +2357,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
       ratioTxt: `${known ? '' : 'at least '}${ratio >= 100 ? Math.round(ratio).toLocaleString() : fmt1(ratio)}× normal`, rateTxt: `${fmt1(rate)} per 1,000 words (normal ${expRate < 0.1 ? 'under 0.1' : fmt1(expRate)})` }));
     const headings = [...Array(d.h[0]).fill({ kind: 'heading' }), ...Array(d.h[1]).fill({ kind: 'meta' }), ...(d.h[2] ? [{ kind: 'matter', s: 0 }] : []), ...(d.h[3] ? [{ kind: 'matter', s: 1 }] : [])];
     return { text, total: d.n, skippedWords: d.sk, letter: d.g, overall: d.s, base: d.b, profile: sk.profile, dlgMode: d.o.dlgMode, overuseRules: sk.overuseRules, opts: d.o,
-      metrics, cats, overuse, headings, flags: metrics.flatMap(m => m.flags), chapterRows: (d.ch || []).map(([title, words, letter, score, issue]) => ({ title, words, letter, score, issue })), sevCounts: { error: d.e[0], warn: d.e[1] }, shared: true, sharedAt: d.at, title: d.t, author: d.a };
+      metrics, cats, overuse, headings, flags: metrics.flatMap(m => m.flags), errPts: d.ep, chapterRows: (d.ch || []).map(([title, words, letter, score, issue]) => ({ title, words, letter, score, issue })), sevCounts: { error: d.e[0], warn: d.e[1] }, shared: true, sharedAt: d.at, title: d.t, author: d.a };
   }
   const b64url = bytes => { let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
   const unb64url = str => Uint8Array.from(atob(str.replace(/-/g, '+').replace(/_/g, '/')), ch => ch.charCodeAt(0));
@@ -2428,7 +2444,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     }
     return { cat: cat.name, name: m.name, head: `${m.name}: ${m.display}`, sub: targetText(m) };
   }
-  const worstIssues = r => r.metrics.filter(m => m.role === 'scored' && m.avail - m.points >= 0.3).sort((a, b) => (b.avail - b.points) - (a.avail - a.points)).map(m => ({ ...describeIssue(m, r), lost: m.avail - m.points }));
+  const worstIssues = r => r.metrics.filter(m => (m.role === 'scored' || m.role === 'deduct') && m.avail - m.points >= 0.3).sort((a, b) => (b.avail - b.points) - (a.avail - a.points)).map(m => ({ ...describeIssue(m, r), lost: m.avail - m.points }));
 
   function cardWorst(r) {
     const f = cardFrame(), { g, wrap } = f, w = worstIssues(r)[0];
@@ -2715,13 +2731,18 @@ self.onmessage = e => { const { id, text, opts } = e.data;
     const pts = v => r1(v);
     const chip = sc => `<i class="chip" style="background:${color(sc)}"></i>`;
     h += `<h2>How the score adds up</h2>
-    <p class="bonusrule">Each category below is worth a share of 100 points: Common errors counts four times as much as a standard category, Overuse counts double, and Punctuation counts half. Within a category, clichés and a few other factors count double and some minor factors count half. Every category and factor shows its score out of 100 and the points it earned out of the points available. The final score, ${r1(res.base)} / 100, is the sum of the category points.</p>`;
+    ${(() => { const ec = res.cats.find(c => c.id === 'errors'), ded = ec && ec.avail === 0 ? -ec.points : null;
+      return ded == null
+        ? `<p class="bonusrule">Each category below is worth a share of 100 points: Common errors counts four times as much as a standard category, Overuse counts double, and Punctuation counts half. Every category and factor shows its score out of 100 and the points it earned out of the points available. The final score, ${r1(res.base)} / 100, is the sum of the category points.</p>`
+        : `<p class="bonusrule">The style categories below make a score out of 100: each is worth a share of it (Overuse counts double and Punctuation half; within a category, clichés and a few other factors count double and some minor ones half). Every category and factor shows its score out of 100 and the points it earned out of the points available. Common errors then come straight off: each error costs a set number of points for every error per 1,000 words, so a handful in a long book costs little and the same number in a short story costs more.</p>
+          <table class="calc"><tbody><tr><td>Style score</td><td class="n">${r1(res.base)}</td></tr><tr><td>Common errors</td><td class="n minus">−${r1(ded)}</td></tr><tr class="tot"><td>Final score</td><td class="n">${r1(res.overall)}${res.base - ded < 0 ? ' <span class="of">(can\'t go below 0)</span>' : ''}</td></tr></tbody></table>`; })()}`;
     scored.splice(3);
     if (scored.length) h += `<h2>Fix first</h2><ol class="fixes">${scored.map(m => `<li>${m.name}: ${esc(m.display)}</li>`).join('')}</ol>`;
     h += `<div class="scale" aria-label="Score colors">${[...SCALE].reverse().map(([, c, n, r]) => `<span><i style="background:${c}"></i>${n} ${r}</span>`).join('')}</div>
       <button class="btn expand" id="expandAll" type="button">Show all grading rules</button>`;
     for (const c of res.cats) {
-      h += `<div class="cat"><div class="cat-h"><h3>${c.name}</h3><span class="cs">${c.score == null ? '<span class="of">not scored</span>' : `<i style="background:${color(c.score)}"></i>${Math.round(c.score)}<span class="of">/100</span> <span class="cpts">${r1(c.points)} / ${r1(c.avail)} pts</span>`}</span></div>`;
+      const ded = c.id === 'errors' && c.avail === 0;
+      h += `<div class="cat"><div class="cat-h"><h3>${c.name}</h3><span class="cs">${c.score == null ? '<span class="of">not scored</span>' : ded ? `<i style="background:${color(c.score)}"></i><span class="cpts">${c.points < -0.05 ? `−${r1(-c.points)} pts off the final score` : 'no points off'}</span>` : `<i style="background:${color(c.score)}"></i>${Math.round(c.score)}<span class="of">/100</span> <span class="cpts">${r1(c.points)} / ${r1(c.avail)} pts</span>`}</span></div>`;
       for (const m of c.metrics) {
         const meter = m.score == null ? `<span class="na">${m.weight === 0 ? 'info' : 'n/a'}</span>` : `<div class="meter" title="Score ${Math.round(m.score)} / 100"><i style="width:${Math.max(6, m.score)}%;background:${color(m.score)}"></i></div>`;
         let body = ruleHtml(m, res) + `<p>${esc(m.note)}</p>`;
@@ -2731,7 +2752,7 @@ self.onmessage = e => { const { id, text, opts } = e.data;
           body += `<div class="flist">${shown.map(f => `<button class="fitem" type="button" data-f="${f.id}"><q>${esc(res.text.slice(f.s, f.e).slice(0, 70))}</q>${f.fix ? ` <span class="fix">→ ${esc(f.fix)}</span>` : ''}${f.dlg && f.sev === 'error' && res.dlgMode === 'reduce' ? ' <span class="dl">(dialogue)</span>' : ''}</button>`).join('')}</div>`;
           if (nAll > shown.length) body += `<div class="more">…and ${(nAll - shown.length).toLocaleString()} more, ${res.shared ? 'not included in this shared report' : 'all marked in the text'}.</div>`;
         }
-        h += `<details><summary><span>${m.name}<small class="pts">${m.role === 'scored' ? `score ${Math.round(m.score)}/100, ${r1(m.points)} / ${r1(m.avail)} pts` : m.role === 'info' ? 'for information, not scored' : `${m.naNote || 'not enough text to judge'}, not scored`}</small></span><span class="val">${esc(m.display + (m.unit.startsWith('per 1,000') && !/\/ ?1k/.test(m.display) ? ` (${num(m.value)} / 1k)` : ''))}</span>${meter}</summary><div class="body">${body}</div></details>`;
+        h += `<details><summary><span>${m.name}<small class="pts">${m.role === 'deduct' ? (m.points < -0.05 ? `−${r1(-m.points)} pts` : 'no points off') : m.role === 'scored' ? `score ${Math.round(m.score)}/100, ${r1(m.points)} / ${r1(m.avail)} pts` : m.role === 'info' ? 'for information, not scored' : `${m.naNote || 'not enough text to judge'}, not scored`}</small></span><span class="val">${esc(m.display + (m.unit.startsWith('per 1,000') && !/\/ ?1k/.test(m.display) ? ` (${num(m.value)} / 1k)` : ''))}</span>${meter}</summary><div class="body">${body}</div></details>`;
       }
       h += `</div>`;
     }
@@ -2776,9 +2797,9 @@ self.onmessage = e => { const { id, text, opts } = e.data;
     const r = last, L = [];
     L.push(`NOVEL GRADER REPORT`, `Title: ${ficTitle() || 'Untitled'}${ficAuthor() ? `   Author: ${ficAuthor()}` : ''}`, `Grade: ${r.letter} (${Math.round(r.overall)}/100)   Profile: ${r.profile}   Words: ${r.total}`, `Overused words & phrases: ${r.overuse.map(o => `${o.label} ${o.c}x (${o.rate.toFixed(1)}/1k, ${o.ratioTxt}) ${o.pen.toFixed(1)} pts`).join(', ') || 'none'}`, '');
     for (const c of r.cats) {
-      L.push(`== ${c.name}: ${c.score == null ? 'not scored' : `score ${Math.round(c.score)}, ${c.points.toFixed(1)} of ${c.avail.toFixed(1)} pts`}`);
+      L.push(`== ${c.name}: ${c.score == null ? 'not scored' : c.id === 'errors' && c.avail === 0 ? `${(-c.points).toFixed(1)} pts off the final score` : `score ${Math.round(c.score)}, ${c.points.toFixed(1)} of ${c.avail.toFixed(1)} pts`}`);
       for (const m of c.metrics) {
-        L.push(`  ${m.name}: ${m.display}${m.role === 'scored' ? `  [score ${Math.round(m.score)}, ${m.points.toFixed(1)} of ${m.avail.toFixed(1)} pts]` : `  [${m.role === 'bonus' ? 'counted in bonus' : m.role === 'deduction' ? 'counted as deduction' : 'not scored'}]`}`);
+        L.push(`  ${m.name}: ${m.display}${m.role === 'deduct' ? `  [${(-m.points).toFixed(1)} pts off]` : m.role === 'scored' ? `  [score ${Math.round(m.score)}, ${m.points.toFixed(1)} of ${m.avail.toFixed(1)} pts]` : `  [${m.role === 'bonus' ? 'counted in bonus' : m.role === 'deduction' ? 'counted as deduction' : 'not scored'}]`}`);
         for (const f of m.flags.slice(0, 100)) {
           const line = r.text.slice(0, f.s).split('\n').length;
           L.push(`     line ${line}: "${r.text.slice(f.s, f.e).slice(0, 70)}"${f.fix ? ' -> ' + f.fix : ''}`);
