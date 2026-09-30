@@ -235,7 +235,7 @@ const Grader = (() => {
     adjStack: lower(0.5, 3), appositives: lower(3, 10), paragraphs: lower(0.25, 3), readability: higher(7, 3), daleChall: higher(6, 4),
     dlgRatio: band(15, 60, 0, 85), fancyTags: lower(20, 60), tagAdverbs: lower(1, 5), dlgPunct: lower(0, 4),
     excl: lower(1, 5), ellipses: lower(2, 8), dashes: lower(6, 15),
-    tier1: lower(0, 4), tier2: lower(0, 4), povSlip: lower(0, 3), tense: lower(0, 2), longSent: lower(0.5, 3), fragments: lower(3, 12), simStack: lower(0.2, 2), commaSplice: lower(0.5, 3), britishisms: lower(0.3, 3)
+    tier1: lower(0, 4), tier2: lower(0, 4), grammar: lower(0, 3), typos: lower(0, 3), povSlip: lower(0, 3), tense: lower(0, 2), longSent: lower(0.5, 3), fragments: lower(3, 12), simStack: lower(0.2, 2), commaSplice: lower(0.5, 3), britishisms: lower(0.3, 3)
   };
   const UNITS = {
     echoes: 'per 1,000 words', filler: 'per 1,000 narration words', adverbs: '% of narration words', hedging: 'per 1,000 narration words',
@@ -244,7 +244,7 @@ const Grader = (() => {
     passive: '% of sentences', progressive: 'per 1,000 narration words', openers: 'runs per 1,000 words', ingOpeners: '% of sentences',
     adjStack: 'per 1,000 words', appositives: 'per 1,000 narration words', paragraphs: 'per 1,000 words', readability: 'grade level', daleChall: 'Dale–Chall score', dlgRatio: '% dialogue', fancyTags: '% of tags', tagAdverbs: 'per 1,000 words',
     dlgPunct: 'per 1,000 words', excl: 'per 1,000 narration words', ellipses: 'per 1,000 words', dashes: 'per 1,000 words',
-    tier1: 'per 1,000 words', tier2: 'per 1,000 words', povSlip: 'per 1,000 words', tense: 'per 1,000 narration words', longSent: 'per 1,000 narration words', fragments: 'per 1,000 narration words', simStack: 'per 1,000 narration words', commaSplice: 'per 1,000 narration words', britishisms: 'per 1,000 words'
+    tier1: 'per 1,000 words', tier2: 'per 1,000 words', grammar: 'per 1,000 words', typos: 'per 1,000 words', povSlip: 'per 1,000 words', tense: 'per 1,000 narration words', longSent: 'per 1,000 narration words', fragments: 'per 1,000 narration words', simStack: 'per 1,000 narration words', commaSplice: 'per 1,000 narration words', britishisms: 'per 1,000 words'
   };
   const PROFILES = {
     general: { label: 'General fiction', o: {} },
@@ -313,7 +313,7 @@ const Grader = (() => {
   const SELF = '(?:himself|herself|themselves|themself|myself|yourself|ourselves)';
   // ---- Misused phrases: fixed expressions that are wrong as written ----
   const TIER1 = [
-    [/\bwish(?:ed|es|ing)? (?:that )?(?:I|you|he|she|they|we|it|[A-Z][a-z]+)(?: would have| would've|'d have| woulda)\b/g, m => m[0].replace(/(?: would have| would've|'d have| woulda)$/, ' had')],
+    [/\bwish(?:ed|es|ing)? (?:that )?(?:I|you|he|she|they|we|it|[A-Z][a-z]+)(?: would have| would've|'d have| woulda)\b(?= (?:been|gone|known|seen|done|had|taken|given|made|come|said|told|thought|let|put|kept|left|found|heard|felt|meant|run|stayed|\w+ed)\b)/g, m => m[0].replace(/(?: would have| would've|'d have| woulda)$/, ' had')],
     [/\b[Ii]f(?: only)? (?:I|you|he|she|they|we|it) (?:would have|would've|'d have) (?:known|seen|been|gone|done|had|listened|told|asked|thought|stayed|left|come|tried|realized|realised|noticed|heard|waited|called|said|looked|stopped|let)\b/g, m => m[0].replace(/(?:would have|would've|'d have)/, 'had')],
     [/\bper say\b/gi, 'per se'],
     [/\bfor all intensive purposes\b/gi, 'for all intents and purposes'],
@@ -400,9 +400,27 @@ const Grader = (() => {
   ];
   // ---- Confused words: only in patterns where the wrong word is clear ----
   const TIER2 = [
+    // your / you're
+    [/\byour (?:the|gonna|about to)\b(?!-)/gi, m => m[0].replace(/^your/i, "you're")],
+    // lose / loose
+    [/\b(?:I|you|we|they|he|she|to|will|would|could|should|might|must|can't|won't|don't|didn't|never|gonna|not) loose (?=(?:everything|control|track|sight|hope|faith|interest|my|your|our|their|his|weight|consciousness|patience|touch|count)\b)/gi, m => m[0].replace(/loose/i, 'lose')],
+    [/\bloosing (?=(?:everything|control|track|sight|hope|faith|interest|my|your|our|their|his|weight|blood|consciousness|patience|touch|count)\b)/gi, 'losing '],
+    [/\b(?:came|come|comes|coming|broke|break|breaks|breaking|let|cut|hang|set|turned|shook|shake|shaking|work|worked|pulled|tore|wriggled|slipped|slip) lose\b/gi, m => m[0].replace(/lose$/i, 'loose')],
+    // affect / effect
+    [/\b(?:it|this|that|which|won't|doesn't|didn't|don't|can't|couldn't|wouldn't|shouldn't|might|may|will|would|could|should|to|not|really|deeply|greatly|seriously|negatively|positively|badly) effect(?:s|ed|ing)? (?=(?:me|him|her|them|us|you|it|my|his|their|our|your|everyone|anyone|how|whether)\b)/gi, m => m[0].replace(/effect/i, 'affect')],
+    [/\b(?:an?|any|no|little|much|big|huge|strong|lasting|profound|positive|negative|side|special|sound|desired|opposite|domino|ripple|butterfly|calming|soothing) affects?\b(?! (?:me|him|her|them|us|you|it|my|his|their|our|your|the|a|how|whether)\b)|\b(?:in|take|took|takes|taking|to that|to this|cause and) affect\b/gi, m => m[0].replace(/affect/i, 'effect')],
+    // then / than
+    [/(?<=(?:^|[.!?"]\s+))Than\b|\b(?:and|but|since|until|till|by|back|just|only|right) than\b(?=\s*[.,!?;]|\s+(?:he|she|they|I|we|you|it|the|a|there)\b)/g, m => m[0].replace(/[Tt]han$/, t => t[0] === 'T' ? 'Then' : 'then')],
+    [/\b(?:more|less|fewer|rather|other) (?:\w+ ){1,2}then (?=(?:me|him|us|them|anyone|anything|ever|before|usual|expected)\b)/gi, m => m[0].replace(/then $/i, 'than ')],
+    // were / where / we're
+    [/\b[Ww]ere (?:are|is|was|did|do|does|have|had) (?:you|we|they|he|she|it|I)\b/g, m => m[0].replace(/^([Ww])ere/, (a, w) => (w === 'W' ? 'W' : 'w') + 'here')],
+    [/(?<=(?:^|[.!?"]\s+))Were (?:going|gonna|not going|so|all|both|here|done|fine|okay|late|leaving|coming|screwed|doomed|out of)\b(?![^.?!\n]*\?)/g, m => m[0].replace(/^Were/, "We're")],
+    [/\bwe where (?:not|so|all|both|just|still|never|always|here|there|in|at|on|supposed|going|trying)\b/gi, m => m[0].replace(/where/i, 'were')],
+    // to / too
+    [/\b(?:it's|that's|this is|you're|I'm|he's|she's|they're|we're|it was|that was) to (?:tired|late|early|good|bad|much|big|small|hard|soon|young|old|far|busy|dangerous|expensive|loud|hot|cold|risky|obvious|easy|bright)\b/gi, m => m[0].replace(/ to /i, ' too ')],
     // ---- their / there / they're ----
-    [/\btheir(?=\s*[.,!?;:"]|\s+(?:and|but|or|because|when|while|until|if)\b(?! (?:our|my|your|his|her|its|their)\b))/gi, 'there'],
-    [/\btheir (?:has|had|have|will|won't|would|could|should|must|might|may|seems|seemed|seem|goes|go|comes|came|used to|isn't|aren't|wasn't|weren't|'s|'re|'ll)\b/gi, m => m[0].replace(/^their/i, 'there')],
+    [/\btheir(?=\s*[.,!?;:"]|\s+(?:and|but|or|because|when|until|if)\b(?! (?:our|my|your|his|her|its|their)\b))/gi, 'there'],
+    [/\btheir (?:(?:has|had|have) (?:been|always|never|got)|(?:will|won't|would|could|should|must|might|may) (?:be|have|not|never|always|still)|seems|seemed|seem|goes|comes|used to|isn't|aren't|wasn't|weren't|'s|'re|'ll)\b/gi, m => m[0].replace(/^their/i, 'there')],
     [/(?<=\b(?:to|into|onto|of|at|from|for|by|with|without|about|near|behind|under|over|on|in|inside|outside|between|among|toward|towards|through|and|visited|left|called|saw|see|met|love|loved|hugged|missed|lost|took|take|packed|cleaned|raised|told|thanked|grabbed|shook|raised|lowered|closed|opened|crossed|folded|rubbed|wiped|held|hold|dropped|threw|shoved|pulled|pushed|put|kept|ate|drove|found|lost|sold|bought|made|did|washed|combed|brushed|cut|followed|joined|hated) )there (car|cars|house|houses|parents|mother|father|mom|mum|dad|home|homes|friends|friend|room|rooms|eyes|hands|faces|heads|children|kids|feet|hair|lives|bodies|arms|legs|mouths|lips|voices|family|families|clothes|bags|things|phones|names|son|sons|daughter|daughters|brother|sister|wife|husband|shoulders|backs|seats|horses|weapons|swords|packs|coats|boots|shoes|jobs|money|stuff|way|best|first|last|leader|team|father's|mother's)\b/gi, m => 'their ' + m[1]],
     [/(?<=(?:^|[.!?"]\s+))There (?:hands|eyes|faces|heads|lips|voices|bodies|parents|friends|mother|father|house|car|home|clothes|feet|hair|kids|children) (?=(?:was|were|is|are|had|looked|seemed|shook|met|widened|locked)\b)/g, m => 'Their ' + m.slice(6)],
     [/(?<!\b(?:is|was|are|were|isn't|wasn't|aren't|weren't|will|won't|would|could|be|been|ain't|if|whether|that) )\bthere (?:going to|gonna|trying to|not going|getting (?:married|ready|closer)|doing (?:it|this|that|something|fine|great|well|okay))\b/gi, m => m[0].replace(/^there/i, "they're")],
@@ -434,7 +452,7 @@ const Grader = (() => {
     [/\b(to|will|would|could|should|can|can't|won't|let's|wanna|gonna|didn't|don't|did|never|always|usually|must|might) (workout|makeout|hangout|breakup|checkout|logout|login|setup|backup|pickup|showup|cleanup|blackout|passout)\b/gi, m => `${m[1]} ${m[2].replace(/^(work|make|hang|break|check|log|set|back|pick|show|clean|black|pass)/i, '$1 ')}`],
     [/\b(?:on|the|a|his|her|their|my|your|missed (?:his|her|the|their|my)|took (?:his|her|the|their|my)) que\b|\bque(?:d|ing)? (?:up )?the (?:music|song|track|video|lights|scene|next)\b/gi, m => m[0].replace(/\bque/i, 'cue')],
     [/\b(omegan|alphan|betan)\b/gi, m => m[1].slice(0, -1)],
-    [/\b(?:the|an|their|his|her|our|my) entire(?= (?:was|arrived|came|is)\b|[.,!?])/gi, m => m[0].replace(/entire/i, 'entrée')],
+    [/\b(?:the|an|their|his|her|our|my) entire(?= (?:was|arrived|came|is)\b|[.!?])/gi, m => m[0].replace(/entire/i, 'entrée')],
     [/\bless (?:people|persons|men|women|children|kids|friends|times|days|hours|minutes|seconds|weeks|months|years|words|things|options|choices|mistakes|problems|questions|students|cars|books|calories|items|members|guests|visitors|customers|employees|chances|reasons|steps|pages|dollars|coins|cookies|trees|houses|rooms|errors|ideas|jobs|players|games|points|votes|miles|bullets|lives|soldiers|men|patients|pieces|drinks|meals|shots|rules|toys|bottles|cases|attempts|servants|guards|teachers|classes|lessons|seats|chairs|tables|windows|doors|lines|scenes|chapters)\b/gi, m => m[0].replace(/^less/i, 'fewer')],
     [/\bfewer (?:time|money|water|food|sleep|attention|interest|patience|space|room|energy|effort|information|advice|trouble|noise|pain|love|hope|fear|help|work|traffic|weight|light|air|sugar|salt|milk|furniture|luggage|equipment|evidence|damage|violence|blood|stress|confidence|experience|knowledge|homework|research|coffee|alcohol|food|rain|snow|progress|luck|courage)\b/gi, m => m[0].replace(/^fewer/i, 'less')],
     [/\bamong (?:the )?(?:two|both)\b|\b[Aa]mong (?:him|her|me|you|us|them|[A-Z][a-z]+) and (?:him|her|me|you|us|them|[A-Z][a-z]+)\b(?!,| (?:and|or)\b)/g, m => m[0].replace(/^[Aa]mong/, 'between')],
@@ -474,7 +492,7 @@ const Grader = (() => {
     [/\b(he|she|they|we|I) past (him|her|them|me|us|out)\b/g, m => `${m[1]} passed ${m[2]}`],
     [/\b(took|take|takes|taking|stole|steal|sneak) a peak\b/gi, m => m[1] + ' a peek'],
     [/\bpeaked (out (?:of|from|at)|through (?:the|a|his|her|their|my)|around (?:the|a)|into (?:the|a|his|her|their|my)|inside|at (?:him|her|them|me|us|you)\b|over (?:the|his|her|their|my|your) (?:shoulder|edge|wall|fence|top|railing|book|paper|counter))/gi, m => m[0].replace(/^peaked/i, 'peeked')],
-    [/\b(for|ate|eat|eating|order|ordered|serve|served|skip|skipped|and) desert\b/gi, m => m[1] + ' dessert'],
+    [/\b(for|ate|eat|eating|order|ordered|serve|served|skip|skipped) desert\b/gi, m => m[1] + ' dessert'],
     [/\bdessert (island|sand|heat|sun|storm|wind|rose|floor|highway)\b/gi, m => 'desert ' + m[1]],
     [new RegExp(`\\bcomplement(?:ed|s|ing)? ${O} on\\b`, 'gi'), 'compliment(ed) … on'],
     [new RegExp(`\\bpaid ${O} a complement\\b`, 'gi'), 'paid … a compliment'],
@@ -494,7 +512,48 @@ const Grader = (() => {
     [/\b(a|deep|another|his|her|their|my|your|our|shaky|ragged|sharp) breathe\b/gi, m => m[1] + ' breath'],
     [/\b(to|could|couldn't|can't|cannot|can|must|should|would) breath\b/gi, m => m[1] + ' breathe'],
     [/\b(a|the|this|that|any) moral boost\b/gi, m => `${m[1]} morale boost`],
-    [/\b(of|for|with) it's\b(?! (?:been|going|not|a|an|the|so|just|all|over|time|true|fine|okay|like|what|about|because|getting|already)\b)/gi, m => m[1] + ' its']
+    [/\b(of|for|with|in|on|by|from|to|into|at) it's (own|size|sake|part|kind|weight|age|purpose|value|beauty|place|shape|color|colour|name|owner|master|use|history|origin|end|edge|surface|contents|nature|power|strength|people|members|base|core|head|tail|side|top|bottom)\b/gi, m => `${m[1]} its ${m[2]}`]
+  ];
+  // ---- Grammar: clear-cut patterns only ----
+  const PAST_PART = {went:"gone",came:"come",saw:"seen",ate:"eaten",wrote:"written",drank:"drunk",began:"begun",swam:"swum",rang:"rung",sang:"sung",took:"taken",gave:"given",drove:"driven",rode:"ridden",spoke:"spoken",froze:"frozen",chose:"chosen",stole:"stolen",knew:"known",threw:"thrown",grew:"grown",flew:"flown",fell:"fallen",did:"done",ran:"run",shook:"shaken",woke:"woken",tore:"torn",wore:"worn",hid:"hidden",bit:"bitten",broke:"broken",forgot:"forgotten",sank:"sunk",shrank:"shrunk",sprang:"sprung",blew:"blown",drew:"drawn",arose:"arisen",forgave:"forgiven",mistook:"mistaken",withdrew:"withdrawn"};
+  const GRAMMAR = [
+    // a / an (lower-case words only, so initialisms like "an FBI agent" are left alone; "a unicorn", "a one-off", "an hour", "an honest" are correct)
+    [/\b([Aa]) ((?![Uu]|[Oo]ne\b|[Oo]nce\b|[Ee]u|[Ee]we|[Oo]uija)[AEIOaeio][a-z]+)\b(?!-)/g, m => `${m[1]}n ${m[2]}`],
+    [/\b([Aa]) (hour|hours|honest|honestly|honour|honor|heir|honorable|honourable)\b/g, m => `${m[1]}n ${m[2]}`],
+    [/\b([Aa]n) ((?!(?:hour|honest|honor|honour|heir|herb|homage|historic|historical|hotel|one|once|x)[a-z]*\b)[b-df-hj-np-tv-z][a-z]+)\b/g, m => `${m[1].slice(0, 1)} ${m[2]}`],
+    // past tense where the past participle belongs: "had went" -> "had gone"
+    [/(?:\b(?:had|has|have|having)|'d|'ve) (went|came|saw|ate|wrote|drank|began|swam|rang|sang|took|gave|drove|rode|spoke|froze|chose|stole|knew|threw|grew|flew|fell|did|ran|shook|woke|tore|wore|hid|bit|broke|forgot|sank|shrank|sprang|blew|drew|arose|forgave|mistook|withdrew)\b(?!-)/gi, m => m[0].replace(new RegExp(m[1] + '$', 'i'), PAST_PART[m[1].toLowerCase()])],
+    [/(?<!\b(?:[Hh]ave|[Hh]as|[Hh]ad|[Hh]aven't|[Hh]asn't|[Hh]adn't|ever|never) )\b(?:I|[Yy]ou|[Hh]e|[Ss]he|[Ww]e|[Tt]hey) seen\b/g, m => m[0].replace(/seen$/, 'saw (or have seen)')],
+    [/(?<!\b(?:[Hh]ave|[Hh]as|[Hh]ad|[Hh]aven't|[Hh]asn't|[Hh]adn't|[Aa]re|[Ww]ere|[Ii]s) )\b(?:I|[Yy]ou|[Hh]e|[Ss]he|[Ww]e|[Tt]hey) done (?=(?:it|that|this|nothing|something|everything|my|his|her|their|our|your)\b)/g, m => m[0].replace(/done $/, 'did ')],
+    [/\bbrung\b/gi, 'brought'],
+    // subject-verb agreement
+    [/\b(?:he|she|it) don't\b/gi, m => m[0].replace(/don't/i, "doesn't")],
+    [/\b(?:I|you|we|they) doesn't\b/gi, m => m[0].replace(/doesn't/i, "don't")],
+    [/\b(?:we|they) (?:was|wasn't)\b/gi, m => m[0].replace(/was/i, 'were')],
+    [/\b(?:he|she|it) are\b/gi, m => m[0].replace(/are$/i, 'is')],
+    [/\bthey is\b/gi, 'they are'],
+    [/(?<!\b(?:if|as if|as though|wish|wished) )\b(?:he|she|it) weren't\b/gi, m => m[0].replace(/weren't/i, "wasn't")],
+    [/\bthere(?: is|'s| was) (?!many a\b)(?:two|three|four|five|six|seven|eight|nine|ten|several|many|dozens of|hundreds of|lots of|a lot of \w+s\b)/gi, m => m[0].replace(/there(?: is|'s| was)/i, t => /was/i.test(t) ? 'there were' : 'there are')],
+    // double negatives
+    [/\b(?:don't|doesn't|didn't|can't|couldn't|won't|wouldn't|shouldn't|isn't|wasn't|ain't|haven't|hasn't|never) (?:\w+ )?(?:nothing|nobody|no one|nowhere|none)\b/gi, 'double negative (use "anything", "anybody", "anywhere", "any")'],
+    // pronoun case
+    [/\b(?:between|for|to|with|from|at|of|about|like|behind|beside|near|against|among|toward|towards|without|upon) (?:you|him|her|them|us|[A-Z][a-z]+) and I(?=\s*[.,!?;:"]| (?:to|for|in|at|on|with|about|from|alone|both|together|too|again|and|or|but)\b)/g, m => m[0].replace(/ I$/, ' me')],
+    [/(?<=(?:^|[.!?"]\s+))(?:Me and (?:him|her|them|[A-Z][a-z]+)|(?:Him|Her|Them) and (?:me|I|him|her|them|[A-Z][a-z]+)) (?=(?:went|were|are|was|walked|did|had|have|decided|left|got|used|came|ran|talked|looked|sat|stood|will|would|can|could|should)\b)/g, 'use subject pronouns ("He and I went")'],
+    // lay / lie
+    [/\b(?:I|[Hh]e|[Ss]he|[Tt]hey|[Ww]e|[Yy]ou|and|then) laid (?:down|back)(?! (?:the|a|his|her|my|their|our|your|its|it|them|him|some|arms|weapons|rules|plans)\b)/g, m => m[0].replace(/laid/, 'lay')],
+    [/\b(?:is|was|are|were|been|am|I'm|he's|she's|they're|we're|you're) laying (?:down|on (?:the|a|his|her|my|their) (?:bed|couch|floor|ground|sofa|grass|table)|in (?:bed|the (?:bed|grass|sun|dark|snow))|there|awake|still|next to|beside)/gi, m => m[0].replace(/laying/i, 'lying')],
+    [/\b(?:to|will|gonna|should|must|can|could|let's|just|'ll|going to) lay (?:down|back|still|in bed)(?! (?:the|a|his|her|my|their|our|your|arms|weapons|rules|plans)\b)/gi, m => m[0].replace(/lay/i, 'lie')]
+  ];
+  // ---- Typos and misspellings ----
+  const MISSPELL = {definately:"definitely",definatly:"definitely",seperate:"separate",seperately:"separately",seperated:"separated",recieve:"receive",recieved:"received",beleive:"believe",beleived:"believed",belive:"believe",wierd:"weird",untill:"until",occured:"occurred",occuring:"occurring",occurence:"occurrence",tommorow:"tomorrow",tomorow:"tomorrow",truely:"truly",truley:"truly",accidently:"accidentally",arguement:"argument",begining:"beginning",embarass:"embarrass",embarassed:"embarrassed",embarassing:"embarrassing",existance:"existence",goverment:"government",independant:"independent",neccessary:"necessary",necesary:"necessary",noticable:"noticeable",occassion:"occasion",occassionally:"occasionally",ocassion:"occasion",persue:"pursue",publically:"publicly",reccomend:"recommend",rythm:"rhythm",suprise:"surprise",suprised:"surprised",supprise:"surprise",threshhold:"threshold",tounge:"tongue",tounges:"tongues",wich:"which",withold:"withhold",thier:"their",freind:"friend",freinds:"friends",becuase:"because",becasue:"because",beacuse:"because",heigth:"height",acheive:"achieve",acheived:"achieved",apparantly:"apparently",basicly:"basically",collegue:"colleague",comming:"coming",completly:"completely",concious:"conscious",curiousity:"curiosity",dissapear:"disappear",dissapeared:"disappeared",dissapoint:"disappoint",dissapointed:"disappointed",enviroment:"environment",finaly:"finally",foriegn:"foreign",fourty:"forty",gaurd:"guard",grammer:"grammar",happend:"happened",harrass:"harass",immediatly:"immediately",knowlege:"knowledge",liason:"liaison",libary:"library",maintainance:"maintenance",millenium:"millennium",minature:"miniature",mischevious:"mischievous",neice:"niece",noone:"no one",oppurtunity:"opportunity",paralell:"parallel",peice:"piece",posession:"possession",prefered:"preferred",prescence:"presence",probaly:"probably",realy:"really",reciept:"receipt",refered:"referred",relevent:"relevant",religous:"religious",remeber:"remember",rember:"remember",resistence:"resistance",responsability:"responsibility",sieze:"seize",similiar:"similar",sincerly:"sincerely",speach:"speech",stoped:"stopped",strenght:"strength",succesful:"successful",sucess:"success",tatoo:"tattoo",tendancy:"tendency",thourough:"thorough",tomatos:"tomatoes",potatos:"potatoes",unforseen:"unforeseen",unfortunatly:"unfortunately",usualy:"usually",vaccum:"vacuum",vegtable:"vegetable",visable:"visible",whereever:"wherever",whith:"with",writting:"writing",yeild:"yield",wieght:"weight",recieving:"receiving",agressive:"aggressive",agression:"aggression",allready:"already",alltogether:"altogether",amatuer:"amateur",aquire:"acquire",begginning:"beginning",buisness:"business",catagory:"category",cemetary:"cemetery",commited:"committed",comittee:"committee",concensus:"consensus",dilema:"dilemma",ecstacy:"ecstasy",exhilirating:"exhilarating",facinating:"fascinating",flourescent:"fluorescent",gaurantee:"guarantee",glamourous:"glamorous",humerous:"humorous",ignorence:"ignorance",innoculate:"inoculate",jewelery:"jewelry",lenght:"length",manuever:"maneuver",medeval:"medieval",momento:"memento",occurrance:"occurrence",perseverence:"perseverance",playwrite:"playwright",privelege:"privilege",pronounciation:"pronunciation",questionaire:"questionnaire",recomend:"recommend",rediculous:"ridiculous",sargent:"sergeant",shoudl:"should",tyrany:"tyranny",wherabouts:"whereabouts"};
+  const TYPOS = [
+    [/\b(responsability|pronounciation|occassionally|dissapointed|maintainance|unfortunatly|exhilirating|perseverence|questionaire|embarassing|independant|dissapeared|mischevious|oppurtunity|alltogether|flourescent|definately|seperately|accidently|embarassed|neccessary|publically|threshhold|apparantly|curiousity|dissapoint|enviroment|immediatly|resistence|begginning|facinating|glamourous|innoculate|occurrance|rediculous|wherabouts|definatly|seperated|occurence|arguement|existance|goverment|noticable|occassion|reccomend|completly|dissapear|millenium|posession|prescence|succesful|thourough|unforseen|whereever|recieving|agressive|agression|concensus|gaurantee|ignorence|playwrite|privelege|seperate|recieved|beleived|occuring|tommorow|begining|embarass|necesary|ocassion|suprised|supprise|acheived|collegue|concious|knowlege|minature|paralell|prefered|relevent|religous|similiar|sincerly|strenght|tendancy|vegtable|writting|allready|buisness|catagory|cemetary|commited|comittee|humerous|jewelery|manuever|recomend|recieve|beleive|occured|tomorow|suprise|tounges|withold|freinds|becuase|becasue|beacuse|acheive|basicly|comming|foriegn|grammer|happend|harrass|probaly|reciept|refered|remeber|tomatos|potatos|visable|amatuer|ecstacy|medeval|momento|sargent|belive|untill|truely|truley|persue|tounge|freind|heigth|finaly|fourty|liason|libary|rember|speach|stoped|sucess|usualy|vaccum|wieght|aquire|dilema|lenght|shoudl|tyrany|wierd|rythm|thier|gaurd|neice|noone|peice|realy|sieze|tatoo|whith|yeild|wich)\b/gi, m => MISSPELL[m[1].toLowerCase()]],
+    [/\blightening (?:struck|strike|strikes|flashed|flash|bolt|bolts|storm|crackled)\b/gi, m => m[0].replace(/lightening/i, 'lightning')],
+    [/\b(?!(?:that|had|is|do|no|so|very|bye|ha|blah|tut|chop|now|there|well|come|hush|knock|yeah|yes|go|run|boo|la|na|tsk|hey|oh|ah|ay|aye|please|never|again|more|far|long|many|much|round|on|off|out|up|down|over|away|little|really|she|he|you|it|we|they|who|what|when|where|why|how|in|dat|dis|dem|night|pretty|tick|tock|ding|dong|mew|woof|baa|moo|beep|honk|bang|boom|click|drip|tap|pit|pat|murmur)\b)([a-z]+) \1\b|\b(The the|A a|An an|And and|But but|To to|Of of|For for|With with|I I)\b/g, m => `doubled word: "${m[1] || m[2].split(' ')[0]}"`],
+    [/\b(dont|didnt|doesnt|isnt|wasnt|werent|couldnt|wouldnt|shouldnt|hasnt|havent|hadnt|arent|youre|theyre|thats|whats|wouldve|couldve|shouldve|ive|im|hes|shes|theyve|weve|youve|youll|theyll|aint)\b/gi, m => ({ dont: "don't", didnt: "didn't", doesnt: "doesn't", isnt: "isn't", wasnt: "wasn't", werent: "weren't", couldnt: "couldn't", wouldnt: "wouldn't", shouldnt: "shouldn't", hasnt: "hasn't", havent: "haven't", hadnt: "hadn't", arent: "aren't", youre: "you're", theyre: "they're", thats: "that's", whats: "what's", wouldve: "would've", couldve: "could've", shouldve: "should've", ive: "I've", im: "I'm", hes: "he's", shes: "she's", theyve: "they've", weve: "we've", youve: "you've", youll: "you'll", theyll: "they'll", aint: "ain't" })[m[1].toLowerCase()]],
+    [/(?<![\w.'-])i(?='(?:m|ve|ll|d)\b| (?!\.))/g, 'I'],
+    [/[a-z],[a-zA-Z]/g, 'add a space after the comma'], [/[a-z]{2}\.[A-Z][a-z]/g, 'add a space after the period'],
+    [/\w ,/g, 'remove the space before the comma'], [/,,|(?<!\.)\.\.(?!\.)/g, 'doubled punctuation']
   ];
   // ---- Clichés: general fiction ----
   const CLICHE_GENERAL = [
@@ -1198,10 +1257,12 @@ const Grader = (() => {
       }
       return out;
     }
-    const t1 = errs(TIER1, 'tier1'), t2 = errs(TIER2, 'tier2');
+    const t1 = errs(TIER1, 'tier1'), t2 = errs(TIER2, 'tier2'), gr = errs(GRAMMAR, 'grammar'), ty = errs(TYPOS, 'typos');
     const wsum = a => a.reduce((s, f) => s + f.w, 0);
     M('errors', 'tier1', 'Misused phrases', k(wsum(t1)), `${t1.length} found`, 'Fixed phrases that are always wrong in narration: "per say," "could of," "for all intensive purposes," "I wish I would have"…', { flags: t1, weight: 1.5 });
     M('errors', 'tier2', 'Confused words', k(wsum(t2)), `${t2.length} found`, 'Than/then, your/you\'re, lose/loose, its/it\'s, whose/who\'s, affect/effect, breath/breathe, fewer/less, among/between — clear-cut patterns only.', { flags: t2 });
+    M('errors', 'grammar', 'Grammar', k(wsum(gr)), `${gr.length} found`, 'A/an, verb forms ("had went"), subject-verb agreement ("he don\'t", "they was"), double negatives, pronoun case ("between you and I"), lay/lie. Clear-cut patterns only.', { flags: gr });
+    M('errors', 'typos', 'Typos & misspellings', k(wsum(ty)), `${ty.length} found`, 'Common misspellings ("definately", "recieve"), doubled words ("the the"), missing apostrophes ("dont"), a lower-case "i", and spacing or punctuation slips.', { flags: ty });
 
     // Third-person narration that suddenly addresses "you" ("like when you slowly walk in front of doctors"). Only checked when the
     // narration is clearly third person, so first- and second-person stories aren't affected. One flag per sentence.
