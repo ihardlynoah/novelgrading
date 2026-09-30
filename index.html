@@ -226,7 +226,7 @@ const Grader = (() => {
     filter: lower(6, 18), emotions: lower(1, 5), body: lower(5, 15), sensory: higher(30, 5),
     sentAvg: band(10, 22, 5, 32), sentSpread: higher(0.55, 0.2), passive: lower(10, 25),
     progressive: lower(6, 18), openers: lower(0.5, 4), ingOpeners: lower(5, 15),
-    adjStack: lower(0.5, 3), paragraphs: lower(0, 4), readability: higher(7, 3), daleChall: higher(6, 4),
+    adjStack: lower(0.5, 3), appositives: lower(3, 10), paragraphs: lower(0, 4), readability: higher(7, 3), daleChall: higher(6, 4),
     dlgRatio: band(15, 60, 0, 85), fancyTags: lower(20, 60), tagAdverbs: lower(1, 5), dlgPunct: lower(0, 4),
     excl: lower(1, 5), ellipses: lower(2, 8), dashes: lower(6, 15),
     tier1: lower(0, 4), tier2: lower(0, 4), povSlip: lower(0, 3)
@@ -236,7 +236,7 @@ const Grader = (() => {
     cliches: 'per 1,000 words', redund: 'per 1,000 words', epithets: 'per 1,000 narration words', coyBody: 'per 1,000 narration words', filter: 'per 1,000 narration words', emotions: 'per 1,000 narration words',
     body: 'per 1,000 words', sensory: '% non-visual sense words', sentAvg: 'words per sentence', sentSpread: 'spread', crutch: 'overuse points', vocab: 'MTLD', openerTop: '% of sentences',
     passive: '% of sentences', progressive: 'per 1,000 narration words', openers: 'runs per 1,000 words', ingOpeners: '% of sentences',
-    adjStack: 'per 1,000 words', paragraphs: 'issues', readability: 'grade level', daleChall: 'Dale–Chall score', dlgRatio: '% dialogue', fancyTags: '% of tags', tagAdverbs: 'per 1,000 words',
+    adjStack: 'per 1,000 words', appositives: 'per 1,000 narration words', paragraphs: 'issues', readability: 'grade level', daleChall: 'Dale–Chall score', dlgRatio: '% dialogue', fancyTags: '% of tags', tagAdverbs: 'per 1,000 words',
     dlgPunct: 'per 1,000 words', excl: 'per 1,000 narration words', ellipses: 'per 1,000 words', dashes: 'per 1,000 words',
     tier1: 'per 1,000 words', tier2: 'per 1,000 words', povSlip: 'per 1,000 words'
   };
@@ -978,6 +978,18 @@ const Grader = (() => {
     const adj = scan(/\b(a|an|the|his|her|their|its|my|our|your)\s+((?:[a-z]+,\s+){2,}(?:and\s+)?[a-z]+)\s+([a-z]+)\b/gi)
       .map(x => F(x.s, x.e, 'warn', `Adjective stack: "${x.m[0]}"`, 'adjStack', 'pick the one or two strongest'));
     M('structure', 'adjStack', 'Adjective stacking', k(adj.length), `${adj.length} found`, 'Three or more comma-separated describers before one noun. Approximate.', { flags: adj });
+
+    // Appositives: a noun phrase set off by commas that renames the noun before it ("Sarah, a tall woman with red hair, walked in").
+    // Approximate: the renaming phrase must start with a determiner and contain no subject pronoun or helping verb (which would make it a clause),
+    // and a following "and"/"or"/"the…" means it's a list, not an appositive.
+    const APP_SKIP = 'Then|Now|Still|Yes|No|Well|Oh|So|But|And|Or|Yet|However|Meanwhile|Later|Finally|Suddenly|Instead|Again|Outside|Inside|Here|There|Maybe|Perhaps|Sometimes|Once|Afterward|Afterwards|Eventually|Anyway|Besides|Otherwise|Still|Somehow|Okay|OK|Hey|Please|Thanks|Sorry|Honestly|Really|Instead|Of|In|On|At|For|With|After|Before|When|While|If|As|Because|Though|Although|Since|Until|The|A|An|He|She|They|I|We|It|You|His|Her|Their|My|Our|Your|This|That|These|Those';
+    const appRe = new RegExp(`(\\b(?!(?:${APP_SKIP})\\b)[A-Z][a-z]+(?: [A-Z][a-z]+)?|\\b(?:[Tt]he|[Hh]is|[Hh]er|[Tt]heir|[Mm]y|[Oo]ur|[Yy]our|[Ii]ts)(?: [a-z]+){1,2})(, | ?(?:—|--) ?)((?:a|an|the|his|her|their|my|our|your|its|one of|someone|something|the only) [^,.;:!?"—()]{1,60}?)(?:,|—|--)`, 'g');
+    const CLAUSE = /\b(?:he|she|they|I|we|it|you|who|which|that|whose|whom|was|were|is|are|am|had|has|have|did|does|do|would|could|should|will|can|might|must|seemed|felt|looked|said)\b/i;
+    const appos = scan(appRe, { narr: true, test: (m, s, e) =>
+      !CLAUSE.test(m[3].split(' ').slice(0, 4).join(' ')) &&                       // "the sun was", "the moment he": a clause, not a renaming phrase
+      !/^\s*(?:and|or|nor|a|an|the|his|her|their|my|our|your)\b/i.test(norm.slice(e, e + 12)) })
+      .map(x => { const a = x.s + x.m[1].length + x.m[2].length; return F(a, a + x.m[3].length, 'warn', `Appositive: "${x.m[3]}"`, 'appositives', 'give the detail its own sentence, or cut it'); });
+    M('structure', 'appositives', 'Appositives', k(appos.length, narr), `${fmt(k(appos.length, narr))} / 1k`, 'Noun phrases set off by commas that rename the noun before them: "Sarah, a tall woman with red hair, walked in." Useful for a first introduction; stacked up, they stall the sentence and read like an info-dump. Approximate.', { flags: appos });
 
     const pf = []; let run = [];
     const flush = () => { if (run.length >= 6) pf.push(F(run[0].s, Math.min(run[0].e, run[0].s + 60), 'warn', `${run.length} very short paragraphs in a row`, 'paragraphs')); run = []; };
