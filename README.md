@@ -4,7 +4,7 @@ A single-page, fully client-side web app (`index.html`). Everything, including t
 
 ## Live site
 
-The site deploys to GitHub Pages on every push to `main`, through `.github/workflows/pages.yml`:
+The site deploys to GitHub Pages on every push to `claude/amazing-shannon-rh63cz`, through `.github/workflows/static.yml`:
 
 https://ihardlynoah.github.io/ficgrading/
 
