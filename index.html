@@ -2161,7 +2161,6 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   }
   function wireShare(r) {
     const done = (b, msg) => { const o = b.textContent; b.textContent = msg; setTimeout(() => b.textContent = o, 1800); };
-    $('copyBtn').onclick = async () => done($('copyBtn'), await copyText(summaryText(r)) ? 'Copied' : 'Copy failed');
     $('emojiBtn').onclick = async () => done($('emojiBtn'), await copyText(emojiSummary(r)) ? 'Copied! Paste it anywhere' : 'Copy failed');
     $('linkBtn').onclick = async () => done($('linkBtn'), await copyText(await reportLink(r)) ? 'Link copied' : 'Copy failed');
     // Share-card carousel: cards are drawn the first time it's opened
@@ -2283,7 +2282,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
         const fm = res.headings.filter(x => x.kind === 'matter'); if (fm.length) parts.push(fm.map(x => x.s === 0 ? 'front matter' : 'back matter').join(' and '));
         return parts.length ? `<div class="meta">Not graded: ${parts.join(', ')} (${res.skippedWords.toLocaleString()} words)</div>` : ''; })()}
       <div class="meta">${errCount} error${errCount === 1 ? '' : 's'}, ${warnCount} style flag${warnCount === 1 ? '' : 's'}</div></div></div>`;
-    h += `<div class="share"><button class="btn" id="copyBtn" type="button">Copy summary</button><button class="btn" id="emojiBtn" type="button" title="Copy a Wordle-style summary to paste anywhere">Copy results 🟩</button><button class="btn" id="cardBtn" type="button" aria-expanded="false" aria-controls="cardPanel">Share cards…</button><button class="btn" id="linkBtn" type="button" title="Copy a link that opens this full report (the story text isn't included)">Copy report link</button><button class="btn" id="listAddBtn" type="button">Add to my list</button></div>
+    h += `<div class="share"><button class="btn" id="emojiBtn" type="button" title="Copy a Wordle-style summary to paste anywhere">Copy results 🟩</button><button class="btn" id="cardBtn" type="button" aria-expanded="false" aria-controls="cardPanel">Share cards…</button><button class="btn" id="linkBtn" type="button" title="Copy a link that opens this full report (the story text isn't included)">Copy report link</button><button class="btn" id="listAddBtn" type="button">Add to my list</button></div>
       <div class="cardpanel" id="cardPanel" hidden><div class="cards" id="cards" tabindex="0" aria-label="Share card options; swipe or use the arrows"></div>
       <div class="cardnav"><button type="button" id="cardPrev" aria-label="Previous card">‹</button><span class="lbl" id="cardLabel"></span><span class="dots" id="cardDots"></span><button type="button" id="cardNext" aria-label="Next card">›</button></div>
       <div class="cardacts"><button class="btn" id="cardSave" type="button">Save this card</button><button class="btn" id="cardShare" type="button" hidden>Share this card…</button></div></div>` + chapTable;
