@@ -1922,7 +1922,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     if (t === t.toLowerCase()) t = t.replace(/\p{L}+/gu, (w, at) => at && /^(?:a|an|the|and|or|of|to|in|on|at|for|with|by)$/.test(w) && !/–\s$/.test(t.slice(0, at)) ? w : w[0].toUpperCase() + w.slice(1));
     return t;
   }
-  function showCompare() { $('compare').hidden = false; document.querySelector('main').hidden = true; }
+  function showCompare() { $('compare').hidden = false; document.querySelector('main').hidden = true; ms.innerHTML = ''; report.innerHTML = ''; last = null; }   // drop the hidden manuscript and report (tens of thousands of elements)
   function hideCompare() { $('compare').hidden = true; document.querySelector('main').hidden = false; }
   function exitCompare() { if (!novels) return; novels = null; ++novelSeq; hideCompare(); }
   async function gradeNovels() {
@@ -2612,15 +2612,18 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   const shownTitle = () => (ficTitle() || 'Untitled') + (scopeTitle ? ` — ${scopeTitle}` : '');
   // ---------- Grading engine: runs in a background worker so the page stays responsive and can show progress ----------
   // (falls back to grading on the page if the browser won't start a worker)
-  let engine = null; const engineJobs = new Map(); let engineSeq = 0;
+  let engine = null, engineUrl = null; const engineJobs = new Map(); let engineSeq = 0;
   function startEngine() {
     try {
+      if (!engineUrl) {                                                              // build the worker's code once and reuse it (it's ~2 MB)
       const src = [...document.scripts].find(sc => sc.textContent.includes('/*GRADER-START*/')).textContent;
       const code = src + `
 self.onmessage = e => { const { id, text, opts } = e.data;
   try { const res = Grader.analyze(text, Object.assign({}, opts, { onProgress: p => self.postMessage({ id, p }) })); self.postMessage({ id, res }); }
   catch (err) { self.postMessage({ id, err: String((err && err.message) || err) }); } };`;
-      const w = new Worker(URL.createObjectURL(new Blob([code], { type: 'text/javascript' })));
+      engineUrl = URL.createObjectURL(new Blob([code], { type: 'text/javascript' }));
+      }
+      const w = new Worker(engineUrl);
       w.onmessage = e => { const j = engineJobs.get(e.data.id); if (!j) return;
         if ('p' in e.data) { if (j.onProgress) j.onProgress(e.data.p); return; }
         engineJobs.delete(e.data.id); if (e.data.err) j.reject(new Error(e.data.err)); else j.resolve(e.data.res); };
@@ -2639,6 +2642,7 @@ self.onmessage = e => { const { id, text, opts } = e.data;
   }
   // Stop everything queued or running (a newer grade replaces it)
   function cancelAnalyses() {
+    if (!engineJobs.size) return;                                                    // nothing running: keep the worker (starting one is slow on phones)
     if (engine) { engine.terminate(); engine = null; }
     for (const j of engineJobs.values()) j.reject(Object.assign(new Error('cancelled'), { cancelled: true }));
     engineJobs.clear();
