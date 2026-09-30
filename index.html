@@ -1504,7 +1504,7 @@ const Grader = (() => {
   const CHAP_WORD = /^(?:chapter|part|book|volume)$/i;                               // "CHAPTER" on its own line, with the number below it
   const TOC_LINE = /(?:\.\s?){4,}\s*\d+$/;                                          // "Chapter 1 ........ 3"
   // a line that is (or could be) a chapter heading: "Chapter 12", "Part Two", "XIV", "7", "Seven", "CHAPTER"
-  const chapterLine = t => { t = (t || '').trim(); return !!t && t.split(/\s+/).length <= 10 && t.length <= 80 && (CHAP_KEY.test(t) || /^(?:\d{1,3}|[IVXLC]{1,7})\.?$/.test(t) || (WORDNUM.test(t) && /^[A-Z]/.test(t)) || CHAP_WORD.test(t) || TOC_LINE.test(t)); };
+  const chapterLine = t => { t = (t || '').trim(); return !!t && t.split(/\s+/).length <= 10 && t.length <= 80 && !(t.split(/\s+/).length > 3 && /[a-z][.!?,;]["”’]?$/.test(t)) && (CHAP_KEY.test(t) || /^(?:\d{1,3}|[IVXLC]{1,7})\.?$/.test(t) || (WORDNUM.test(t) && /^[A-Z]/.test(t)) || CHAP_WORD.test(t) || TOC_LINE.test(t)); };
   function chapters(text) {
     const norm = text.replace(/[’‘]/g, "'").replace(/[“”]/g, '"').replace(/\r/g, ' '), N = norm.length;
     const matter = matterRanges(norm), front = matter.find(r => r.s === 0), back = matter.find(r => r.s > 0);
@@ -1544,7 +1544,7 @@ const Grader = (() => {
     const out = starts.map((c, k) => ({ title: c.title, s: c.s, e: k + 1 < starts.length ? starts[k + 1].s : to })).map(c => ({ ...c, words: wc(c.s, c.e) })).filter(c => c.words >= 30);
     return out.length >= 2 ? out : [];
   }
-  return { analyze, PROFILES, chapters, chapterLine };
+  return { analyze, PROFILES, chapters, chapterLine, knownWord: w => FREQ.has(w) };
 })();
 /*GRADER-END*/
 </script>
@@ -1932,20 +1932,37 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
         const ratio = cur ? Math.max(h, cur.h) / Math.min(h, cur.h) : 1;
         if (!cur || Math.abs(y - cur.y) > Math.min(h, cur.h) * 0.5 || (ratio > 1.6 && Math.abs(y - cur.y) > 1)) {
           if (cur) out.push(cur);
-          cur = { page: p, x, y, h, right: x + it.width, text: it.str };
+          cur = { page: p, x, y, h, right: x + it.width, text: it.str, hw: new Map([[h, it.str.length]]) };
         } else {
           if (x - cur.right > h * 0.12 && !/\s$/.test(cur.text) && !/^\s/.test(it.str)) cur.text += ' ';
           cur.text += it.str; cur.right = Math.max(cur.right, x + it.width); cur.x = Math.min(cur.x, x);
+          cur.hw.set(h, (cur.hw.get(h) || 0) + it.str.length);
         }
       }
       if (it.hasEOL && cur) { out.push(cur); cur = null; }
     }
     if (cur) out.push(cur);
+    // a line's size is the size of most of its text, so a small-caps opening or a bigger quote mark doesn't make it look like a heading
+    for (const l of out) { let best = 0; for (const [h, n] of l.hw) if (n > best) { best = n; l.h = h; } delete l.hw; }
     return out.filter(l => l.text.trim());
+  }
+  // A hyphen at the end of a line is either hyphenation ("some-/thing") or part of a compound ("red-and-/white", "self-/sufficiency").
+  // Keep it when the joined word isn't a word but the parts are (or the first part is a usual compound prefix).
+  // Evidence comes first from the document itself: the same word written elsewhere in the middle of a line, with or without its hyphen.
+  const COMPOUND_PRE = /^(?:self|well|half|ill|non|all|great|step|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)$/;
+  let docWords = new Set();
+  function keepHyphen(cur, next) {
+    const a = (cur.match(/([\p{L}'’]+)-$/u) || [])[1] || '', b = (next.match(/^[\p{L}'’]+/u) || [''])[0], lo = w => w.toLowerCase();
+    if (!a || !b) return false;
+    if (docWords.has(lo(a + '-' + b))) return true;                                               // "self-sufficiency" appears elsewhere
+    if (docWords.has(lo(a + b)) || Grader.knownWord(lo(a + b))) return false;                       // "eastward", "something"
+    if (/[\p{L}]-[\p{L}'’]+-$/u.test(cur.slice(-40))) return true;                                  // already a compound: "red-and-/white"
+    return COMPOUND_PRE.test(lo(a));
   }
   function linesToText(lines, pages) {
     const pct = (arr, q) => { const a = [...arr].sort((m, n) => m - n); return a.length ? a[Math.min(a.length - 1, Math.floor(q * a.length))] : 0; };
     for (const l of lines) l.text = l.text.normalize('NFKC').replace(/­/g, '');          // ligatures (ﬁ → fi) and soft hyphens
+    docWords = new Set(); for (const l of lines) for (const w of l.text.toLowerCase().match(/[\p{L}'’]+(?:-[\p{L}'’]+)*(?=[\s,.;:!?”"’)]|$)/gu) || []) if (!l.text.toLowerCase().endsWith(w + '-')) docWords.add(w);
     const bodyH = pct(lines.map(l => l.h), 0.5) || 10;
     // drop page numbers and running headers/footers: lines at the top or bottom of a page that repeat on many pages,
     // or on 3+ pages when set smaller than the body text (chapter-name headers change from chapter to chapter)
@@ -1976,6 +1993,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
       geo.set(pg, { left: pct(L.map(l => l.x), 0.1), right: pct(L.map(l => l.right), 0.9) });
     }
     const lineDy = pct(allDys, 0.2); for (const g of geo.values()) g.dy = lineDy;
+    const charW = pct(lines.filter(l => Math.abs(l.h - bodyH) < bodyH * 0.2 && l.text.length > 30).map(l => (l.right - l.x) / l.text.length), 0.5) || bodyH * 0.5;   // average character width
     // How does this document mark paragraphs: extra space between them, or an indented first line?
     let gapN = 0, indN = 0, pairs = 0;
     lines.forEach((l, i) => { const prev = lines[i - 1]; if (!prev || prev.page !== l.page) return; const g = geo.get(l.page); pairs++;
@@ -1985,7 +2003,8 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     lines.forEach((l, i) => {
       let t = l.text.replace(/\s+/g, ' ').trim();
       const big = l.h > bodyH * 1.3;
-      if (big && /^[\p{L}“"‘']{1,2}$/u.test(t) && lines[i + 1] && lines[i + 1].page === l.page) { prefix = t; return; }   // a drop cap: glue it to the word it starts
+      const besideCap = lines.slice(i + 1, i + 4).some(nx => nx.page === l.page && nx.h < l.h * 0.8 && nx.x > l.x + (l.right - l.x) * 0.5 && nx.y > l.y - 0.5 * l.h && nx.y < l.y + 1.5 * l.h);
+      if (big && /^[\p{L}“"‘']{1,2}$/u.test(t) && besideCap) { prefix = t; return; }   // a drop cap sits beside the text it starts (a big centred "I" above it is a chapter heading)
       if (prefix && !big) { t = prefix + t; prefix = ''; }                             // the first normal-size line after the drop cap
       const prev = lines[i - 1];
       let brk = !prev;
@@ -1996,16 +2015,19 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
         const indented = l.x - g.left > 0.8 * l.h;
         const gap = prev.page === l.page && g.dy > 0 && (prev.y - l.y) > 1.3 * g.dy;
         const endsSentence = /[.!?:"”’)\]…—]$/.test(prevT), prevShort = prev.right < pg.right - 2.5 * prev.h;
+        // text only wraps when the next word doesn't fit, so if this line's first word would have fitted at the end of the last one,
+        // the last line ended its paragraph
+        const firstW = (t.match(/^\S+/) || [''])[0], wouldFit = !/[-‐]$/.test(prevT) && (firstW.length + 1.5) * charW < pg.right - prev.right;
         // a short line that reads as a chapter heading ("Chapter 12", "Seven") starts a paragraph, and so does the line after it
         const headLine = x => x.head ??= Grader.chapterLine(x.text) && x.right < geo.get(x.page).right - 2 * x.h;
         const prevOpen = !(prevShort || endsSentence || prev.page !== l.page || prevBig);
         brk = sizeChange || centered(prev) || centered(l) || gap || (indented && (indentStyle || !gapStyle)) || (headLine(l) && !prevOpen) || (headLine(prev) && prev.brk)
-          || (!gapStyle && !indentStyle && prevShort && endsSentence)                    // no clear paragraph style: fall back to short lines that end a sentence
-          || (gapStyle && prev.page !== l.page && prevShort && endsSentence);            // across a page break the gap can't be measured
+          || (!gapStyle && !indentStyle && (wouldFit || (endsSentence && /^[“"]/.test(t))))   // no clear paragraph style: fall back to where the text wraps, and to a new line of dialogue
+          || (gapStyle && prev.page !== l.page && wouldFit && endsSentence);             // across a page break the gap can't be measured
       }
       l.brk = brk;
       if (brk) { if (cur) paras.push(cur); cur = t; }
-      else if (/\p{L}-$/u.test(cur) && /^\p{Ll}/u.test(t)) cur = cur.slice(0, -1) + t;
+      else if (/\p{L}-$/u.test(cur) && /^\p{Ll}/u.test(t)) cur = cur.slice(0, -1) + (keepHyphen(cur, t) ? '-' : '') + t;
       else cur += ' ' + t;
     });
     if (cur) paras.push(cur);
