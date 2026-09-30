@@ -659,6 +659,12 @@ const Grader = (() => {
     `(?:brain|mind) (?:blue-?screened|blue-?screening|short-?circuited|short-?circuiting|short-?circuits|glitched|went offline|rebooted)`, `(?:brain|mind)\\.exe`,
     `in record time`, `(?:nobody|no one) (?:had|needed|has|needs) to know`,
     `(?:a )?(?:(?:low|small|soft|strangled|punched-out|wounded|broken|choked|needy|quiet|little) )?(?:sound|noise) (?:in|at|from) the back of ${P} throat`,
+    // "popping the 'p'" and its relatives
+    `pop(?:s|ped|ping)? (?:the|a|an|that|each|every) ['"*_]?p['"*_]?(?![a-z])`, `(?:an? )?(?:(?:little|small|slight|soft|audible|exaggerated|extra|deliberate) )?pop (?:on|of|to) the ['"*_]?p['"*_]?(?![a-z])`,
+    `(?:emphasi[sz](?:ed|ing|es|e)|enunciat(?:ed|ing|es|e)) the ['"*_]?p['"*_]?(?![a-z])`,
+    `(?:draw(?:ing|s|n)?|drew|dragg?(?:ing|ed|s)?|stretch(?:ing|ed|es)?) out the (?:['"*_]\\w{1,3}['"*_](?![a-z])|vowels?\\b|(?:last |final )?syllables?\\b)`,
+    // "Oh. OH." / "Wait. Wait." — a word repeated as a dawning-realization beat
+    `(oh|ah|wait|huh|hmm+)\\.[*_]*[ \\t]+[*_]*\\1(?![a-z'])`,   // periods, not "Wait! Wait!" or "Oh! Oh!", which are ordinary exclamations
     // "made a noise in the back of his throat" and its relatives
     `(?:sound|noise)(?: of \\w+)? (?:(?:low|deep|somewhere deep|somewhere low) )?(?:in|at|from) (?:(?:deep|low) in )?(?:the (?:back|base) of )?${P} throat`,
     `(?:sound|noise|growl|whine|whimper|moan|groan|laugh|hum) (?:escaped|built in|caught in|lodged in|rose in|formed in|stuck in|bubbled up|rumbled up|clawed up|tore from) (?:(?:from )?the back of )?${P} throat`,
