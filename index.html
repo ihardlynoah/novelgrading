@@ -229,7 +229,7 @@ const Grader = (() => {
     adjStack: lower(0.5, 3), paragraphs: lower(0, 4), readability: higher(7, 3), daleChall: higher(6, 4),
     dlgRatio: band(15, 60, 0, 85), fancyTags: lower(20, 60), tagAdverbs: lower(1, 5), dlgPunct: lower(0, 4),
     excl: lower(1, 5), ellipses: lower(2, 8), dashes: lower(6, 15),
-    tier1: lower(0, 4), tier2: lower(0, 4)
+    tier1: lower(0, 4), tier2: lower(0, 4), povSlip: lower(0, 3)
   };
   const UNITS = {
     echoes: 'per 1,000 words', filler: 'per 1,000 narration words', adverbs: '% of narration words', hedging: 'per 1,000 narration words',
@@ -238,7 +238,7 @@ const Grader = (() => {
     passive: '% of sentences', progressive: 'per 1,000 narration words', openers: 'runs per 1,000 words', ingOpeners: '% of sentences',
     adjStack: 'per 1,000 words', paragraphs: 'issues', readability: 'grade level', daleChall: 'Dale–Chall score', dlgRatio: '% dialogue', fancyTags: '% of tags', tagAdverbs: 'per 1,000 words',
     dlgPunct: 'per 1,000 words', excl: 'per 1,000 narration words', ellipses: 'per 1,000 words', dashes: 'per 1,000 words',
-    tier1: 'per 1,000 words', tier2: 'per 1,000 words'
+    tier1: 'per 1,000 words', tier2: 'per 1,000 words', povSlip: 'per 1,000 words'
   };
   const PROFILES = {
     general: { label: 'General fiction', o: {} },
@@ -306,7 +306,7 @@ const Grader = (() => {
     [/\bone in the same\b/gi, 'one and the same'],
     [/\bcase and point\b/gi, 'case in point'],
     [/\btow(?:ed|s|ing)? the line\b/gi, 'toe the line'],
-    [new RegExp(`\\b(?:peak|peek)(?:ed|s)? ${P.replace(')', '|its)')} (?:interest|curiosity)\\b`, 'gi'), 'pique (someone\'s) interest'],
+    [new RegExp(`\\b(?:peak|peek)(?:ed|s|ing)? (?:${P.slice(3, -1)}|its|\\w+'s) (?:interest|curiosity)\\b`, 'gi'), 'pique (someone\'s) interest'],
     [/\bcuriosity (?:was )?(?:peaked|peeked)\b/gi, 'curiosity was piqued'],
     [/\bsneak peak\b/gi, 'sneak peek'],
     [/\bfree reign\b/gi, 'free rein'],
@@ -343,7 +343,7 @@ const Grader = (() => {
     [/\btenderhooks\b/gi, 'tenterhooks'],
     [/\brod[- ]iron\b/gi, 'wrought iron'],
     [/\bworse[- ]case scenario\b/gi, 'worst-case scenario'],
-    [/\bpour(?:ed|ing|s)? over (?:the|his|her|their|my|your|our) (?:book|books|notes|map|maps|pages|documents|files|letter|letters|papers|report|text|records|details|diary|journal)\b/gi, 'pore over'],
+    [/\bpour(?:ed|ing|s)? over (?:(?:the|his|her|their|my|your|our|every|each|all|those|these|any|old|new|a|an) )+(?:\w+ )?(?:book|books|notes|notebook|map|maps|page|pages|document|documents|file|files|case files?|letter|letters|paper|papers|paperwork|report|reports|text|texts|record|records|detail|details|diary|journal|plans?|contracts?|photos?|photographs?|charts?|evidence|data|manuscript|menu|footage|statements?|articles?|messages?|emails?|blueprints?|schematics?|spreadsheets?|figures|numbers|accounts|ledgers?|results|options|research|transcripts?|clues|word|words|line|lines|scrolls?|tomes?|volumes?|textbooks?|homework|lists?|entries|drawings?|sketches|designs?|ads|listings?|catalogu?es?|recipes?|instructions|manual|pictures?)\b/gi, 'pore over'],
     [/\bhay ?day\b/gi, 'heyday'],
     [/\btough road to hoe\b/gi, 'tough row to hoe'],
     [/\bon the same token\b/gi, 'by the same token'],
@@ -381,6 +381,8 @@ const Grader = (() => {
   ];
   // ---- Confused words: only in patterns where the wrong word is clear ----
   const TIER2 = [
+    [/\b(?:(?:be|being|been|was|were|is|are|am|stay|stayed|remain|remained|keep it|keeps it|kept it)(?: (?:always|never|not|so|very|more|too|quite|extra|really|super|pretty|fairly|\w+ly))? discrete|(?:very|more|most|so|too|quite|extremely|super|pretty|fairly|as) discrete|discretely)\b/gi, m => m[0].replace(/discrete/i, 'discreet')],
+    [/\ba discrete (?:glance|look|cough|nod|signal|exit|word|inquiry|enquiry|distance|text|message|meeting|place|location|spot|corner|way|gesture|wave|tap|nudge|peek|check|question|call|note|smile|wink|sign)\b/gi, m => m[0].replace(/discrete/i, 'discreet')],
     [/\b(better|more|less|rather|other|bigger|smaller|faster|older|younger|taller|worse|greater|higher|lower|sooner|later|stronger|weaker|smarter|prettier|easier|harder) then\b/gi, m => m[1] + ' than'],
     [/\byour (going to (?:be|have|get|make|do|need|want|regret|love|like|see|say|find|feel|go|take|give|tell|kill|die|lose|miss|hate|help|stay|wait|hurt|pay)|welcome|wrong|not|kidding|joking|gonna|right|a|an|such a|being ridiculous|lying|crazy|insane|beautiful|amazing|so)\b(?!-)(?!\s+(?:hand|arm|leg|side|foot|eye|shoulder|knee|ear|cheek|wrist|thumb|elbow|hip|temple|now|there|here|mind))/gi, m => "you're " + m[1]],
     [/\byou're (own|house|mother|father|mom|mum|dad|brother|sister|friend|friends|car|room|phone|hand|hands|face|eyes|name|life|family|fault|turn|job|problem|business|opinion|parents|body|head|heart|hair|voice|kids|wife|husband|boyfriend|girlfriend|boss|place)\b/gi, m => 'your ' + m[1]],
@@ -472,7 +474,19 @@ const Grader = (() => {
     `(?:a )?(?:dangerous|wicked|mischievous|predatory|playful|devilish) glint`, `flashed across ${P} (?:face|features|eyes)`,
     `(?:a )?shadow (?:crossed|passed over|flitted across|fell across) ${P} (?:face|features|eyes)`, `(?:pushed|shoved|forced|brushed|shook) (?:the|that) thought (?:away|aside|off)`,
     `schooled ${P} (?:expression|features|face)`, `(?:suddenly|acutely|painfully|keenly|hyper-?) aware`, `(?:couldn't|could not|can't) (?:look|tear ${P} (?:eyes|gaze)) away`,
-    `tore ${P} (?:gaze|eyes) away`, `saw stars`, `like a prayer`
+    `tore ${P} (?:gaze|eyes) away`, `saw stars`, `like a prayer`,
+    `eyes (?:widened|widening|widen|widens|went wide|go wide|goes wide|going wide|gone wide|grew wide|flew wide|snapped wide|shot wide|blew wide|flew open|went round|were as wide as saucers)`, `widened ${P} eyes`,
+    `(?:that's|that is|that was|it's|it is) between (?:him|her|them|me|you|us) and (?:God|the Lord|Jesus|(?:his|her|their|my|your) (?:god|maker))`,
+    `(?:heart|stomach|chest|gut|insides) (?:did|does|doing|do|gave|gives) (?:a |an |some |this |that |one of those )?(?:[a-z]+ ){0,2}(?:flip|flips|flop|flip-flop|somersaults?|backflips?|cartwheels?|twist|thing|swoop|lurch|dance|jig|leap|jump|loop-the-loop)\\b`,
+    `(?:heart|stomach|chest|gut|insides) (?:did|does|doing|do) something (?:complicated|funny|strange|weird|painful|stupid|odd|complex|interesting|traitorous|dangerous|embarrassing|unfortunate)`,
+    `(?:eye)?brows?[^.!?]{0,40}?\\bhairline`,
+    `(?:like|as if|as though) (?:[a-z']+ ){0,3}strings (?:had |have |were |was |'d )?(?:been )?(?:cut|snipped|severed)`, `(?:puppet|marionette) (?:with|whose) (?:[a-z]+ )?strings (?:had been |were )?(?:cut|snipped|severed)`, `(?:cut|snipped|severed) ${P} strings`,
+    `(?<!(?:bird|parrot|chicken|hen|gull|crow|goose|geese|duck|raven|jay|macaw|rooster|magpie|heron|seagull)s? )squawk(?:ed|ing|s)?\\b`,
+    `(?:the )?(?:last |final |missing )?(?:puzzle )?pieces? (?:of the puzzle )?(?:finally |suddenly |all )?(?:clicked|clicking|clicks|click|fell|falling|falls|fall|slotted|slotting|slid|snapped) (?:together|into place)`,
+    `(?:clicked|clicking|clicks|fell|falling|falls|slotted|slotting|slid|snapped) into place`, `the (?:last|final|missing) piece of the puzzle`,
+    `(?:he|she|they|I|we|you|it) (?:was|were) sat\\b(?! down)`, `(?:was|were) sat (?=on |at |in |by |beside |next |there|with |behind |across |around |against |opposite |alone|quietly|cross-legged|up |outside |inside |beneath |under )`,
+    `(?:after |for )?a beat(?![-\\w]| (?:cop|poet|generation|up))`,
+    `((?:look|see|saw|seen|listen|hear|heard|stare|watch|smile|laugh|notice|kiss|touch|breathe|feel|felt|think|thought|mean|meant|smell|taste|understand|understood|know|knew|want|need|live|tri|try|cri|cry|sleep|slept|rest|talk|speak|spoke|hug|hold|held|look)\\w*)(?: (?:at |to |into |for )?\\w+)?(?:,|—|--| -)+ ?(?:really|truly|actually|properly|genuinely) \\1\\b`
   ];
   // ---- Clichés: romance fiction ----
   const CLICHE_ROMANCE = [
@@ -533,7 +547,7 @@ const Grader = (() => {
     `white[- ]hot (?:pleasure|desire|need|lust|heat)`, `${P} vision (?:went|whited|flashed|turned|whiting) (?:white|out)`,
     `(?:he|she|they|I) came (?:apart|undone)`, `(?:was|were|looked|felt|is) absolutely (?:destroyed|wrecked|ruined)`,
     `(?:a )?(?:trembling|shaking|quivering|whimpering|sobbing|needy|boneless|panting) mess`, `fucked (?:stupid|senseless|dumb|silly)`,
-    `embarrassingly (?:needy|hard|wet|loud|eager|breathless)`
+    `embarrassingly (?:needy|hard|wet|loud|eager|breathless)`, `(?:take|takes|took|taking|taken) (?:him|her|them|me|you|us) apart`
   ];
   const CLICHES = [...CLICHE_GENERAL, ...CLICHE_ROMANCE].map(s => new RegExp('\\b' + s, 'gi'));
   // ---- Epithets: a character called by a trait ("the older man", "the blonde") instead of a name or pronoun ----
@@ -794,7 +808,7 @@ const Grader = (() => {
     const M = (cat, id, name, value, display, note, o = {}) => {
       const r = R(id);
       const score = o.na ? null : (o.score != null ? o.score : rangeScore(value, r));
-      const m = { cat, id, name, value, display, note, score, weight: o.weight ?? 1, flags: o.flags || [], rule: DEFAULTS[id] ? r : null, unit: UNITS[id] || '' };
+      const m = { cat, id, name, value, display, note, score, weight: o.weight ?? 1, flags: o.flags || [], rule: DEFAULTS[id] ? r : null, unit: UNITS[id] || '', naNote: o.naNote };
       metrics.push(m); return m;
     };
 
@@ -820,7 +834,7 @@ const Grader = (() => {
     M('words', 'hedging', 'Hedging verbs', k(hed.length, narr), `${fmt(k(hed.length, narr))} / 1k`, '"She began to run" is usually weaker than "she ran."', { flags: hed });
 
     const cl = []; for (const x of uniq(CLICHES.flatMap(re => scan(re)))) cl.push(F(x.s, x.e, 'warn', `Cliché: "${x.m[0]}"`, 'cliches', 'rewrite in your own words'));
-    M('words', 'cliches', 'Clichés', k(cl.length), `${cl.length} found`, 'Stock phrases readers have seen many times.', { flags: cl });
+    M('words', 'cliches', 'Clichés', k(cl.length), `${cl.length} found`, 'Stock phrases readers have seen many times. Counts double within this section.', { flags: cl, weight: 2 });
 
     const ep = uniq(EPITHETS.flatMap(re => scan(re, { narr: true }))).map(x => F(x.s, x.e, 'warn', `Epithet: "${x.m[0]}"`, 'epithets', "use the character's name or a pronoun"));
     M('words', 'epithets', 'Epithets for characters', k(ep.length, narr), `${fmt(k(ep.length, narr))} / 1k`, '"The older man", "the blonde", "the taller of the two" in place of a name. Fine for a stranger the viewpoint character doesn\'t know; for known characters, a name or pronoun reads more naturally.', { flags: ep });
@@ -1039,9 +1053,24 @@ const Grader = (() => {
     M('errors', 'tier1', 'Misused phrases', k(wsum(t1)), `${t1.length} found`, 'Fixed phrases that are always wrong in narration: "per say," "could of," "for all intensive purposes"…', { flags: t1, weight: 1.5 });
     M('errors', 'tier2', 'Confused words', k(wsum(t2)), `${t2.length} found`, 'Than/then, your/you\'re, lose/loose, its/it\'s, whose/who\'s, affect/effect, breath/breathe — clear-cut patterns only.', { flags: t2 });
 
+    // Third-person narration that suddenly addresses "you" ("like when you slowly walk in front of doctors"). Only checked when the
+    // narration is clearly third person, so first- and second-person stories aren't affected. One flag per sentence.
+    const PRON = { i: 1, me: 1, my: 1, mine: 1, myself: 1, you: 2, your: 2, yours: 2, yourself: 2, yourselves: 2,
+      he: 3, him: 3, his: 3, himself: 3, she: 3, her: 3, hers: 3, herself: 3, they: 3, them: 3, their: 3, theirs: 3, themselves: 3 };
+    const pc = [0, 0, 0, 0]; for (const x of narrW) if (PRON[x.w]) pc[PRON[x.w]]++;
+    const thirdPerson = pc[3] >= 20 && pc[3] >= 3 * pc[1] && pc[2] < 0.15 * (pc[2] + pc[3]);
+    const pov = [];
+    if (thirdPerson) for (const s of S) {
+      const y = s.nw.find(x => PRON[x.w] === 2); if (!y) continue;
+      const st = norm.slice(s.s, s.e);
+      if (/\b(?:thought|wondered|mused|reminded|told (?:him|her|them)self|asked (?:him|her|them)self|prayed)\b/i.test(st) || /\bthank you\b/i.test(st)) continue;   // unquoted thoughts, "said thank you"
+      pov.push(F(y.s, y.e, 'error', `Switches to second person: "${y.raw}" in third-person narration`, 'povSlip', 'keep the narration in third person (e.g. "the way people do when they…")'));
+    }
+    M('errors', 'povSlip', 'Slips into "you"', k(pov.length), `${pov.length} found`, 'Third-person narration that suddenly talks to the reader as "you". Unquoted thoughts ("…, she thought") are skipped.', { flags: pov, na: !thirdPerson, naNote: narr >= 100 ? "narration isn't third person" : undefined });
+
     // ===== Scoring
     const CATS = [
-      { id: 'errors', name: 'Common errors', w: 2 }, { id: 'overuse', name: 'Overuse', w: 2 }, { id: 'words', name: 'Word choice & variety', w: 1 },
+      { id: 'errors', name: 'Common errors', w: 4 }, { id: 'overuse', name: 'Overuse', w: 2 }, { id: 'words', name: 'Word choice & variety', w: 1 },
       { id: 'show', name: 'Show vs. tell', w: 1 }, { id: 'structure', name: 'Sentences & paragraphs', w: 1 },
       { id: 'dialogue', name: 'Dialogue', w: 1 }, { id: 'punct', name: 'Punctuation', w: 0.5 }, { id: 'readability', name: 'Readability', w: 1 }
     ];
@@ -1615,7 +1644,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     const pts = v => r1(v);
     const chip = sc => `<i class="chip" style="background:${color(sc)}"></i>`;
     h += `<h2>How the score adds up</h2>
-    <p class="bonusrule">Each category below is worth a share of 100 points: Common errors and Overuse count double, Punctuation and a few minor factors count half. Every category and factor shows its score out of 100 and the points it earned out of the points available. The final score, ${r1(res.base)} / 100, is the sum of the category points.</p>`;
+    <p class="bonusrule">Each category below is worth a share of 100 points: Common errors counts four times as much as a standard category, Overuse counts double, and Punctuation counts half. Within a category, clichés and a few other factors count double and some minor factors count half. Every category and factor shows its score out of 100 and the points it earned out of the points available. The final score, ${r1(res.base)} / 100, is the sum of the category points.</p>`;
     scored.splice(3);
     if (scored.length) h += `<h2>Fix first</h2><ol class="fixes">${scored.map(m => `<li>${m.name}: ${esc(m.display)}</li>`).join('')}</ol>`;
     h += `<div class="scale" aria-label="Score colors">${[...SCALE].reverse().map(([, c, n, r]) => `<span><i style="background:${c}"></i>${n} ${r}</span>`).join('')}</div>
@@ -1631,7 +1660,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
           body += `<div class="flist">${shown.map(f => `<button class="fitem" type="button" data-f="${f.id}"><q>${esc(res.text.slice(f.s, f.e).slice(0, 70))}</q>${f.fix ? ` <span class="fix">→ ${esc(f.fix)}</span>` : ''}${f.dlg && f.sev === 'error' && res.dlgMode === 'reduce' ? ' <span class="dl">(dialogue)</span>' : ''}</button>`).join('')}</div>`;
           if (m.flags.length > 60) body += `<div class="more">…and ${m.flags.length - 60} more, all marked in the text.</div>`;
         }
-        h += `<details><summary><span>${m.name}<small class="pts">${m.role === 'scored' ? `score ${Math.round(m.score)}/100, ${r1(m.points)} / ${r1(m.avail)} pts` : m.role === 'info' ? 'for information, not scored' : 'not enough text to judge, not scored'}</small></span><span class="val">${esc(m.display + (m.unit.startsWith('per 1,000') && !/\/ ?1k/.test(m.display) ? ` (${num(m.value)} / 1k)` : ''))}</span>${meter}</summary><div class="body">${body}</div></details>`;
+        h += `<details><summary><span>${m.name}<small class="pts">${m.role === 'scored' ? `score ${Math.round(m.score)}/100, ${r1(m.points)} / ${r1(m.avail)} pts` : m.role === 'info' ? 'for information, not scored' : `${m.naNote || 'not enough text to judge'}, not scored`}</small></span><span class="val">${esc(m.display + (m.unit.startsWith('per 1,000') && !/\/ ?1k/.test(m.display) ? ` (${num(m.value)} / 1k)` : ''))}</span>${meter}</summary><div class="body">${body}</div></details>`;
       }
       h += `</div>`;
     }
