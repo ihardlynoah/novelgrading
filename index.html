@@ -288,15 +288,16 @@ const Grader = (() => {
   const band = (g1, g2, b1, b2) => ({ good: [g1, g2], bad: [b1, b2] });
 
   const DEFAULTS = {
-    crutch: lower(1, 25), vocab: higher(100, 50), openerTop: lower(30, 60), echoes: lower(4, 10), filler: lower(4, 15), adverbs: lower(1.5, 4),
-    hedging: lower(2, 8), cliches: lower(0.2, 3), redund: lower(0.3, 3), epithets: lower(0.5, 3), coyBody: lower(0.2, 2),
-    filter: lower(6, 18), emotions: lower(1, 5), body: lower(5, 15), sensory: higher(30, 5),
-    sentAvg: band(10, 22, 5, 32), sentSpread: higher(0.55, 0.2), passive: lower(10, 25),
-    progressive: lower(6, 18), openers: lower(0.5, 4), ingOpeners: lower(5, 15),
-    adjStack: lower(0.5, 3), appositives: lower(3, 10), paragraphs: lower(0.25, 3), readability: higher(8, 2), daleChall: higher(6.5, 3.5),
-    dlgRatio: band(20, 50, 5, 75), fancyTags: lower(20, 60), tagAdverbs: lower(1, 5), dlgPunct: lower(0, 4),
-    excl: lower(1, 5), ellipses: lower(2, 8), dashes: lower(6, 15),
-    tier1: lower(0, 4), tier2: lower(0, 4), grammar: lower(0, 3), typos: lower(0, 3), povSlip: lower(0, 3), tense: lower(0, 2), longSent: lower(1, 4), fragments: lower(3, 12), simStack: lower(0.2, 2), commaSplice: lower(0.5, 3), britishisms: lower(0.3, 3)
+    // Zero points (where a check starts costing points) sit well past what acclaimed novels do, but not far past it
+    crutch: lower(1, 18), vocab: higher(100, 50), openerTop: lower(30, 60), echoes: lower(4, 8), filler: lower(4, 15), adverbs: lower(1.5, 4),
+    hedging: lower(2, 6), cliches: lower(0.2, 2), redund: lower(0.3, 2), epithets: lower(0.3, 2), coyBody: lower(0.2, 1.5),
+    filter: lower(6, 14), emotions: lower(1, 4), body: lower(5, 12), sensory: higher(30, 5),
+    sentAvg: band(10, 22, 5, 32), sentSpread: higher(0.55, 0.3), passive: lower(10, 20),
+    progressive: lower(6, 14), openers: lower(0.5, 3), ingOpeners: lower(4, 10),
+    adjStack: lower(0.5, 2.5), appositives: lower(2, 6), paragraphs: lower(0.25, 3), readability: higher(8, 2), daleChall: higher(6.5, 3.5),
+    dlgRatio: band(20, 50, 5, 75), fancyTags: lower(20, 50), tagAdverbs: lower(1, 4), dlgPunct: lower(0, 3),
+    excl: lower(1, 5), ellipses: lower(2, 6), dashes: lower(6, 15),
+    tier1: lower(0, 4), tier2: lower(0, 4), grammar: lower(0, 3), typos: lower(0, 3), povSlip: lower(0, 3), tense: lower(0, 2), longSent: lower(1, 4), fragments: lower(3, 10), simStack: lower(0.2, 1.5), commaSplice: lower(0.5, 2), britishisms: lower(0.3, 3)
   };
   const UNITS = {
     echoes: 'per 1,000 words', filler: 'per 1,000 narration words', adverbs: '% of narration words', hedging: 'per 1,000 narration words',
@@ -313,23 +314,23 @@ const Grader = (() => {
   const PROFILES = {
     general: { label: 'General fiction', o: {} },
     literary: { label: 'Literary', w: { words: 3.5, structure: 1.5, dialogue: 0.5 },   // style choices (splices, fragments, long sentences) are often deliberate
-      o: { sentAvg: band(8, 28, 4, 40), dashes: lower(10, 22), dlgRatio: band(3, 45, 0, 70), filter: lower(8, 20), fragments: lower(6, 16), commaSplice: lower(1.5, 5),
-           longSent: lower(3.5, 8), appositives: lower(5, 14), adjStack: lower(1, 4), paragraphs: lower(1.5, 5), readability: higher(5, 0), daleChall: higher(5.5, 3) } },
+      o: { sentAvg: band(8, 28, 4, 40), dashes: lower(10, 22), dlgRatio: band(3, 45, 0, 70), filter: lower(8, 16), fragments: lower(6, 14), commaSplice: lower(1.5, 4),
+           longSent: lower(3.5, 8), appositives: lower(4, 10), adjStack: lower(1, 3.5), paragraphs: lower(1.5, 5), readability: higher(5, 0), daleChall: higher(5.5, 3) } },
     thriller: { label: 'Thriller / mystery / crime', w: { structure: 1.5, show: 0.75 },
-      o: { sentAvg: band(8, 18, 4, 28), dlgRatio: band(25, 60, 10, 80), excl: lower(2, 8), fragments: lower(6, 16), paragraphs: lower(0.2, 2), longSent: lower(0.5, 3),
-           passive: lower(8, 20), ingOpeners: lower(4, 12), filter: lower(5, 15), readability: higher(5, 1), daleChall: higher(5.5, 3) } },
+      o: { sentAvg: band(8, 18, 4, 28), dlgRatio: band(25, 60, 10, 80), excl: lower(2, 8), fragments: lower(6, 14), paragraphs: lower(0.2, 2), longSent: lower(0.5, 3),
+           passive: lower(8, 16), ingOpeners: lower(3, 8), filter: lower(5, 12), readability: higher(5, 1), daleChall: higher(5.5, 3) } },
     romance: { label: 'Romance', w: { show: 1.25 },
-      o: { sentAvg: band(9, 22, 5, 32), dlgRatio: band(30, 60, 10, 80), emotions: lower(3, 8), filter: lower(8, 20), body: lower(8, 20), sensory: higher(35, 10),
-           epithets: lower(0.25, 2), coyBody: lower(0.1, 1.5), longSent: lower(1.5, 5.5), readability: higher(5.5, 1), daleChall: higher(5.8, 3) } },
-    horror: { label: 'Horror', o: { sentAvg: band(10, 26, 5, 36), dlgRatio: band(10, 45, 0, 70), sensory: higher(35, 10), emotions: lower(2, 6), ellipses: lower(3, 10),
+      o: { sentAvg: band(9, 22, 5, 32), dlgRatio: band(30, 60, 10, 80), emotions: lower(3, 7), filter: lower(8, 16), body: lower(8, 16), sensory: higher(35, 10),
+           epithets: lower(0.2, 1.5), coyBody: lower(0.1, 1), longSent: lower(1.5, 5.5), readability: higher(5.5, 1), daleChall: higher(5.8, 3) } },
+    horror: { label: 'Horror', o: { sentAvg: band(10, 26, 5, 36), dlgRatio: band(10, 45, 0, 70), sensory: higher(35, 10), emotions: lower(2, 5), ellipses: lower(3, 8),
            longSent: lower(2.5, 6), paragraphs: lower(1, 4) } },
     fantasy: { label: 'Fantasy / science fiction', invented: true,               // made-up words ("stormlight", "thoat") aren't overuse
-      o: { sentAvg: band(10, 26, 5, 36), dlgRatio: band(15, 55, 5, 80), longSent: lower(1.5, 5), passive: lower(12, 28) } },
+      o: { sentAvg: band(10, 26, 5, 36), dlgRatio: band(15, 55, 5, 80), longSent: lower(1.5, 5), passive: lower(12, 24) } },
     historical: { label: 'Historical', o: { sentAvg: band(12, 26, 6, 36), dlgRatio: band(20, 55, 5, 80), longSent: lower(3, 8), britishisms: lower(3, 15),
-           fancyTags: lower(35, 75), commaSplice: lower(1, 4) } },
-    ya: { label: 'Young adult', o: { sentAvg: band(9, 18, 5, 28), dlgRatio: band(25, 55, 10, 80), excl: lower(2, 6), body: lower(7, 18), filler: lower(6, 18),
+           fancyTags: lower(35, 65), commaSplice: lower(1, 3) } },
+    ya: { label: 'Young adult', o: { sentAvg: band(9, 18, 5, 28), dlgRatio: band(25, 55, 10, 80), excl: lower(2, 6), body: lower(7, 15), filler: lower(6, 18),
            readability: band(4, 9, 2, 12), daleChall: band(5, 7.5, 3.5, 9) } },
-    mg: { label: 'Middle grade', o: { sentAvg: band(7, 16, 4, 24), dlgRatio: band(25, 60, 10, 80), excl: lower(2.5, 7), body: lower(7, 18), filler: lower(6, 18),
+    mg: { label: 'Middle grade', o: { sentAvg: band(7, 16, 4, 24), dlgRatio: band(25, 60, 10, 80), excl: lower(2.5, 7), body: lower(7, 15), filler: lower(6, 18),
            longSent: lower(1, 3.5), readability: lower(7.5, 11), daleChall: lower(6.5, 8.5) } }
   };
 
@@ -872,7 +873,10 @@ const Grader = (() => {
     minCount: 4,      // never flag anything used fewer than 4 times
     maxPerRare: 3,    // most overuse points a trigger-1 item can add
     densePerExtra: 2.5, // dense items cost 0.5 points at the threshold, then 2.5 more for each extra use per 1,000 words
-    maxPerItem: 25    // most overuse points a single dense item can add
+    maxPerItem: 25,   // most overuse points a single dense item can add
+    // Trigger 3, "far over normal": single words used 8x+ normal, at least once per 1,000 words and 10+ times, cost points for how far
+    // over normal they are ("slow" at 21x normal, 2 per 1,000 words), which the dense rule barely notices
+    midRatio: 8, midRate: 1, midCount: 10, maxPerMid: 4
   };
   // The factor scores 100 at 1 overuse point or less and 0 at 25 or more (see DEFAULTS.crutch).
   // Word frequencies from Google Books Ngram (v3, 20200217), English Fiction subcorpus, books published 2010-2019,
@@ -1159,11 +1163,14 @@ const Grader = (() => {
     const judge = (c, expPer1k, known, allowRare, rareMult = 1) => {
       const rate = k(c), ratio = rate / expPer1k, excess = rate - expPer1k;
       const rare = allowRare && ratio >= O.minRatio * rareMult && rate >= O.minRate;
+      const mid = allowRare && ratio >= O.midRatio * rareMult && rate >= O.midRate && c >= O.midCount;
       const dense = ratio >= O.densityRatio && excess >= O.minExcess;
-      if (c < O.minCount || !(rare || dense)) return null;
+      if (c < O.minCount || !(rare || dense || mid)) return null;
       const rarePen = rare ? Math.min(O.maxPerRare, 0.5 + 1.25 * Math.log10(ratio / (O.minRatio * rareMult))) : 0;
       const densePen = dense ? Math.min(O.maxPerItem, 0.5 + O.densePerExtra * (excess - O.minExcess)) : 0;   // rate only, so a short section and a whole book are judged alike
-      return { c, rate, ratio, excess, known, expected: expPer1k * total / 1000, expRate: expPer1k, pen: Math.max(rarePen, densePen), why: densePen >= rarePen ? 'dense' : 'rare' };
+      const midPen = mid ? Math.min(O.maxPerMid, (rate - 0.5) * Math.log10(ratio / 2)) : 0;
+      const pen = Math.max(rarePen, densePen, midPen);
+      return { c, rate, ratio, excess, known, expected: expPer1k * total / 1000, expRate: expPer1k, pen, why: pen === densePen ? 'dense' : pen === rarePen ? 'rare' : 'far' };
     };
     // phrases: 2-3 consecutive words with only spaces between them, containing a real (non-function, non-name) word
     // Counted first, then positions are collected only for phrases used often enough to be flagged (keeps long books fast and small)
@@ -2287,7 +2294,8 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     if (m.id === 'crutch') { const o = res.overuseRules;
       return `<dl class="rule"><dt>Good</dt><dd>${num(m.rule.good[1])} overuse point or less (full marks)</dd><dt>Bad</dt><dd>${num(m.rule.bad[1])} overuse points or more (zero). The score drops evenly in between, and keeps dropping past the zero point (down to −100 at twice the distance).</dd>
         <dt>Points</dt><dd><b>Dense:</b> ${o.densityRatio}× normal or more and ${o.minExcess}+ extra uses per 1,000 words. 0.5 points at ${o.minExcess} extra, then ${o.densePerExtra} more for each additional extra use per 1,000 words, up to ${o.maxPerItem} per item.</dd>
-        <dt></dt><dd><b>Rare but repeated:</b> ${o.minRatio}× normal or more (single words). 0.5 at ${o.minRatio}×, 1.75 at ${o.minRatio * 10}×, up to ${o.maxPerRare}. Needs ${o.minCount}+ uses.</dd></dl>`; }
+        <dt></dt><dd><b>Rare but repeated:</b> ${o.minRatio}× normal or more (single words). 0.5 at ${o.minRatio}×, 1.75 at ${o.minRatio * 10}×, up to ${o.maxPerRare}. Needs ${o.minCount}+ uses.</dd>${o.midRatio ? `
+        <dt></dt><dd><b>Far over normal:</b> ${o.midRatio}× normal or more and ${o.midRate}+ use${o.midRate === 1 ? '' : 's'} per 1,000 words (single words, ${o.midCount}+ uses): (uses per 1,000 words − 0.5) × log₁₀(times normal ÷ 2) points, up to ${o.maxPerMid}. Each item counts under whichever rule gives the most.</dd>` : ''}</dl>`; }
     if (m.role === 'deduct') { const per = (res.errPts || {})[m.id] || 2;
       const allow = ((res.dedAllow || {})[m.id]) || 0, what = m.id === 'cliches' ? 'cliché' : 'error';
       return `<dl class="rule"><dt>Points off</dt><dd>${num(per)} point${per === 1 ? '' : 's'} off the final score for every ${what} ${/narration/.test(m.unit) ? 'per 1,000 narration words' : 'per 1,000 words'}${allow ? `, after the first ${num(allow)} per 1,000 words (published novels use about 0–0.25)` : ''}. None found costs nothing.</dd>${!['povSlip', 'tense', 'cliches'].includes(m.id) && res.dlgMode === 'reduce' ? '<dt></dt><dd class="between">Errors inside dialogue count a quarter (see “Mistakes in character speech”).</dd>' : ''}</dl>`; }
