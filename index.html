@@ -1081,7 +1081,8 @@ const Grader = (() => {
     // phrases: 2-3 consecutive words with only spaces between them, containing a real (non-function, non-name) word
     // Counted first, then positions are collected only for phrases used often enough to be flagged (keeps long books fast and small)
     const spaceAfter = new Uint8Array(W.length); for (let j = 0; j + 1 < W.length; j++) spaceAfter[j] = /^[ \t]+$/.test(norm.slice(W[j].e, W[j + 1].s)) ? 1 : 0;
-    const skipTok = W.map(x => x.w.includes("'") || isName(x.w)), funcTok = W.map(x => FUNC.has(x.w) || TAG_PLAIN.has(x.w));
+    const NOT_OVERUSE = new Set(['said', 'says']);                                      // plain dialogue tags are meant to repeat
+    const skipTok = W.map(x => x.w.includes("'") || isName(x.w) || NOT_OVERUSE.has(x.w)), funcTok = W.map(x => FUNC.has(x.w) || TAG_PLAIN.has(x.w));
     const phraseKey = (i, n) => {
       if (i + n > W.length) return null;
       for (let j = i; j < i + n; j++) if (skipTok[j] || (j < i + n - 1 && !spaceAfter[j])) return null;
@@ -1117,7 +1118,7 @@ const Grader = (() => {
     const isSubjectOrPlural = (w, c) => isSubject(w, c) || (/s$/.test(w) && !CRUTCH_NOUN.has(w) && [w.slice(0, -1), w.replace(/es$/, '')].some(b => b !== w && isSubject(b, cntFree.get(b) || 0)));
     const wordsOver = [];
     for (const [w, c] of cntFree) {
-      if (FUNC.has(w) || w.includes("'") || w.length < 3 || isName(w) || isSubjectOrPlural(w, c)) continue;
+      if (FUNC.has(w) || NOT_OVERUSE.has(w) || w.includes("'") || w.length < 3 || isName(w) || isSubjectOrPlural(w, c)) continue;
       const known = FREQ.has(w), j = judge(c, (known ? FREQ.get(w) : FREQ_FLOOR) / 1e6, known, true);
       if (j) wordsOver.push({ ...j, w, kind: 'word' });
     }
@@ -1942,10 +1943,13 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     return paras.join('\n\n');
   }
   $('editBtn').onclick = showEdit;
-  $('gradeBtn').onclick = grade;
-  profileSel.onchange = () => { if (last) grade(); };
-  $('dlgMode').onchange = () => { if (last) grade(); };
-  $('english').onchange = () => { if (last) grade(); };
+  // A click made while a long grade was running is delivered once it finishes: skip it if nothing has changed since that grade started
+  $('gradeBtn').onclick = e => { if (last && !last.shared && e.timeStamp < gradedAt && last.key === gradeKey()) return; grade(); };
+  // A changed setting regrades a short work right away; a long one (which can take a minute on a phone) waits for the Grade button,
+  // so changing several settings doesn't start several slow regrades
+  const settingChanged = () => { if (!last || last.shared) return;
+    if (input.value.length > BIG_TEXT) setStatus('Settings changed. Press Grade to regrade with the new settings.'); else grade(); };
+  profileSel.onchange = settingChanged; $('dlgMode').onchange = settingChanged; $('english').onchange = settingChanged;
   $('saveBtn').onclick = saveReport;
 
   function showEdit() {
@@ -2268,26 +2272,34 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   // What is being graded: the whole work, or one chapter of it (index into the detected chapters)
   let scope = null, scopeTitle = '', chapterCache = { key: '', rows: [] };
   const shownTitle = () => (ficTitle() || 'Untitled') + (scopeTitle ? ` — ${scopeTitle}` : '');
+  const BIG_TEXT = 350000;
+  let grading = false, gradeAgain = false, gradedAt = 0;
+  const gradeKey = () => [profileSel.value, $('dlgMode').value, $('english').value, scope, input.value.length, input.value.slice(0, 200), input.value.slice(-200)].join('|');
   function grade() {
+    if (grading) { gradeAgain = true; setStatus('Will regrade with the new settings as soon as the current grade finishes…'); return; }   // pressed while a long grade is running
+    if (!input.value.trim() && last && last.shared) { setStatus('This is a shared report, so the story itself isn\'t loaded here. Open the story to grade it with other settings.'); return; }
     const full = input.value, chs = full.trim() ? Grader.chapters(full) : [];
     if (scope != null && !chs[scope]) scope = null;
     const text = scope == null ? full : full.slice(chs[scope].s, chs[scope].e);
     scopeTitle = scope == null ? '' : chs[scope].title;
     if (!ficTitle() && !ficAuthor()) { const g = guessMeta(text); setMeta(g.title, g.author); }
     if (!text.trim()) { report.innerHTML = '<div class="empty">Paste some text into the page first, then press Grade.</div>'; return; }
-    const run = () => {
+    const key = gradeKey();
+    const run = () => { try { run0(); } catch (e) { grading = false; gradeAgain = false; throw e; } finally { gradedAt = performance.now(); } };
+    const run0 = () => {
       const res = Grader.analyze(text, { profile: profileSel.value, dlgMode: $('dlgMode').value, english: $('english').value });
-      res.chapters = chs; res.scope = scope; res.fullText = full;
+      res.chapters = chs; res.scope = scope; res.fullText = full; res.key = key;
       last = res;
       renderManuscript(res);
       renderReport(res);
       input.hidden = true; ms.hidden = false; $('editBtn').hidden = false; $('saveBtn').hidden = false; $('legend').hidden = false;
-      $('gradeBtn').disabled = false; if (big) setStatus('');
+      grading = false; setStatus('');
       if (scope == null && chs.length) gradeChapters(res);
+      if (gradeAgain) { gradeAgain = false; setTimeout(grade, 0); }
     };
     // Long books take a while (longest on phones): show a message and let the page repaint before the work starts
-    const big = text.length > 350000;
-    if (big) { $('gradeBtn').disabled = true; setStatus(`Grading ${Math.round(text.length / 5.7 / 1000)}k words… this can take up to a minute on a phone.`); setTimeout(run, 60); } else run();
+    const big = text.length > BIG_TEXT;
+    if (big) { grading = true; setStatus(`Grading ${Math.round(text.length / 5.7 / 1000)}k words… this can take up to a minute on a phone.`); setTimeout(run, 60); } else run();
   }
 
   // Grade each chapter in the background and fill in the whole-work Chapters table as results arrive
