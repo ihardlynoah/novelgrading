@@ -2112,7 +2112,8 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
           if (cur) out.push(cur);
           cur = { page: p, x, y, h, right: x + it.width, text: it.str, hw: new Map([[h, it.str.length]]) };
         } else {
-          if (x - cur.right > h * 0.12 && !/\s$/.test(cur.text) && !/^\s/.test(it.str)) cur.text += ' ';
+          // a gap before closing punctuation (or after an opening quote) is kerning, not a space: "word," not "word ,"
+          if (x - cur.right > h * 0.12 && !/\s$/.test(cur.text) && !/^\s/.test(it.str) && !/^[,.;:!?)\]}”’…]/.test(it.str) && !/[“‘(\[]$/.test(cur.text)) cur.text += ' ';
           cur.text += it.str; cur.right = Math.max(cur.right, x + it.width); cur.x = Math.min(cur.x, x);
           cur.hw.set(h, (cur.hw.get(h) || 0) + it.str.length);
         }
@@ -2137,9 +2138,18 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     if (/[\p{L}]-[\p{L}'’]+-$/u.test(cur.slice(-40))) return true;                                  // already a compound: "red-and-/white"
     return COMPOUND_PRE.test(lo(a));
   }
+  // Some PDF makers (Calibre, which AO3 uses) draw punctuation as its own piece of text after a small gap, which reads back as a space:
+  // "word ," / "don ’t" / "“ Hello". Punctuation never has a space before it (or after an opening quote) in English prose.
+  function tidySpacing(t) {
+    return t.replace(/([\p{L}\d\]’”)])[ \u00a0]+([,;:!?])(?=[\s"”’)\]]|$)/gu, '$1$2')
+      .replace(/(\p{L})[ \u00a0]+\.(?![ \u00a0]*\.)(?=[\s"”’)\]]|$)/gu, '$1.')                    // "word ." but not a spaced ". . ."
+      .replace(/(\p{L})[ \u00a0]+([’'](?:s|t|ll|re|ve|d|m)\b)/gu, '$1$2')                          // "don ’t", "Harry ’s"
+      .replace(/(\p{L}[.,!?…—-]?)[ \u00a0]+”(?=[\s,.;:!?)]|$)/gu, '$1”')                          // "Hello, ” said"
+      .replace(/([“(\[])[ \u00a0]+(?=[\p{L}\d‘'])/gu, '$1');                                        // "“ Hello"
+  }
   function linesToText(lines, pages) {
     const pct = (arr, q) => { const a = [...arr].sort((m, n) => m - n); return a.length ? a[Math.min(a.length - 1, Math.floor(q * a.length))] : 0; };
-    for (const l of lines) l.text = l.text.normalize('NFKC').replace(/­/g, '');          // ligatures (ﬁ → fi) and soft hyphens
+    for (const l of lines) l.text = tidySpacing(l.text.normalize('NFKC').replace(/­/g, ''));   // ligatures (ﬁ → fi), soft hyphens, stray spaces
     docWords = new Set(); for (const l of lines) for (const w of l.text.toLowerCase().match(/[\p{L}'’]+(?:-[\p{L}'’]+)*(?=[\s,.;:!?”"’)]|$)/gu) || []) if (!l.text.toLowerCase().endsWith(w + '-')) docWords.add(w);
     const bodyH = pct(lines.map(l => l.h), 0.5) || 10;
     // drop page numbers and running headers/footers: lines at the top or bottom of a page that repeat on many pages,
