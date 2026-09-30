@@ -1567,7 +1567,7 @@ const Grader = (() => {
     // ===== Scoring
     // Errors aren't a share of the grade: they come straight off it. The other categories make a style score out of 100, and each
     // error costs a fixed number of points per error per 1,000 words (calibrated to cost what it did when errors were 4× a category)
-    const ERR_PTS = { tier1: 3, tier2: 2.5, grammar: 3, typos: 2.5, povSlip: 3, tense: 4 };
+    const ERR_PTS = { tier1: 6, tier2: 5, grammar: 6, typos: 2.5, povSlip: 3, tense: 4 };
     const ALLOW = { povSlip: 0.2, tense: 0.2 };
     const STEP = { tier1: 0.01, tier2: 0.01, grammar: 0.01 };                            // these cost points for each full 0.01 errors per 1,000 words                                           // the first 0.2 per 1,000 words are free: classics have the odd deliberate one
     const DED_SCALE = { errors: 35 };                                          // points off that read as a 0 score, for the section's color
