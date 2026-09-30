@@ -226,7 +226,7 @@ const Grader = (() => {
     filter: lower(6, 18), emotions: lower(1, 5), body: lower(5, 15), sensory: higher(30, 5),
     sentAvg: band(10, 22, 5, 32), sentSpread: higher(0.55, 0.2), passive: lower(10, 25),
     progressive: lower(6, 18), openers: lower(0.5, 4), ingOpeners: lower(5, 15),
-    adjStack: lower(0.5, 3), appositives: lower(3, 10), paragraphs: lower(0, 4), readability: higher(7, 3), daleChall: higher(6, 4),
+    adjStack: lower(0.5, 3), appositives: lower(3, 10), paragraphs: lower(0.25, 3), readability: higher(7, 3), daleChall: higher(6, 4),
     dlgRatio: band(15, 60, 0, 85), fancyTags: lower(20, 60), tagAdverbs: lower(1, 5), dlgPunct: lower(0, 4),
     excl: lower(1, 5), ellipses: lower(2, 8), dashes: lower(6, 15),
     tier1: lower(0, 4), tier2: lower(0, 4), povSlip: lower(0, 3)
@@ -236,7 +236,7 @@ const Grader = (() => {
     cliches: 'per 1,000 words', redund: 'per 1,000 words', epithets: 'per 1,000 narration words', coyBody: 'per 1,000 narration words', filter: 'per 1,000 narration words', emotions: 'per 1,000 narration words',
     body: 'per 1,000 words', sensory: '% non-visual sense words', sentAvg: 'words per sentence', sentSpread: 'spread', crutch: 'overuse points', vocab: 'MTLD', openerTop: '% of sentences',
     passive: '% of sentences', progressive: 'per 1,000 narration words', openers: 'runs per 1,000 words', ingOpeners: '% of sentences',
-    adjStack: 'per 1,000 words', appositives: 'per 1,000 narration words', paragraphs: 'issues', readability: 'grade level', daleChall: 'Dale–Chall score', dlgRatio: '% dialogue', fancyTags: '% of tags', tagAdverbs: 'per 1,000 words',
+    adjStack: 'per 1,000 words', appositives: 'per 1,000 narration words', paragraphs: 'per 1,000 words', readability: 'grade level', daleChall: 'Dale–Chall score', dlgRatio: '% dialogue', fancyTags: '% of tags', tagAdverbs: 'per 1,000 words',
     dlgPunct: 'per 1,000 words', excl: 'per 1,000 narration words', ellipses: 'per 1,000 words', dashes: 'per 1,000 words',
     tier1: 'per 1,000 words', tier2: 'per 1,000 words', povSlip: 'per 1,000 words'
   };
@@ -641,8 +641,7 @@ const Grader = (() => {
     minCount: 4,      // never flag anything used fewer than 4 times
     maxPerRare: 3,    // most overuse points a trigger-1 item can add
     densePerExtra: 2.5, // dense items cost 0.5 points at the threshold, then 2.5 more for each extra use per 1,000 words
-    maxPerItem: 25,   // most overuse points a single dense item can add
-    fullAt: 40        // dense items only reach full strength once there are 40+ extra uses in total (keeps short texts from being over-penalised)
+    maxPerItem: 25    // most overuse points a single dense item can add
   };
   // The factor scores 100 at 1 overuse point or less and 0 at 25 or more (see DEFAULTS.crutch).
   // Word frequencies from Google Books Ngram (v3, 20200217), English Fiction subcorpus, books published 2010-2019,
@@ -858,9 +857,8 @@ const Grader = (() => {
       const rare = allowRare && ratio >= O.minRatio && rate >= O.minRate;
       const dense = ratio >= O.densityRatio && excess >= O.minExcess;
       if (c < O.minCount || !(rare || dense)) return null;
-      const rarePen = rare ? Math.min(O.maxPerRare, (0.5 + 1.25 * Math.log10(ratio / O.minRatio)) * Math.min(1, c / 6)) : 0;
-      const extraUses = c - expPer1k * total / 1000;
-      const densePen = dense ? Math.min(O.maxPerItem, 0.5 + O.densePerExtra * (excess - O.minExcess)) * Math.min(1, Math.max(0.1, extraUses / O.fullAt)) : 0;
+      const rarePen = rare ? Math.min(O.maxPerRare, 0.5 + 1.25 * Math.log10(ratio / O.minRatio)) : 0;
+      const densePen = dense ? Math.min(O.maxPerItem, 0.5 + O.densePerExtra * (excess - O.minExcess)) : 0;   // rate only, so a short section and a whole book are judged alike
       return { c, rate, ratio, excess, known, expected: expPer1k * total / 1000, expRate: expPer1k, pen: Math.max(rarePen, densePen), why: densePen >= rarePen ? 'dense' : 'rare' };
     };
     // phrases: 2-3 consecutive words with only spaces between them, containing a real (non-function, non-name) word
@@ -1004,7 +1002,7 @@ const Grader = (() => {
       if (p.words.length > 0 && p.words.length <= 8 && mask[p.s] !== 1 && norm[p.s] !== '"') run.push(p); else flush();
     }
     flush();
-    M('structure', 'paragraphs', 'Paragraph length', pf.length, `${pf.length} issue${pf.length === 1 ? '' : 's'}`, 'Flags paragraphs over 180 words and runs of six or more one-liners.', { flags: pf });
+    M('structure', 'paragraphs', 'Paragraph length', k(pf.length), `${pf.length} issue${pf.length === 1 ? '' : 's'}`, 'Flags paragraphs over 180 words and runs of six or more one-liners.', { flags: pf });
 
     const syll = W.reduce((a, x) => a + syl(x.raw), 0);
     const fk = S.length && total ? 0.39 * (total / S.length) + 11.8 * (syll / total) - 15.59 : 0;
@@ -1495,11 +1493,11 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   const SCALE = [[90, '#16A34A', 'Green', '90–100'], [75, '#84CC16', 'Light green', '75–89'], [60, '#EAB308', 'Yellow', '60–74'],
                  [40, '#F97316', 'Orange', '40–59'], [20, '#DC2626', 'Red', '20–39'], [0, '#7F1D1D', 'Dark red', '0–19']];
   const color = s => SCALE.find(([min]) => s >= min)[1];
-  const num = v => { const r = Math.round(v * 10) / 10; return Number.isInteger(r) ? String(r) : r.toFixed(1); };
+  const num = v => { if (v > 0 && v < 0.095) return v < 0.005 ? '<0.01' : v.toFixed(2); const r = Math.round(v * 10) / 10; return Number.isInteger(r) ? String(r) : r.toFixed(1); };   // small rates keep two decimals so they don't read as 0
   function ruleHtml(m, res) {
     if (m.id === 'crutch') { const o = res.overuseRules;
       return `<dl class="rule"><dt>Good</dt><dd>${num(m.rule.good[1])} overuse point or less (full marks)</dd><dt>Bad</dt><dd>${num(m.rule.bad[1])} overuse points or more (zero). The score drops evenly in between.</dd>
-        <dt>Points</dt><dd><b>Dense:</b> ${o.densityRatio}× normal or more and ${o.minExcess}+ extra uses per 1,000 words. 0.5 points at ${o.minExcess} extra, then ${o.densePerExtra} more for each additional extra use per 1,000 words, up to ${o.maxPerItem} per item. Reaches full strength once there are ${o.fullAt}+ extra uses.</dd>
+        <dt>Points</dt><dd><b>Dense:</b> ${o.densityRatio}× normal or more and ${o.minExcess}+ extra uses per 1,000 words. 0.5 points at ${o.minExcess} extra, then ${o.densePerExtra} more for each additional extra use per 1,000 words, up to ${o.maxPerItem} per item.</dd>
         <dt></dt><dd><b>Rare but repeated:</b> ${o.minRatio}× normal or more (single words). 0.5 at ${o.minRatio}×, 1.75 at ${o.minRatio * 10}×, up to ${o.maxPerRare}. Needs ${o.minCount}+ uses.</dd></dl>`; }
     if (!m.rule) return `<dl class="rule"><dt>Scoring</dt><dd>For information only; not graded</dd></dl>`;
     const [lo, hi] = m.rule.good, [blo, bhi] = m.rule.bad, u = m.unit;
