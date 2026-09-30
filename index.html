@@ -960,9 +960,9 @@ const Grader = (() => {
 
     const syll = W.reduce((a, x) => a + syl(x.raw), 0);
     const fk = S.length && total ? 0.39 * (total / S.length) + 11.8 * (syll / total) - 15.59 : 0;
-    // Below grade 7 costs points, more the lower it goes (0 at grade 3). YA / middle grade is meant to read simpler, so it isn't scored there.
+    // Below grade 7 costs points, more the lower it goes (0 at grade 3). Counts double within its category. YA / middle grade is meant to read simpler, so it isn't scored there.
     const fkYA = opts.profile === 'ya';
-    M('structure', 'readability', 'Reading grade level', fk, `grade ${fmt(Math.max(0, fk))}`, fkYA ? 'Flesch–Kincaid estimate. For information only with the YA / middle grade profile.' : 'Flesch–Kincaid estimate. Grade 7 or above scores full marks; below that the score drops, reaching zero at grade 3.', { na: fkYA || total < 100 });
+    M('structure', 'readability', 'Reading grade level', fk, `grade ${fmt(Math.max(0, fk))}`, fkYA ? 'Flesch–Kincaid estimate. For information only with the YA / middle grade profile.' : 'Flesch–Kincaid estimate. Grade 7 or above scores full marks; below that the score drops, reaching zero at grade 3.', { na: fkYA || total < 100, weight: 2 });
 
     // ===== Dialogue
     const hasDlg = dlgWords >= 20;
