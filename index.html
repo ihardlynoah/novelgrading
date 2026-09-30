@@ -242,7 +242,7 @@ const Grader = (() => {
     filter: lower(6, 18), emotions: lower(1, 5), body: lower(5, 15), sensory: higher(30, 5),
     sentAvg: band(10, 22, 5, 32), sentSpread: higher(0.55, 0.2), passive: lower(10, 25),
     progressive: lower(6, 18), openers: lower(0.5, 4), ingOpeners: lower(5, 15),
-    adjStack: lower(0.5, 3), appositives: lower(3, 10), paragraphs: lower(0.25, 3), readability: higher(9, 3), daleChall: higher(7, 4),
+    adjStack: lower(0.5, 3), appositives: lower(3, 10), paragraphs: lower(0.25, 3), readability: higher(6, 2), daleChall: higher(5.5, 3.5),
     dlgRatio: band(15, 60, 0, 85), fancyTags: lower(20, 60), tagAdverbs: lower(1, 5), dlgPunct: lower(0, 4),
     excl: lower(1, 5), ellipses: lower(2, 8), dashes: lower(6, 15),
     tier1: lower(0, 4), tier2: lower(0, 4), grammar: lower(0, 3), typos: lower(0, 3), povSlip: lower(0, 3), tense: lower(0, 2), longSent: lower(0.5, 3), fragments: lower(3, 12), simStack: lower(0.2, 2), commaSplice: lower(0.5, 3), britishisms: lower(0.3, 3)
@@ -296,6 +296,7 @@ const Grader = (() => {
 
   const ED_ADJ = new Set(words(`tired scared bored interested excited worried surprised confused pleased annoyed embarrassed exhausted frightened terrified relieved used supposed married dressed related located based determined prepared concerned involved red bed shed sled need seed feed deed speed bleed breed greed weed hundred naked sacred wicked rugged ragged jagged crooked beloved aged blessed kindred shocked stunned amazed ashamed disappointed satisfied devoted convinced delighted horrified startled puzzled alarmed thrilled`));
   // Word sets for the fragment, comma-splice and tense checks
+  const PARTICLE = new Set(words(`van der den de von du la le del della di da dos das ten ter bin ibn al el`));
   const TAG_PLAIN = new Set(words(`said says asked asks replied replies`));
   const ARTICLE = new Set(words(`the a an this that these those`));
   const CRUTCH_NOUN = new Set(words(`smirk smirks grin grins gaze glare glares sigh sighs chuckle chuckles scoff huff blush shiver shudder pang lump beat beats pause orbs tear tears nod nods shrug shrugs frown frowns wink whimper moan groan gasp`));
@@ -759,7 +760,7 @@ const Grader = (() => {
   const TAGV = `said|asked|replied|answered|whispered|shouted|muttered|added|called|yelled|murmured|cried|snapped|says|asks`;
 
   function syl(w) {
-    w = w.toLowerCase().replace(/[^a-z]/g, '');
+    w = w.normalize('NFD').toLowerCase().replace(/[^a-z]/g, '');
     if (w.length <= 3) return 1;
     w = w.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, '').replace(/^y/, '');
     const m = w.match(/[aeiouy]{1,2}/g);
@@ -939,6 +940,10 @@ const Grader = (() => {
     return mask;
   }
 
+  // Periods in titles and initials ("Mr. Gatsby", "T. P.", "U.S.") don't end a sentence. Swapped for a look-alike character, same length,
+  // only in the copy used to find sentence boundaries.
+  const ABBR = /\b(?:Mr|Mrs|Ms|Messrs|Mmes|Dr|St|Jr|Sr|Mme|Mlle|Col|Gen|Capt|Lt|Sgt|Cpl|Rev|Prof|Hon|Gov|Sen|Rep|Mt|Ft|Ave|Bros|vs)\.(?=\s|$)|\b[A-Z]\.(?=\s*[A-Z][.\w])|\b(?:[A-Za-z]\.){2,}(?=\s+[a-z])/g;
+  const maskAbbr = t => t.replace(ABBR, m => m.replace(/\./g, '\u2024'));
   function analyze(text, opts = {}) {
     const prof = PROFILES[opts.profile] || PROFILES.general;
     const R = id => prof.o[id] || DEFAULTS[id];
@@ -947,7 +952,7 @@ const Grader = (() => {
     // Chapter headings, scene breaks, story info and author's notes are shown but not graded: blank them out before any checks run
     const matter = matterRanges(norm), inMatter = h => matter.some(r => h.s >= r.s && h.s < r.e);
     const headings = [...matter, ...skippedLines(norm).filter(h => !inMatter(h))];
-    for (const h of headings) h.words = (norm.slice(h.s, h.e).match(/[A-Za-z]+(?:'[A-Za-z]+)*/g) || []).length;
+    for (const h of headings) h.words = (norm.slice(h.s, h.e).match(/\p{L}+(?:'\p{L}+)*/gu) || []).length;
     const skippedWords = headings.reduce((a, h) => a + h.words, 0);
     if (headings.length) { const parts = []; let pos = 0; for (const h of [...headings].sort((a, b) => a.s - b.s)) { if (h.s < pos) continue; parts.push(norm.slice(pos, h.s), ' '.repeat(h.e - h.s)); pos = h.e; } parts.push(norm.slice(pos)); norm = parts.join(''); }
     const N = norm.length;
@@ -956,9 +961,9 @@ const Grader = (() => {
     const mask = dialogueMask(text, norm);
 
     // words
-    const W = []; { const re = /[A-Za-z]+(?:'[A-Za-z]+)*/g; let m;
+    const W = []; { const re = /\p{L}+(?:'\p{L}+)*/gu; let m;   // \p{L}: accented letters stay inside the word (Ántonia, coupé)
       while ((m = re.exec(norm))) { const raw = m[0]; let j = m.index - 1; while (j >= 0 && (norm[j] === ' ' || norm[j] === '\t')) j--;
-        W.push({ raw, w: raw.toLowerCase().replace(/'s$/, ''), s: m.index, e: m.index + raw.length, cap: /^[A-Z]/.test(raw), initial: j < 0 || /[.!?"'(\n—:…\-]/.test(norm[j]), dlg: mask[m.index] === 1 }); } }
+        W.push({ raw, w: raw.toLowerCase().replace(/'s$/, ''), s: m.index, e: m.index + raw.length, cap: /^\p{Lu}/u.test(raw), initial: j < 0 || /[.!?"'(\n—:…\-]/.test(norm[j]), dlg: mask[m.index] === 1 }); } }
     const total = W.length, narrW = W.filter(x => !x.dlg), narr = narrW.length, dlgWords = total - narr;
     const k = (c, base = total) => base ? c / base * 1000 : 0;
 
@@ -967,7 +972,7 @@ const Grader = (() => {
     { const re = /[^\n]+/g; let m;
       while ((m = re.exec(norm))) { if (!m[0].trim()) continue; paras.push({ s: m.index, e: m.index + m[0].length }); } }
     for (const p of paras) {
-      const sub = norm.slice(p.s, p.e), re = /[^.!?…]+(?:[.!?…]+["')\]]*)?/g; let m;
+      const sub = maskAbbr(norm.slice(p.s, p.e)), re = /[^.!?…]+(?:[.!?…]+["')\]]*)?/g; let m;
       while ((m = re.exec(sub))) { if (!m[0].length) { re.lastIndex++; continue; }
         const lead = m[0].length - m[0].trimStart().length; sents.push({ s: p.s + m.index + lead, e: p.s + m.index + m[0].length, p }); }
     }
@@ -1011,12 +1016,15 @@ const Grader = (() => {
 
     // ===== Word overuse & variety
     // Names: capitalised when not at the start of a sentence, or a proper noun in the reference corpus
-    const cnt = new Map(), nonInit = new Map(), capNon = new Map(), capAny = new Set();
+    const cnt = new Map(), nonInit = new Map(), capNon = new Map(), capAny = new Set(), inName = new Map();
+    W.forEach((x, i) => {   // lower-case name particles count as names when they sit before a capitalised name ("van der Luyden", "de Winter")
+      if (!PARTICLE.has(x.w)) return; let j = i + 1; while (j < W.length && j <= i + 2 && PARTICLE.has(W[j].w)) j++;
+      if (W[j] && W[j].cap && !W[j].initial) inName.set(x.w, (inName.get(x.w) || 0) + 1); });
     for (const x of W) {
       cnt.set(x.w, (cnt.get(x.w) || 0) + 1); if (x.cap) capAny.add(x.w);
       if (!x.initial) { nonInit.set(x.w, (nonInit.get(x.w) || 0) + 1); if (x.cap) capNon.set(x.w, (capNon.get(x.w) || 0) + 1); }
     }
-    const isName = w => PROPER.has(w) || ((nonInit.get(w) || 0) > 0 ? (capNon.get(w) || 0) / nonInit.get(w) >= 0.6 : !FREQ.has(w) && capAny.has(w));
+    const isName = w => PROPER.has(w) || (PARTICLE.has(w) && (inName.get(w) || 0) >= 0.5 * (cnt.get(w) || 1)) || ((nonInit.get(w) || 0) > 0 ? (capNon.get(w) || 0) / nonInit.get(w) >= 0.6 : !FREQ.has(w) && capAny.has(w));
 
     const fil = scan(/\b(very|really|just|quite|suddenly|rather|somewhat|actually|basically|literally|totally|simply|pretty much|kind of|sort of|a little bit|a bit|completely|absolutely|definitely|certainly|truly|extremely|incredibly|seriously|honestly|practically|virtually|essentially|utterly|fairly|in order to|the fact that|at that moment|at this point|needless to say|somehow|all of a sudden|for some reason|it seemed|as if to say)\b/gi, { narr: true })
       .map(x => F(x.s, x.e, 'warn', `Filler: "${x.m[0]}"`, 'filler', 'cut or use a stronger word'));
@@ -1238,16 +1246,18 @@ const Grader = (() => {
     flush();
     M('structure', 'paragraphs', 'Paragraph length', k(pf.length), `${pf.length} issue${pf.length === 1 ? '' : 's'}`, 'Flags paragraphs over 180 words and runs of six or more one-liners.', { flags: pf });
 
-    const syll = W.reduce((a, x) => a + syl(x.raw), 0);
-    const fk = S.length && total ? 0.39 * (total / S.length) + 11.8 * (syll / total) - 15.59 : 0;
-    // ===== Readability. Below grade 9 costs points, more the lower it goes. YA / middle grade is meant to read simpler, so neither is scored there.
-    const fkYA = opts.profile === 'ya', rdNA = fkYA || total < 100;
-    M('readability', 'readability', 'Flesch–Kincaid grade level', fk, `grade ${fmt(Math.max(0, fk))}`, fkYA ? 'Estimated school grade from sentence length and syllables per word. For information only with the YA / middle grade profile.' : 'Estimated school grade from sentence length and syllables per word. Grade 9 or above scores full marks; below that the score drops evenly, reaching zero at grade 3.', { na: rdNA });
+    // Measured on narration only: dialogue is written to sound like speech, and would pull every novel's score down
+    const nS = S.filter(x => x.narr && x.nw.length).length, nWords = narr;
+    const syll = narrW.reduce((a, x) => a + syl(x.raw), 0);
+    const fk = nS && nWords ? 0.39 * (nWords / nS) + 11.8 * (syll / nWords) - 15.59 : 0;
+    // ===== Readability (narration only). Below grade 6 costs points, more the lower it goes. YA / middle grade is meant to read simpler, so neither is scored there.
+    const fkYA = opts.profile === 'ya', rdNA = fkYA || narr < 100;
+    M('readability', 'readability', 'Flesch–Kincaid grade level', fk, `grade ${fmt(Math.max(0, fk))}`, fkYA ? 'Estimated school grade of the narration (dialogue excluded) from sentence length and syllables per word. For information only with the YA / middle grade profile.' : 'Estimated school grade of the narration (dialogue excluded) from sentence length and syllables per word. Grade 6 or above scores full marks; below that the score drops evenly, reaching zero at grade 2.', { na: rdNA });
     // Dale–Chall: share of words outside the familiar-word list, plus sentence length. Names count as familiar.
-    const hard = W.filter(x => !dcFamiliar(x.w) && !isName(x.w)).length, hardPct = total ? hard / total * 100 : 0;
-    const dc = S.length && total ? 0.1579 * hardPct + 0.0496 * (total / S.length) + (hardPct > 5 ? 3.6365 : 0) : 0;
+    const hard = narrW.filter(x => !dcFamiliar(x.w) && !isName(x.w)).length, hardPct = nWords ? hard / nWords * 100 : 0;
+    const dc = nS && nWords ? 0.1579 * hardPct + 0.0496 * (nWords / nS) + (hardPct > 5 ? 3.6365 : 0) : 0;
     const dcGrade = dc < 5 ? 'grade 4 or below' : dc < 6 ? 'grades 5–6' : dc < 7 ? 'grades 7–8' : dc < 8 ? 'grades 9–10' : dc < 9 ? 'grades 11–12' : 'college';
-    M('readability', 'daleChall', 'Dale–Chall score', dc, `${fmt(dc)} (${dcGrade})`, `${fmt(hardPct)}% of words are outside the Dale–Chall list of ~3,000 familiar words. ` + (fkYA ? 'For information only with the YA / middle grade profile.' : 'A score of 7.0 or above (grade 9+) scores full marks; below that the score drops evenly, reaching zero at 4.0.'), { na: rdNA });
+    M('readability', 'daleChall', 'Dale–Chall score', dc, `${fmt(dc)} (${dcGrade})`, `${fmt(hardPct)}% of narration words are outside the Dale–Chall list of ~3,000 familiar words (dialogue excluded). ` + (fkYA ? 'For information only with the YA / middle grade profile.' : 'A score of 5.5 or above (about grade 6) scores full marks; below that the score drops evenly, reaching zero at 3.5.'), { na: rdNA });
 
     // ===== Dialogue
     const hasDlg = dlgWords >= 20;
@@ -1347,21 +1357,34 @@ const Grader = (() => {
 
     // Tense switches: a past-tense story that slips into present ("He walked in. She looks up.") or the reverse
     const SG = new Set(['he', 'she', 'it']), PL = new Set(['they', 'we', 'i']);
-    let pastN = 0, presN = 0; const presHits = [], pastTagHits = [];
+    let pastN = 0, presN = 0; const presHits = [], pastTagHits = [], pastParas = new Set();
+    const paraAt = pos => { let lo = 0, hi = paras.length - 1; while (lo <= hi) { const m = (lo + hi) >> 1; if (pos < paras[m].s) hi = m - 1; else if (pos >= paras[m].e) lo = m + 1; else return m; } return -1; };
+    let saysTags = 0, saidTags = 0;
     for (let i = 0; i + 1 < W.length; i++) {
       const a = W[i], b = W[i + 1]; if (a.dlg || b.dlg || !/^[ \t]+$/.test(norm.slice(a.e, b.s))) continue;
+      if (b.w === 'says') saysTags++; else if (b.w === 'said') saidTags++;
       if (!SG.has(a.w) && !PL.has(a.w)) continue;
-      if (PAST_V.has(b.w) || (/ed$/.test(b.w) && b.w.length > 3 && !ED_ADJ.has(b.w))) { pastN++; if (PAST_TAG.has(b.w)) pastTagHits.push(b); }
-      else if ((SG.has(a.w) && PRES3.has(b.w)) || (PL.has(a.w) && PRES_BASE.has(b.w))) { presN++; presHits.push(b); }
+      if (PAST_V.has(b.w) || (/ed$/.test(b.w) && b.w.length > 3 && !ED_ADJ.has(b.w))) { pastN++; pastParas.add(paraAt(a.s)); if (PAST_TAG.has(b.w)) pastTagHits.push(b); }
+      else if ((SG.has(a.w) && PRES3.has(b.w)) || (PL.has(a.w) && PRES_BASE.has(b.w))) {
+        presN++;
+        // Only he/she/they count as a slip: a first-person narrator commenting in the present ("I see now…", "He and I are old friends") is normal
+        if (a.w === 'he' || a.w === 'she' || a.w === 'they') presHits.push({ ...b, para: paraAt(a.s) });
+      }
     }
+    const saysStyle = saysTags >= 20 && saysTags >= 0.3 * (saysTags + saidTags);   // "I says" / "she says" used throughout is the author's voice
     const tenseMode = pastN >= 15 && presN <= 0.25 * pastN ? 'past' : presN >= 15 && pastN <= presN ? 'present' : null;
     const tn = [], seenSent = new Set();
     for (const h of tenseMode === 'past' ? presHits : tenseMode === 'present' ? pastTagHits : []) {
+      // a present-tense sentence is a slip only inside a paragraph that is otherwise told in the past (a whole paragraph of
+      // present, e.g. describing how bullfights work, is a deliberate general statement)
+      if (tenseMode === 'past' && (!pastParas.has(h.para) || (saysStyle && /^says?$/.test(h.w)))) continue;
       const sn = S[sentAt(h.s)]; if (!sn || seenSent.has(sn)) continue;
       const st = norm.slice(sn.s, sn.e); if (/[?!]["')\]]*\s*$/.test(st) || /\b(?:thought|thinks|wondered|knew|knows|realized|realises|realizes)\b/i.test(st)) continue;
+      if (/\b(?:I|we) (?:am|are|have|do|think|know|see|remember|believe|feel|suppose|still|often|always|never|sometimes)\b|\bI'm\b|\bI've\b/.test(st)) continue;   // the narrator speaking in the present
+      if (/\b(?:urged|urge|urges|insisted|insist|insists|suggested|suggest|demanded|demand|proposed|recommended|requested|asked|begged|ordered|required) that (?:\w+ ){0,2}$/i.test(norm.slice(Math.max(0, h.s - 60), h.s).replace(/\b(?:he|she|they)\s*$/i, ''))) continue;   // subjunctive: "urged that they go"
       seenSent.add(sn); tn.push(F(h.s, h.e, 'error', `Tense switch: "${h.raw}" in a ${tenseMode}-tense story`, 'tense', 'keep the narration in one tense'));
     }
-    M('errors', 'tense', 'Tense switches', k(tn.length, narr), `${tn.length} found`, 'Narration that slips between past and present tense ("He walked in. She looks up."). Only checked when one tense clearly dominates; thoughts and questions are skipped.', { flags: tn, na: !tenseMode, naNote: narr >= 100 ? 'tense is mixed throughout' : undefined });
+    M('errors', 'tense', 'Tense switches', k(tn.length, narr), `${tn.length} found`, 'Narration that slips between past and present tense ("He walked in. She looks up."). Only checked when one tense clearly dominates, and only for he/she/they in a paragraph otherwise told in the past; a first-person narrator commenting in the present, thoughts and questions are skipped.', { flags: tn, na: !tenseMode, naNote: narr >= 100 ? 'tense is mixed throughout' : undefined });
 
     // ===== Scoring
     const CATS = [
@@ -1404,7 +1427,7 @@ const Grader = (() => {
   for (const [k, p] of Object.entries(Grader.PROFILES)) profileSel.add(new Option(p.label, k));
   let last = null;
 
-  const countWords = () => { const n = (input.value.match(/[A-Za-z]+(?:['’][A-Za-z]+)*/g) || []).length; $('wc').textContent = `${n.toLocaleString()} words`; };
+  const countWords = () => { const n = (input.value.match(/\p{L}+(?:['’]\p{L}+)*/gu) || []).length; $('wc').textContent = `${n.toLocaleString()} words`; };
   input.addEventListener('input', countWords);
 
   const SAMPLE = `It was a dark and stormy night. Sarah felt very scared as she walked slowly down the hallway. She saw the door at the end. She heard a noise. She began to run.
@@ -1933,8 +1956,8 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   const countOf = (m, n) => `${n.toLocaleString()} ${(COUNT_LABEL[m.id] || [m.name.toLowerCase(), m.name.toLowerCase()])[n === 1 ? 0 : 1]}`;
   // The full-marks range of a check, in words ("Target: 10–22 words per sentence")
   function targetText(m) {
-    if (m.id === 'readability') return 'Target: grade 9 or above';
-    if (m.id === 'daleChall') return 'Target: 7.0 or above (grade 9+)';
+    if (m.id === 'readability') return 'Target: grade 6 or above';
+    if (m.id === 'daleChall') return 'Target: 5.5 or above (about grade 6)';
     if (!m.rule) return (m.note || '').split(/(?<=\.)\s/)[0];
     const [lo, hi] = m.rule.good, u = m.unit ? (m.unit.startsWith('%') ? m.unit : ' ' + m.unit) : '';
     return lo === -Infinity ? `Target: ${hi}${u} or less` : hi === Infinity ? `Target: ${lo}${u} or more` : `Target: ${lo}–${hi}${u}`;
