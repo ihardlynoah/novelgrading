@@ -1809,7 +1809,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   async function bytesToText(buf, type, label, sink = {}) {
     const head = new TextDecoder().decode(buf.slice(0, 5));
     if (head.startsWith('%PDF') || /application\/pdf/i.test(type || '')) {
-      const t = await pdfToText(buf, (i, n) => setStatus(`${label}: reading PDF page ${i} of ${n}…`), sink);
+      const t = await pdfToText(buf, (i, n) => setStatus(`${label}: reading PDF page ${i} of ${n} (${Math.floor(100 * i / n)}%)…`), sink);
       if (!t.trim()) throw new Error('the PDF has no selectable text (probably a scanned image)');
       return t;
     }
@@ -1868,7 +1868,8 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     const names = parts.map(p => p.name);
     const list = names.length > 6 ? `${names.slice(0, 5).join(', ')} … ${names[names.length - 1]}` : names.join(', ');
     const what = [parts.length === 1 ? '' : `${parts.length} files`, where].filter(Boolean).join(' ') || parts[0].name;
-    setStatus(`Loaded ${what}${parts.length > 1 ? `, in this order: ${list}` : ''}.${failed.length ? ` Skipped ${failed.length}: ${failed.map(f => `${f.name} (${f.err})`).join('; ')}.` : ''} Check the text, then press Grade.`, failed.length > 0 && !parts.length);
+    const notes = parts.filter(p => p.note).map(p => parts.length > 1 ? `${p.name}: ${p.note}` : p.note).join(' ');
+    setStatus(`Loaded ${what}${parts.length > 1 ? `, in this order: ${list}` : ''}.${notes ? ' ' + notes : ''}${failed.length ? ` Skipped ${failed.length}: ${failed.map(f => `${f.name} (${f.err})`).join('; ')}.` : ''} Check the text, then press Grade.`, failed.length > 0 && !parts.length);
   }
 
   // ---------- Opening files from this computer (one, several, or a folder) ----------
@@ -1886,7 +1887,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
       try {
         const sink = {};
         const text = await bytesToText(await f.arrayBuffer(), f.type || (/\.pdf$/i.test(f.name) ? 'application/pdf' : /\.html?$/i.test(f.name) ? 'text/html' : 'text/plain'), f.name, sink);
-        if (text.trim()) parts.push({ name: f.name, text, meta: sink.meta }); else failed.push({ name: f.name, err: 'no story text' });
+        if (text.trim()) parts.push({ name: f.name, text, meta: sink.meta, note: sink.note }); else failed.push({ name: f.name, err: 'no story text' });
       } catch (e) { console.error(e); failed.push({ name: f.name, err: e.message || String(e) }); }
     }
     if (mode === 'novels' && parts.length > 1) { startCompare(parts, failed); return; }
@@ -2124,13 +2125,26 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     loadPdfJs();
     const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(buf), isEvalSupported: false, disableFontFace: true }).promise;
     try { const md = await pdf.getMetadata(); const i = (md && md.info) || {}; sink.meta = { title: (i.Title || '').trim(), author: (i.Author || '').trim() }; } catch {}
-    const lines = [];
-    for (let p = 1; p <= pdf.numPages; p++) {
-      progress && progress(p, pdf.numPages);
-      const page = await pdf.getPage(p);
-      const tc = await page.getTextContent();
-      lines.push(...itemsToLines(tc.items, p));
-    }
+    // Long books on phones: free each page's fonts and drawing data once its text is read (memory otherwise builds up over
+    // hundreds of pages until the phone stalls), give up on any page that hangs, and let the screen update between pages
+    const lines = [], skipped = [], PAGE_LIMIT = 20000;
+    // (the timer is cleared as soon as the page answers, so it doesn't keep the page's content alive)
+    const limit = (work, ms) => { let t; return Promise.race([work, new Promise((_, no) => { t = setTimeout(() => no(new Error('timeout')), ms); })]).finally(() => clearTimeout(t)); };
+    try {
+      for (let p = 1; p <= pdf.numPages; p++) {
+        progress && progress(p, pdf.numPages);
+        let page = null;
+        try {
+          page = await limit(pdf.getPage(p), PAGE_LIMIT);
+          const tc = await limit(page.getTextContent(), PAGE_LIMIT);
+          for (const l of itemsToLines(tc.items, p)) lines.push(l);
+        } catch (e) { skipped.push(p); }
+        finally { try { page && page.cleanup(); } catch {} }
+        if (p % 40 === 0) { try { await pdf.cleanup(); } catch {} }
+        await new Promise(r => setTimeout(r, 0));
+      }
+    } finally { try { await pdf.destroy(); } catch {} }
+    if (skipped.length) sink.note = `${skipped.length} page${skipped.length === 1 ? '' : 's'} couldn't be read and ${skipped.length === 1 ? 'was' : 'were'} skipped (page${skipped.length === 1 ? '' : 's'} ${skipped.slice(0, 8).join(', ')}${skipped.length > 8 ? '…' : ''}).`;
     return linesToText(lines, pdf.numPages);
   }
   window.__ficPdf = { itemsToLines, linesToText };
