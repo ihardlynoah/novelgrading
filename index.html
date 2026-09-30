@@ -163,6 +163,12 @@ body.dragging .sheet{outline:2px dashed var(--pencil);outline-offset:6px}
         <option value="ignore">Don't count</option>
       </select>
     </label>
+    <label>English
+      <select id="english">
+        <option value="us">American (flag Britishisms)</option>
+        <option value="uk">British or other</option>
+      </select>
+    </label>
     <button class="btn" id="loadBtn" type="button">Open files</button>
     <input type="file" id="file" multiple hidden>
     <button class="btn" id="folderBtn" type="button">Open folder</button>
@@ -229,7 +235,7 @@ const Grader = (() => {
     adjStack: lower(0.5, 3), appositives: lower(3, 10), paragraphs: lower(0.25, 3), readability: higher(7, 3), daleChall: higher(6, 4),
     dlgRatio: band(15, 60, 0, 85), fancyTags: lower(20, 60), tagAdverbs: lower(1, 5), dlgPunct: lower(0, 4),
     excl: lower(1, 5), ellipses: lower(2, 8), dashes: lower(6, 15),
-    tier1: lower(0, 4), tier2: lower(0, 4), povSlip: lower(0, 3)
+    tier1: lower(0, 4), tier2: lower(0, 4), povSlip: lower(0, 3), tense: lower(0, 2), longSent: lower(0.5, 3), fragments: lower(3, 12), simStack: lower(0.2, 2), commaSplice: lower(0.5, 3), britishisms: lower(0.3, 3)
   };
   const UNITS = {
     echoes: 'per 1,000 words', filler: 'per 1,000 narration words', adverbs: '% of narration words', hedging: 'per 1,000 narration words',
@@ -238,7 +244,7 @@ const Grader = (() => {
     passive: '% of sentences', progressive: 'per 1,000 narration words', openers: 'runs per 1,000 words', ingOpeners: '% of sentences',
     adjStack: 'per 1,000 words', appositives: 'per 1,000 narration words', paragraphs: 'per 1,000 words', readability: 'grade level', daleChall: 'Dale–Chall score', dlgRatio: '% dialogue', fancyTags: '% of tags', tagAdverbs: 'per 1,000 words',
     dlgPunct: 'per 1,000 words', excl: 'per 1,000 narration words', ellipses: 'per 1,000 words', dashes: 'per 1,000 words',
-    tier1: 'per 1,000 words', tier2: 'per 1,000 words', povSlip: 'per 1,000 words'
+    tier1: 'per 1,000 words', tier2: 'per 1,000 words', povSlip: 'per 1,000 words', tense: 'per 1,000 narration words', longSent: 'per 1,000 narration words', fragments: 'per 1,000 narration words', simStack: 'per 1,000 narration words', commaSplice: 'per 1,000 narration words', britishisms: 'per 1,000 words'
   };
   const PROFILES = {
     general: { label: 'General fiction', o: {} },
@@ -278,6 +284,14 @@ const Grader = (() => {
   }
 
   const ED_ADJ = new Set(words(`tired scared bored interested excited worried surprised confused pleased annoyed embarrassed exhausted frightened terrified relieved used supposed married dressed related located based determined prepared concerned involved red bed shed sled need seed feed deed speed bleed breed greed weed hundred naked sacred wicked rugged ragged jagged crooked beloved aged blessed kindred shocked stunned amazed ashamed disappointed satisfied devoted convinced delighted horrified startled puzzled alarmed thrilled`));
+  // Word sets for the fragment, comma-splice and tense checks
+  const AUXV = new Set(words(`is are am was were be been being has have had do does did can could will would shall should may might must`));
+  const SUBJ = new Set(words(`i he she they we you it there`));
+  const PAST_V = new Set(words(`was were had did said went came saw took got made knew thought felt told left found gave stood sat ran held brought began kept heard meant let put became seemed lay rose fell grew drew threw wore spoke broke chose woke drove rode wrote ate drank sang swam won lost paid sent spent built caught taught bought fought sought slept swept wept led fed bled met shook stole froze hid bit struck hung flew shone shot understood forgot forgave knelt leapt crept dealt swung clung spun sank rang stuck dug slid spat tore bore hit cut shut burst cast hurt quit spread could would should`));
+  const PAST_TAG = new Set(words(`said asked replied nodded smiled shrugged sighed laughed grinned whispered muttered turned looked`));
+  const PRES_BASE = new Set(words(`go come see know think feel want need get make take tell seem give look turn walk smile nod lean pull push stand sit run open close shake laugh sigh shrug grin stare watch reach move step say ask try hold keep leave find hear are am have do`));
+  const PRES3 = new Set([...PRES_BASE].filter(w => !/^(?:are|am|have|do)$/.test(w)).map(w => /(?:s|sh|ch|x|o)$/.test(w) ? w + 'es' : /[^aeiou]y$/.test(w) ? w.slice(0, -1) + 'ies' : w + 's').concat(['is', 'has', 'does']));
+  const IRREG = new Set([...PAST_V, ...PRES_BASE, ...PRES3, ...words(`says goes comes sees knows thinks feels wants needs gets makes takes tells seems gives looks turns begins keeps holds brings means lets puts becomes lies falls grows draws throws wears speaks breaks chooses wakes drives rides writes eats drinks sings wins loses pays sends spends builds catches teaches buys fights sleeps meets shakes steals freezes hides bites strikes hangs flies shines shoots understands forgets hits cuts shuts hurts happens matters hurts works waits stops starts ends stays lives dies breathes`)]);
   const IRREG_PP = new Set(words(`taken given seen done made written known shown thrown broken chosen driven eaten fallen forgotten forgiven frozen hidden spoken stolen sworn torn worn woken bitten beaten born bound bought brought built caught found held hit hurt kept laid led left lost met paid put read sent set shot shut sold struck taught told understood won ridden risen shaken slain sung sunk drawn grown flown blown dug fed fought ground hung lit spun stuck swept thrust wound`));
 
 
@@ -383,6 +397,26 @@ const Grader = (() => {
   ];
   // ---- Confused words: only in patterns where the wrong word is clear ----
   const TIER2 = [
+    [/\b(blonde|brunette) (man|boy|guy|men|boys|guys|husband|boyfriend|brother|son|father|dad|prince|king|lad|gentleman|teenager|detective|captain|soldier|doctor|agent|officer)\b/gi, m => (/^blonde$/i.test(m[1]) ? 'blond ' : 'brunet / dark-haired ') + m[2]],
+    [/\bblond (woman|girl|women|girls|fianc[ée]e|wife|girlfriend|sister|daughter|mother|lady|princess|queen|actress|waitress)\b/gi, m => 'blonde ' + m[1]],
+    [/\b(?:with|such|full|absolute|quiet|calm|sudden|growing|utter|complete|total|grim|newfound|new-found) surety\b|\bsurety (?:that|of (?:his|her|their|the))\b/gi, m => m[0].replace(/surety/i, 'certainty')],
+    [/\bexponentially\b/gi, 'rapidly / far / much (unless you mean literal exponential growth)'],
+    [/\bbreech(?:es|ed|ing)? (?:containment|security|protocol|contract|trust|the (?:wall|walls|perimeter|defen[cs]es|hull|gates?|surface|line|barrier|wards?))\b/gi, m => m[0].replace(/breech/i, 'breach')],
+    [/\btaught (?:wire|rope|string|line|muscles?|skin|lips?|smile|voice|nerves?|bowstring|cord|cable|jaw|thread|body|frame|shoulders|expression|features|drum)\b|\b(?:pulled|drawn|stretched|went|pulling|stretching|drawing|pulls|stretches) taught\b/gi, m => m[0].replace(/taught/i, 'taut')],
+    [/\bexogenous (?:zones?|spots?|areas?)\b/gi, m => m[0].replace(/exogenous/i, 'erogenous')],
+    [/\b(?:room|world|head|everything|ceiling|walls?|vision) span\b/gi, m => m[0].replace(/span$/i, 'spun')],
+    [/\b(?:a|the|hopeless|such a|total|true|big|incurable) romanticist\b/gi, m => m[0].replace(/romanticist/i, 'romantic')],
+    [/\buncaring of\b/gi, 'not caring about'],
+    [/\bcohesive (?:thought|thoughts|sentence|sentences|words?|answer|response|reply|argument)\b/gi, m => m[0].replace(/cohesive/i, 'coherent')],
+    [/\bmore (dumb|smart|big|small|tall|short|fast|slow|old|young|hard|soft|loud|dark|bright|cold|hot|warm|cool|rich|poor|strong|weak|nice|mean|cute|sweet|thin|fat|deep|high|low|long|late|safe|brave|calm|clean|clear|cheap|kind|wise|wild|tough|sad|mad)(?= than\b|[.,!?;]| and\b| or\b)/gi, m => { const w = m[1].toLowerCase(); return (/e$/.test(w) ? w + 'r' : /^(?:big|hot|fat|thin|sad|mad)$/.test(w) ? w + w.slice(-1) + 'er' : w + 'er'); }],
+    [/\banymore (?:of|than)\b/gi, m => m[0].replace(/anymore/i, 'any more')],
+    [/\bteam (mates?|work)\b/gi, m => 'team' + m[1]],
+    [/\bdancefloors?\b/gi, m => m[0].replace(/dancefloor/i, 'dance floor')], [/\bsmalltalk\b/gi, 'small talk'],
+    [/\b(to|will|would|could|should|can|can't|won't|let's|wanna|gonna|didn't|don't|did|never|always|usually|must|might) (workout|makeout|hangout|breakup|checkout|logout|login|setup|backup|pickup|showup|cleanup|blackout|passout)\b/gi, m => `${m[1]} ${m[2].replace(/^(work|make|hang|break|check|log|set|back|pick|show|clean|black|pass)/i, '$1 ')}`],
+    [/\b(?:on|the|a|his|her|their|my|your|missed (?:his|her|the|their|my)|took (?:his|her|the|their|my)) que\b|\bque(?:d|ing)? (?:up )?the (?:music|song|track|video|lights|scene|next)\b/gi, m => m[0].replace(/\bque/i, 'cue')],
+    [/\b(omegan|alphan|betan)\b/gi, m => m[1].slice(0, -1)],
+    [/\b(?:the|an|their|his|her|our|my) entire(?= (?:was|arrived|came|is)\b|[.,!?])/gi, m => m[0].replace(/entire/i, 'entrée')],
+    [/\bcategorical imperative\b/gi, "(Kant's term) — for \"very important\" use \"absolute necessity\""],
     [/\bless (?:people|persons|men|women|children|kids|friends|times|days|hours|minutes|seconds|weeks|months|years|words|things|options|choices|mistakes|problems|questions|students|cars|books|calories|items|members|guests|visitors|customers|employees|chances|reasons|steps|pages|dollars|coins|cookies|trees|houses|rooms|errors|ideas|jobs|players|games|points|votes|miles|bullets|lives|soldiers|men|patients|pieces|drinks|meals|shots|rules|toys|bottles|cases|attempts|servants|guards|teachers|classes|lessons|seats|chairs|tables|windows|doors|lines|scenes|chapters)\b/gi, m => m[0].replace(/^less/i, 'fewer')],
     [/\bfewer (?:time|money|water|food|sleep|attention|interest|patience|space|room|energy|effort|information|advice|trouble|noise|pain|love|hope|fear|help|work|traffic|weight|light|air|sugar|salt|milk|furniture|luggage|equipment|evidence|damage|violence|blood|stress|confidence|experience|knowledge|homework|research|coffee|alcohol|food|rain|snow|progress|luck|courage)\b/gi, m => m[0].replace(/^fewer/i, 'less')],
     [/\bamong (?:the )?(?:two|both)\b|\b[Aa]mong (?:him|her|me|you|us|them|[A-Z][a-z]+) and (?:him|her|me|you|us|them|[A-Z][a-z]+)\b(?!,| (?:and|or)\b)/g, m => m[0].replace(/^[Aa]mong/, 'between')],
@@ -497,9 +531,26 @@ const Grader = (() => {
     `(?<!(?:bird|parrot|chicken|hen|gull|crow|goose|geese|duck|raven|jay|macaw|rooster|magpie|heron|seagull)s? )squawk(?:ed|ing|s)?\\b`,
     `(?:the )?(?:last |final |missing )?(?:puzzle )?pieces? (?:of the puzzle )?(?:finally |suddenly |all )?(?:clicked|clicking|clicks|click|fell|falling|falls|fall|slotted|slotting|slid|snapped) (?:together|into place)`,
     `(?:clicked|clicking|clicks|fell|falling|falls|slotted|slotting|slid|snapped) into place`, `the (?:last|final|missing) piece of the puzzle`,
-    `(?:he|she|they|I|we|you|it) (?:was|were) sat\\b(?! down)`, `(?:was|were) sat (?=on |at |in |by |beside |next |there|with |behind |across |around |against |opposite |alone|quietly|cross-legged|up |outside |inside |beneath |under )`,
+    `(?:he|she|they|I|we|you|it) (?:was|were|is|are|am) sat\\b(?! down)`, `(?:was|were|is|are) sat (?=on |at |in |by |beside |next |there|with |behind |across |around |against |opposite |alone|quietly|cross-legged|up |outside |inside |beneath |under )`,
     `(?:after |for )?a beat(?![-\\w]| (?:cop|poet|generation|up))`,
     `((?:look|see|saw|seen|listen|hear|heard|stare|watch|smile|laugh|notice|kiss|touch|breathe|feel|felt|think|thought|mean|meant|smell|taste|understand|understood|know|knew|want|need|live|tri|try|cri|cry|sleep|slept|rest|talk|speak|spoke|hug|hold|held|look)\\w*)(?: (?:at |to |into |for )?\\w+)?(?:,|—|--| -)+ ?(?:really|truly|actually|properly|genuinely) \\1\\b`
+,
+    `(?:smiled|smiles|smiling)[^.!?]{0,30}[.!?—,] (?:A |a )?(?:real|genuine|true|proper) smile`, `(?:laughed|laughs|laughing)[^.!?]{0,30}[.!?—,] (?:A |a )?(?:real|genuine|true|proper) laugh`,
+    `(?:grinned|grins|grinning)[^.!?]{0,30}[.!?—,] (?:A |a )?(?:real|genuine|true|proper) grin`, `(?:kissed|kisses|kissing)[^.!?]{0,30}[.!?—,] (?:A |a )?(?:real|genuine|true|proper) kiss`,
+    `(?<=(?:^|[.!?]\\s+|\\n))Really (?:look|looks|looked|looking|see|sees|saw|listen|listens|listened)\\b`,
+    `Oh\\. Oh[.!]`, `(?:several|a few|two|three|long|a long|many) beats\\b`, `(?<=(?:^|\\n)[ \\t]*)(?:A|a) pause\\.(?=[ \\t]*(?:\\n|$))`,
+    `everything and nothing`, `(?:face|expression|mouth|features) (?:did|does|doing|do) (?:something|a thing|this thing|that thing)(?: (?:complicated|funny|strange|weird|odd|complex|painful|soft|interesting))?`,
+    `something (?:unfurled|unfurling|unfurls|cracked open|cracking open|cracks open|bloomed|blooming|blossomed|loosened|fluttered) (?:in|inside|within) ${P} (?:chest|ribs|ribcage|stomach|belly|heart)`,
+    `(?:made|makes|making) ${P} chest crack(?:ed)? open`, `${P} chest cracked open`, `replaced (?:by|with) something (?:sharp|sharper|hard|harder|darker|colder|softer|else|heavier|warmer)`,
+    `(?:brain|mind) (?:blue-?screened|blue-?screening|short-?circuited|short-?circuiting|short-?circuits|glitched|went offline|rebooted)`, `(?:brain|mind)\\.exe`,
+    `in record time`, `(?:nobody|no one) (?:had|needed|has|needs) to know`,
+    `(?:a )?(?:(?:low|small|soft|strangled|punched-out|wounded|broken|choked|needy|quiet|little) )?(?:sound|noise) (?:in|at|from) the back of ${P} throat`,
+    `like (?:it's|it was|it is|this is|that's|that was|this was) the (?:\\w+est|most \\w+) thing in the world`,
+    `(?:it|that|this|which) felt (?:amazing|incredible|fantastic)`, `(?:it|that|this) (?:was|is) the (?:type|kind|sort) of \\w+ (?:when|where) you`,
+    `(?:look|air|expression|voice|tone|face|smile|posture|walk|confidence|gait|eyes|grin|energy|manner|laugh) of (?:someone|somebody|a man|a woman) who`,
+    `mirth(?:ful|fully)?\\b`, `(?:blue|green|brown|grey|gray|hazel|amber|dark|black) eyes (?:met|looked into|locked (?:on|with|onto)|stared into|found|searched) (?:blue|green|brown|grey|gray|hazel|amber|dark|black)(?! eyes)\\b`,
+    `a testament to`, `(?:rich |vibrant |intricate )?tapestry of`, `delv(?:e|ed|es|ing) (?:into|deeper)`, `a symphony of`,
+    `(?:the )?(?:words|silence|question|tension|confession) hung (?:heavy |heavily )?(?:in|between)`, `the weight of (?:his|her|their|those|the) words`
   ];
   // ---- Clichés: romance fiction ----
   const CLICHE_ROMANCE = [
@@ -560,12 +611,14 @@ const Grader = (() => {
     `white[- ]hot (?:pleasure|desire|need|lust|heat)`, `${P} vision (?:went|whited|flashed|turned|whiting) (?:white|out)`,
     `(?:he|she|they|I) came (?:apart|undone)`, `(?:was|were|looked|felt|is) absolutely (?:destroyed|wrecked|ruined)`,
     `(?:a )?(?:trembling|shaking|quivering|whimpering|sobbing|needy|boneless|panting) mess`, `fucked (?:stupid|senseless|dumb|silly)`,
-    `embarrassingly (?:needy|hard|wet|loud|eager|breathless)`, `(?:take|takes|took|taking|taken) (?:him|her|them|me|you|us) apart`
+    `embarrassingly (?:needy|hard|wet|loud|eager|breathless)`, `(?:take|takes|took|taking|taken) (?:him|her|them|me|you|us) apart`, `put (?:him|her|them|me|you|us) back together(?: again)?`,
+    `chas(?:e|ed|ing|es) ${P} (?:own )?(?:release|orgasm|climax|high|end)`, `whit(?:ed|ing|es) out`, `(?:came|coming|come|comes) down from (?:${P} |the )?(?:high|orgasm|climax|peak|aftershocks)`,
+    `(?:cock|dick)[- ]?drunk`, `${P} core (?:is |was )?(?:imploding|imploded|implodes|exploding)`
   ];
   const CLICHES = [...CLICHE_GENERAL, ...CLICHE_ROMANCE].map(s => new RegExp('\\b' + s, 'gi'));
   // ---- Epithets: a character called by a trait ("the older man", "the blonde") instead of a name or pronoun ----
   const EP_COMP = 'older|younger|taller|shorter|smaller|bigger|larger|elder|slighter|broader';
-  const EP_HAIR = 'blond|blonde|brunet|brunette|redhead|raven-haired|dark-haired|fair-haired|light-haired|black-haired|brown-haired|silver-haired|white-haired|golden-haired|red-haired|curly-haired|messy-haired|shaggy-haired';
+  const EP_HAIR = 'blond|blonde|brunet|brunette|redhead|raven-haired|dark-haired|fair-haired|light-haired|black-haired|brown-haired|silver-haired|white-haired|golden-haired|red-haired|curly-haired|messy-haired|shaggy-haired|blue-eyed|green-eyed|brown-eyed|grey-eyed|gray-eyed|hazel-eyed|dark-eyed|amber-eyed|golden-eyed|silver-eyed';
   const EP_WHO = 'man|woman|boy|girl|guy|lad|lass|teen|teenager|male|female|kid';
   // the epithet used as a subject: followed by a verb, a possessive, or the end of a clause
   const EP_ACT = `'s\\b|[,.;:!?]| (?:said|asked|replied|answered|sighed|smiled|grinned|smirked|laughed|chuckled|muttered|murmured|whispered|nodded|shrugged|frowned|huffed|snorted|scoffed|groaned|hummed|glanced|looked|stared|rolled|raised|pulled|pushed|leaned|turned|stepped|walked|moved|reached|froze|flinched|blushed|winked|was|had|could|would|did|didn't|wasn't|hadn't|couldn't|just|only|then|still|also)\\b`;
@@ -592,7 +645,7 @@ const Grader = (() => {
   const REDUND = [
     [`nodded ${P} heads?`, 'nodded'], [`shrugged ${P} shoulders`, 'shrugged'], [`whispered (?:quietly|softly)`, 'whispered'],
     [`(?:shouted|yelled|screamed|bellowed|roared) loudly`, 'drop "loudly"'], [`stood up`, 'stood (often)'], [`sat down`, 'sat (often)'], [`blinked ${P} (?:eyes|eyelids)`, 'blinked'],
-    [`thought to (?:himself|herself|themselves|myself)`, 'thought'], [`clapped ${P} hands together`, 'clapped'], [`past history`, 'history'],
+    [`thought to (?:himself|herself|themselves|myself)`, 'thought'], [`clapped ${P} hands together`, 'clapped'], [`past history`, 'history'], [`restorative rest`, 'rest'],
     [`completely (?:finished|destroyed|surrounded|unique|empty|full)`, 'drop "completely"'], [`end result`, 'result'], [`free gift`, 'gift'],
     [`(?:return|returned|returning) back`, 'returned'], [`(?:revert|reverted) back`, 'reverted'], [`(?:ascended|climbed|rose|lifted) up`, 'drop "up"'],
     [`(?:descended|fell|plummeted) down`, 'drop "down"'], [`(?:entered|enter) into`, 'entered'], [`final outcome`, 'outcome'], [`close proximity`, 'near'],
@@ -854,6 +907,16 @@ const Grader = (() => {
     const coy = uniq(COY_BODY.flatMap(([re, fix]) => scan(re, { narr: true }).map(y => ({ ...y, fix })))).map(x => F(x.s, x.e, 'warn', `Clinical or coy: "${x.m[0]}"`, 'coyBody', x.fix));
     M('words', 'coyBody', 'Clinical or coy body words', k(coy.length, narr), `${coy.length} found`, '"Ministrations", "appendage", "the male", "her lithe form": words that sound like a lab report or a euphemism and pull the reader out of the scene.', { flags: coy });
 
+    // Britishisms in a story set to American English
+    const BRIT = [[/\bkerbs?\b/gi, 'curb'], [/\bhob\b/gi, 'stovetop'], [/\btins? of (?:soup|beans|tuna|tomatoes|paint|biscuits)\b/gi, 'can of …'], [/\bcheeky\b/gi, 'sassy / nervy'],
+      [/\bNando's\b/g, '(UK chain)'], [/\b(?:my|his|her|their|your|our) mates\b|, mate[,.!?]/gi, 'friends / buddy'], [/\barse(?:hole)?s?\b/gi, 'ass'], [/\bbloody (?:hell|idiot|well|fool|brilliant|stupid)\b/gi, 'damn'],
+      [/\brubbish\b/gi, 'trash / garbage'], [/\blorry\b/gi, 'truck'], [/\bpetrol\b/gi, 'gas'], [/\bcar park\b/gi, 'parking lot'], [/\b(?:my|his|her|their|your) trainers\b/gi, 'sneakers'],
+      [/\bfortnight\b/gi, 'two weeks'], [/\bwhilst\b/gi, 'while'], [/\bin hospital\b/gi, 'in the hospital'], [/\bat the weekend\b/gi, 'on the weekend'], [/\b(?:my|his|her|their|your) mobile\b(?! home)/gi, 'cell / phone'],
+      [/\bcrisps\b/gi, 'chips'], [/\bMum(?:my)?\b/g, 'Mom'], [/\bCali\b|\bSan Fran\b/g, 'California / San Francisco (Americans rarely shorten these)'],
+      [/\b(?:colour|favourite|honour|behaviour|neighbour)(?:s|ed|ing|ite)?\b/gi, 'American spelling (-or)'], [/\b(?:realis|recognis|apologis|organis)(?:e|ed|es|ing)\b/gi, 'American spelling (-ize)']];
+    const brit = opts.english === 'uk' ? [] : uniq(BRIT.flatMap(([re, fix]) => scan(re).map(y => ({ ...y, fix })))).map(x => F(x.s, x.e, 'warn', `Britishism: "${x.m[0]}"`, 'britishisms', x.fix));
+    M('words', 'britishisms', 'Britishisms', k(brit.length), `${brit.length} found`, 'British words and spellings in a story set to American English (change the English setting at the top for British stories). Includes dialogue: an American character saying "mate" or "Mum" stands out.', { flags: brit, na: opts.english === 'uk', naNote: 'British English selected' });
+
     const rd = []; for (const x of uniq(REDUND.flatMap(([re, fix]) => scan(re).map(y => ({ ...y, fix }))))) rd.push(F(x.s, x.e, 'warn', `Redundant: "${x.m[0]}"`, 'redund', x.fix));
     M('words', 'redund', 'Redundancies', k(rd.length), `${rd.length} found`, 'Phrases where part of the wording repeats what the verb already says.', { flags: rd });
 
@@ -1002,6 +1065,24 @@ const Grader = (() => {
       .map(x => { const a = x.s + x.m[1].length + x.m[2].length; return F(a, a + x.m[3].length, 'warn', `Appositive: "${x.m[3]}"`, 'appositives', 'give the detail its own sentence, or cut it'); });
     M('structure', 'appositives', 'Appositives', k(appos.length, narr), `${fmt(k(appos.length, narr))} / 1k`, 'Noun phrases set off by commas that rename the noun before them: "Sarah, a tall woman with red hair, walked in." Useful for a first introduction; stacked up, they stall the sentence and read like an info-dump. Approximate.', { flags: appos });
 
+    const narrOnly = S.filter(x => x.nw.length === x.words.length);
+    // Very long sentences (narration)
+    const ls = narrOnly.filter(x => x.words.length > 50).map(x => F(x.s, Math.min(x.e, x.s + 60), 'warn', `Very long sentence: ${x.words.length} words`, 'longSent', 'split it'));
+    M('structure', 'longSent', 'Very long sentences', k(ls.length, narr), `${ls.length} found`, 'Narration sentences over 50 words.', { flags: ls });
+
+    // Sentence fragments: short narration "sentences" with no verb ("Silence. Just him. Cold hands.")
+    const isVerbish = (x, prev) => x.w.includes("'") || AUXV.has(x.w) || IRREG.has(x.w) || SUBJ.has(x.w) || (/ed$/.test(x.w) && x.w.length > 3 && !ED_ADJ.has(x.w)) ||
+      (/[^s]s$/.test(x.w) && prev && (SUBJ.has(prev.w) || /^(?:nothing|everything|something|someone|everyone|nobody|this|that)$/.test(prev.w) || isName(prev.w)));
+    const frag = narrOnly.filter(x => x.words.length <= 8 && !x.words.some((y, i) => isVerbish(y, x.words[i - 1])))
+      .map(x => F(x.s, x.e, 'warn', `Sentence fragment: "${norm.slice(x.s, x.e).trim()}"`, 'fragments', 'give it a subject and a verb, or join it to the sentence before'));
+    M('structure', 'fragments', 'Sentence fragments', k(frag.length, narr), `${frag.length} found`, 'Short narration "sentences" with no verb. A few add punch; strings of them read like slam poetry or text messages. Approximate.', { flags: frag });
+
+    // Similes the writer won't commit to: "as if X, as if Y" / "Like X. Like Y."
+    const sim = uniq([...scan(/\b(?:as if|as though)\b[^.!?;\n]{2,80}?,\s*(?:or\s+)?(?:as if|as though)\b/gi, { narr: true }),
+      ...scan(/\bLike [^.!?\n]{2,60}[.!?]\s+Like [^.!?\n]{2,60}[.!?]/g, { narr: true }), ...scan(/\blike [^.!?,;\n]{2,40}, like [^.!?,;\n]{2,40}/gi, { narr: true })])
+      .map(x => F(x.s, x.e, 'warn', 'Stacked similes: pick the one that fits best', 'simStack', 'keep one comparison'));
+    M('structure', 'simStack', 'Stacked similes', k(sim.length, narr), `${sim.length} found`, '"…as if X, as if Y" or "Like X. Like Y. Like Z." Commit to one comparison.', { flags: sim });
+
     const pf = []; let run = [];
     const flush = () => { if (run.length >= 6) pf.push(F(run[0].s, Math.min(run[0].e, run[0].s + 60), 'warn', `${run.length} very short paragraphs in a row`, 'paragraphs')); run = []; };
     for (const p of paras) {
@@ -1060,6 +1141,25 @@ const Grader = (() => {
     const da = scan(/—|--/g).map(x => F(x.s, x.e, 'warn', 'Em dash', 'dashes'));
     M('punct', 'dashes', 'Em dashes', k(da.length), `${fmt(k(da.length))} / 1k`, 'Great for interruptions; heavy use becomes a tic.', { flags: da, weight: 0.75 });
 
+    // Comma splices: two complete clauses joined by only a comma ("He smiled, she looked away.")
+    const SUBORD = /^(?:when|whenever|if|as|after|before|while|because|since|although|though|once|until|unless|whether|even|by the time|now that|so that)\b/i;
+    const SPLICE_SKIP = /^(?:thought|thinks|said|says|knew|guessed|supposed|realized|realised|figured|admitted|noted|decided|mused|added|replied|whispered|murmured|hoped|suspected|assumed|imagined|reckoned)$/;
+    const spl = [];
+    for (const x of narrOnly) {
+      const st = norm.slice(x.s, x.e); if (SUBORD.test(st.trim())) continue;
+      const re = /, (he|she|they|I|we|it) (\w+(?:'\w+)?)/g; let m;
+      while ((m = re.exec(st))) {
+        const before = st.slice(0, m.index), bw = before.match(/[A-Za-z']+/g) || [];
+        const second = m[2].toLowerCase(); if (SPLICE_SKIP.test(second)) continue;
+        if (/^(?:(?:and|but|or|so|then|yet) )?(?:when|whenever|if|as|after|before|while|because|since|although|though|once|until|unless|whether)\b/i.test(before.split(/[,;]/).pop().trim())) continue;   // "…and when they didn't, he went"
+        const v2 = second.includes("'") || AUXV.has(second) || IRREG.has(second) || (/ed$/.test(second) && !ED_ADJ.has(second));
+        const hasSubj = bw.length && (SUBJ.has(bw[0].toLowerCase()) || /^[A-Z]/.test(bw[0]) && !SUBORD.test(bw[0]));
+        const v1 = bw.some(w => { const l = w.toLowerCase(); return l.includes("'") || AUXV.has(l) || IRREG.has(l) || (/ed$/.test(l) && !ED_ADJ.has(l)); });
+        if (v2 && hasSubj && v1 && bw.length >= 2) { const a = x.s + m.index; spl.push(F(a, a + m[0].length, 'warn', 'Comma splice: two sentences joined by only a comma', 'commaSplice', 'use a period, a semicolon, or "and"/"but"')); break; }
+      }
+    }
+    M('punct', 'commaSplice', 'Comma splices', k(spl.length, narr), `${spl.length} found`, 'Two complete sentences joined by only a comma: "He smiled, she looked away." Approximate.', { flags: spl });
+
     // ===== Errors
     const dlgW = dlgMode === 'full' ? 1 : dlgMode === 'reduce' ? 0.25 : 0;
     function errs(list, id) {
@@ -1096,6 +1196,24 @@ const Grader = (() => {
       pov.push(F(at, at + g[0].length, 'error', `Switches to second person: "${g[0]}" in third-person narration`, 'povSlip', 'keep the narration in third person (e.g. "the way people do when they…")'));
     }
     M('errors', 'povSlip', 'Slips into "you"', k(pov.length), `${pov.length} found`, 'Third-person narration that suddenly uses "you" for people in general ("like when you…", "you could tell", "makes you"). Unquoted thoughts, questions, notes and set phrases are skipped.', { flags: pov, na: !thirdPerson, naNote: narr >= 100 ? "narration isn't third person" : undefined });
+
+    // Tense switches: a past-tense story that slips into present ("He walked in. She looks up.") or the reverse
+    const SG = new Set(['he', 'she', 'it']), PL = new Set(['they', 'we', 'i']);
+    let pastN = 0, presN = 0; const presHits = [], pastTagHits = [];
+    for (let i = 0; i + 1 < W.length; i++) {
+      const a = W[i], b = W[i + 1]; if (a.dlg || b.dlg || !/^[ \t]+$/.test(norm.slice(a.e, b.s))) continue;
+      if (!SG.has(a.w) && !PL.has(a.w)) continue;
+      if (PAST_V.has(b.w) || (/ed$/.test(b.w) && b.w.length > 3 && !ED_ADJ.has(b.w))) { pastN++; if (PAST_TAG.has(b.w)) pastTagHits.push(b); }
+      else if ((SG.has(a.w) && PRES3.has(b.w)) || (PL.has(a.w) && PRES_BASE.has(b.w))) { presN++; presHits.push(b); }
+    }
+    const tenseMode = pastN >= 15 && presN <= 0.25 * pastN ? 'past' : presN >= 15 && pastN <= presN ? 'present' : null;
+    const tn = [], seenSent = new Set();
+    for (const h of tenseMode === 'past' ? presHits : tenseMode === 'present' ? pastTagHits : []) {
+      const sn = S.find(x => h.s >= x.s && h.s < x.e); if (!sn || seenSent.has(sn)) continue;
+      const st = norm.slice(sn.s, sn.e); if (/[?!]["')\]]*\s*$/.test(st) || /\b(?:thought|thinks|wondered|knew|knows|realized|realises|realizes)\b/i.test(st)) continue;
+      seenSent.add(sn); tn.push(F(h.s, h.e, 'error', `Tense switch: "${h.raw}" in a ${tenseMode}-tense story`, 'tense', 'keep the narration in one tense'));
+    }
+    M('errors', 'tense', 'Tense switches', k(tn.length, narr), `${tn.length} found`, 'Narration that slips between past and present tense ("He walked in. She looks up."). Only checked when one tense clearly dominates; thoughts and questions are skipped.', { flags: tn, na: !tenseMode, naNote: narr >= 100 ? 'tense is mixed throughout' : undefined });
 
     // ===== Scoring
     const CATS = [
@@ -1490,6 +1608,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   $('gradeBtn').onclick = grade;
   profileSel.onchange = () => { if (last) grade(); };
   $('dlgMode').onchange = () => { if (last) grade(); };
+  $('english').onchange = () => { if (last) grade(); };
   $('saveBtn').onclick = saveReport;
 
   function showEdit() {
@@ -1623,7 +1742,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     const text = input.value;
     if (!ficTitle() && !ficAuthor()) { const g = guessMeta(text); setMeta(g.title, g.author); }
     if (!text.trim()) { report.innerHTML = '<div class="empty">Paste some text into the page first, then press Grade.</div>'; return; }
-    const res = Grader.analyze(text, { profile: profileSel.value, dlgMode: $('dlgMode').value });
+    const res = Grader.analyze(text, { profile: profileSel.value, dlgMode: $('dlgMode').value, english: $('english').value });
     last = res;
     renderManuscript(res);
     renderReport(res);
