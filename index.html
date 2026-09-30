@@ -97,6 +97,16 @@ summary .val{color:var(--muted);font-size:12.5px;text-align:right;white-space:no
 .ficname .by{font-family:var(--sans);font-size:13px;color:var(--muted)}
 .share{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 4px}
 .share .btn{font-size:13px;padding:6px 10px}
+.cardpanel{margin:6px 0 14px;padding:12px;border:1px solid var(--rule);border-radius:8px;background:var(--sheet)}
+.cards{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.cards::-webkit-scrollbar{display:none}
+.cards figure{flex:0 0 100%;margin:0;scroll-snap-align:center}
+.cards img{display:block;width:100%;height:auto;border:1px solid var(--rule);border-radius:6px;background:#fff}
+.cardnav{display:flex;align-items:center;justify-content:center;gap:10px;margin:10px 0 8px}
+.cardnav button{background:none;border:1px solid var(--rule);border-radius:50%;width:32px;height:32px;cursor:pointer;color:var(--ink);font-size:18px;line-height:1}
+.cardnav .lbl{min-width:140px;text-align:center;font-size:13px;color:var(--muted)}
+.cardnav .dots{display:flex;gap:5px}.cardnav .dots i{width:7px;height:7px;border-radius:50%;background:var(--rule)}.cardnav .dots i.on{background:var(--pencil)}
+.cardacts{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
 .mylist{margin-top:22px;border-top:1px solid var(--rule);padding-top:12px}
 .mylist table{width:100%;border-collapse:collapse;font-size:13px}
 .mylist td,.mylist th{padding:4px 4px;text-align:left;border-bottom:1px solid var(--rule);vertical-align:top}
@@ -1772,11 +1782,100 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   const safeName = s => (s || 'story').replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, ' ').trim().slice(0, 80) || 'story';
   function download(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
   const MARK = l => l[0] === 'A' ? '#237A57' : l[0] === 'B' ? '#2B59C3' : l[0] === 'C' ? '#A8660B' : '#B42318';
-  function cardCanvas(r) {
+  // ---- Share cards: 1200×630 PNGs (the size social sites use for link previews) ----
+  const CARD_SERIF = '"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif', CARD_SANS = 'system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif';
+  function cardFrame() {
     const W = 1200, H = 630, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
-    const serif = '"Iowan Old Style","Palatino Linotype",Palatino,Georgia,serif', sans = 'system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif';
     g.fillStyle = '#EEF1F5'; g.fillRect(0, 0, W, H); g.fillStyle = '#FFFFFF'; g.fillRect(40, 40, W - 80, H - 80);
-    g.strokeStyle = '#D5DBE5'; g.lineWidth = 2; g.strokeRect(40, 40, W - 80, H - 80);
+    g.strokeStyle = '#D5DBE5'; g.lineWidth = 2; g.strokeRect(40, 40, W - 80, H - 80); g.textBaseline = 'alphabetic';
+    const wrap = (text, x, y, maxW, lh, maxLines) => { const words = String(text).split(/\s+/); let line = '', n = 0;
+      for (let i = 0; i < words.length; i++) { const test = line ? line + ' ' + words[i] : words[i];
+        if (g.measureText(test).width > maxW && line) { if (n === maxLines - 1) { while (g.measureText(line + '…').width > maxW) line = line.slice(0, -1); g.fillText(line + '…', x, y + n * lh); return y + (n + 1) * lh; }
+          g.fillText(line, x, y + n * lh); n++; line = words[i]; } else line = test; }
+      g.fillText(line, x, y + n * lh); return y + (n + 1) * lh; };
+    return { c, g, W, H, wrap };
+  }
+  function cardFooter(f, r) {   // story, grade and credit along the bottom of every card except the report card
+    const { g, W, H, wrap } = f;
+    g.textAlign = 'left'; g.fillStyle = '#18233A'; g.font = `600 22px ${CARD_SERIF}`;
+    wrap(`${ficTitle() || 'Untitled'}${ficAuthor() ? ' by ' + ficAuthor() : ''}`, 90, H - 90, 640, 26, 1);
+    g.fillStyle = MARK(r.letter); g.font = `600 22px ${CARD_SANS}`; g.fillText(`Grade ${r.letter} · ${Math.round(r.overall)}/100 · ${r.total.toLocaleString()} words`, 90, H - 60);
+    g.fillStyle = '#5B6577'; g.font = `18px ${CARD_SANS}`; g.textAlign = 'right'; g.fillText('Graded with Novel Grader', W - 90, H - 60); g.textAlign = 'left';
+  }
+  const kicker = (g, text, colr) => { g.fillStyle = colr; g.font = `700 18px ${CARD_SANS}`; g.textAlign = 'left'; if ('letterSpacing' in g) g.letterSpacing = '2px'; g.fillText(text.toUpperCase(), 90, 110); if ('letterSpacing' in g) g.letterSpacing = '0px'; };
+  const times = n => `${n.toLocaleString()} time${n === 1 ? '' : 's'}`;
+  const fmtRatio = o => `${o.known ? '' : 'at least '}${o.ratio >= 10 ? Math.round(o.ratio).toLocaleString() : (Math.round(o.ratio * 10) / 10)}×`;
+  // The full-marks range of a check, in words ("Target: 10–22 words per sentence")
+  function targetText(m) {
+    if (m.id === 'readability') return 'Target: grade 7 or above';
+    if (m.id === 'daleChall') return 'Target: 6.0 or above (grade 7+)';
+    if (!m.rule) return (m.note || '').split(/(?<=\.)\s/)[0];
+    const [lo, hi] = m.rule.good, u = m.unit ? (m.unit.startsWith('%') ? m.unit : ' ' + m.unit) : '';
+    return lo === -Infinity ? `Target: ${hi}${u} or less` : hi === Infinity ? `Target: ${lo}${u} or more` : `Target: ${lo}–${hi}${u}`;
+  }
+  // Turn a check that cost points into a plain-English headline and detail line
+  function describeIssue(m, r) {
+    const cat = r.cats.find(c => c.id === m.cat), words = r.total.toLocaleString();
+    if (m.id === 'crutch' && r.overuse.length) {
+      const o = [...r.overuse].sort((a, b) => b.pen - a.pen)[0];
+      return { cat: cat.name, name: m.name, head: `Used the ${o.kind} “${o.w}” ${times(o.c)} across ${words} words`, sub: `${fmtRatio(o)} normal usage in English-language fiction` };
+    }
+    if (m.flags.length) {
+      const cnt = new Map(); for (const f of m.flags) { const t = r.text.slice(f.s, f.e).replace(/\s+/g, ' ').trim(); const k = t.toLowerCase(); cnt.set(k, { t, n: (cnt.get(k)?.n || 0) + 1 }); }
+      const top = [...cnt.values()].sort((a, b) => b.n - a.n)[0], ex = top.t.length > 70 ? top.t.slice(0, 67) + '…' : top.t;
+      const sub = !/[A-Za-z]{2}/.test(top.t) ? `For example: ${m.flags[0].msg}` : top.n > 1 ? `Most common: “${ex}” (${times(top.n)})` : `For example: “${ex}”`;   // bare punctuation isn't a useful example
+      return { cat: cat.name, name: m.name, head: `${m.flags.length.toLocaleString()} ${m.name.toLowerCase()} across ${words} words`, sub };
+    }
+    return { cat: cat.name, name: m.name, head: `${m.name}: ${m.display}`, sub: targetText(m) };
+  }
+  const worstIssues = r => r.metrics.filter(m => m.role === 'scored' && m.avail - m.points >= 0.3).sort((a, b) => (b.avail - b.points) - (a.avail - a.points)).map(m => ({ ...describeIssue(m, r), lost: m.avail - m.points }));
+
+  function cardWorst(r) {
+    const f = cardFrame(), { g, wrap } = f, w = worstIssues(r)[0];
+    if (!w) { kicker(g, 'Biggest issue', '#237A57'); g.fillStyle = '#18233A'; g.font = `600 48px ${CARD_SERIF}`; wrap('Nothing cost more than a fraction of a point.', 90, 200, 1020, 58, 3); cardFooter(f, r); return f.c; }
+    kicker(g, `Biggest issue · ${w.cat}`, '#B42318');
+    g.fillStyle = '#18233A'; g.font = `600 50px ${CARD_SERIF}`; let y = wrap(w.head, 90, 185, 1020, 60, 3);
+    g.fillStyle = '#B42318'; g.font = `500 30px ${CARD_SANS}`; y = wrap(w.sub, 90, y + 18, 1020, 38, 2);
+    g.fillStyle = '#5B6577'; g.font = `20px ${CARD_SANS}`; g.fillText(`Cost ${w.lost.toFixed(1)} of 100 points (${w.name})`, 90, y + 16);
+    cardFooter(f, r); return f.c;
+  }
+  function cardTop3(r) {
+    const f = cardFrame(), { g, wrap } = f, list = worstIssues(r).slice(0, 3);
+    kicker(g, 'Top 3 issues', '#A8660B');
+    let y = 165;
+    if (!list.length) { g.fillStyle = '#18233A'; g.font = `600 44px ${CARD_SERIF}`; wrap('No issue cost more than a fraction of a point.', 90, 200, 1020, 54, 3); }
+    list.forEach((w, i) => {
+      g.fillStyle = '#A8660B'; g.font = `600 44px ${CARD_SERIF}`; g.fillText(String(i + 1), 90, y + 8);
+      g.fillStyle = '#18233A'; g.font = `600 28px ${CARD_SERIF}`; const y2 = wrap(w.head, 140, y, 960, 34, 2);
+      g.fillStyle = '#5B6577'; g.font = `20px ${CARD_SANS}`; wrap(`${w.cat} · ${w.sub}`, 140, y2 + 2, 960, 26, 1);
+      y = y2 + 52;
+    });
+    cardFooter(f, r); return f.c;
+  }
+  function cardNumbers(r) {
+    const f = cardFrame(), { g, wrap } = f, mv = id => r.metrics.find(m => m.id === id);
+    kicker(g, 'By the numbers', '#2B59C3');
+    const o = [...r.overuse].sort((a, b) => b.pen - a.pen)[0], fk = mv('readability'), dl = mv('dlgRatio'), sa = mv('sentAvg');
+    const tiles = [[r.total.toLocaleString(), 'words'], [`${r.letter} · ${Math.round(r.overall)}`, 'grade'], [fk ? `grade ${Math.max(0, Math.round(fk.value * 10) / 10)}` : '—', 'reading level (Flesch–Kincaid)'],
+      [dl ? `${Math.round(dl.value)}%` : '—', 'dialogue'], [sa ? `${Math.round(sa.value * 10) / 10}` : '—', 'words per sentence'], [o ? `“${o.w}” ×${o.c.toLocaleString()}` : 'none', o ? `most overused (${fmtRatio(o)} normal)` : 'overused words']];
+    tiles.forEach(([big, small], i) => { const x = 90 + (i % 3) * 345, y = 190 + Math.floor(i / 3) * 150;
+      g.fillStyle = '#18233A'; g.font = `600 ${big.length > 14 ? 30 : 42}px ${CARD_SERIF}`; wrap(big, x, y, 320, 44, 1);
+      g.fillStyle = '#5B6577'; g.font = `20px ${CARD_SANS}`; wrap(small, x, y + 36, 320, 24, 2); });
+    cardFooter(f, r); return f.c;
+  }
+  function cardBest(r) {
+    const f = cardFrame(), { g, wrap } = f, scored = c => c.metrics.filter(m => m.role === 'scored').length;
+    const cats = r.cats.filter(c => c.score != null).sort((a, b) => (scored(b) >= 2) - (scored(a) >= 2) || b.score - a.score || scored(b) - scored(a)), best = cats[0];
+    kicker(g, 'Strongest area', '#237A57');
+    g.fillStyle = '#18233A'; g.font = `600 58px ${CARD_SERIF}`; wrap(best.name, 90, 190, 760, 64, 1);
+    g.fillStyle = '#237A57'; g.font = `600 58px ${CARD_SERIF}`; g.textAlign = 'right'; g.fillText(`${Math.round(best.score)}/100`, 1110, 190); g.textAlign = 'left';
+    const tops = best.metrics.filter(m => m.role === 'scored').sort((a, b) => b.score - a.score || b.weight - a.weight).slice(0, 5);
+    let y = 265; for (const m of tops) { g.fillStyle = '#18233A'; g.font = `26px ${CARD_SANS}`; g.fillText(m.name, 90, y);
+      g.fillStyle = m.score >= 90 ? '#237A57' : '#5B6577'; g.textAlign = 'right'; g.fillText(m.display.length > 40 ? m.display.slice(0, 38) + '…' : m.display, 1110, y); g.textAlign = 'left'; y += 46; }
+    cardFooter(f, r); return f.c;
+  }
+  function cardCanvas(r) {
+    const W = 1200, H = 630, { c, g } = cardFrame(), serif = CARD_SERIF, sans = CARD_SANS;
     const wrap = (text, x, y, maxW, lh, maxLines) => { const words = text.split(/\s+/); let line = '', n = 0;
       for (let i = 0; i < words.length; i++) { const test = line ? line + ' ' + words[i] : words[i];
         if (g.measureText(test).width > maxW && line) { if (n === maxLines - 1) { while (g.measureText(line + '…').width > maxW) line = line.slice(0, -1); g.fillText(line + '…', x, y + n * lh); return y + (n + 1) * lh; }
@@ -1800,7 +1899,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     g.fillStyle = '#5B6577'; g.font = `18px ${sans}`; g.textAlign = 'right'; g.fillText(`Graded with Novel Grader · ${new Date().toLocaleDateString()}`, W - 90, H - 58);
     return c;
   }
-  const cardBlob = r => new Promise(res => cardCanvas(r).toBlob(res, 'image/png'));
+  const CARDS = [['Report card', cardCanvas], ['Biggest issue', cardWorst], ['Top 3 issues', cardTop3], ['By the numbers', cardNumbers], ['Strongest area', cardBest]];
 
   // ---------- My graded stories (kept in this browser) ----------
   const LIST_KEY = 'ficgrader-list-v1';
@@ -1824,13 +1923,30 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   function wireShare(r) {
     const done = (b, msg) => { const o = b.textContent; b.textContent = msg; setTimeout(() => b.textContent = o, 1800); };
     $('copyBtn').onclick = async () => done($('copyBtn'), await copyText(summaryText(r)) ? 'Copied' : 'Copy failed');
-    $('cardBtn').onclick = async () => download(await cardBlob(r), `${safeName(ficTitle())} - grade.png`);
-    if (navigator.share) { $('shareBtn').hidden = false; $('shareBtn').onclick = async () => {
-      try { const f = new File([await cardBlob(r)], `${safeName(ficTitle())} - grade.png`, { type: 'image/png' });
+    // Share-card carousel: cards are drawn the first time it's opened
+    let canvases = null, cur = 0;
+    const box = $('cards'), setCur = i => { cur = Math.max(0, Math.min(CARDS.length - 1, i)); $('cardLabel').textContent = `${CARDS[cur][0]} (${cur + 1}/${CARDS.length})`;
+      [...$('cardDots').children].forEach((d, j) => d.classList.toggle('on', j === cur)); };
+    const goTo = i => { setCur(i); box.scrollTo({ left: cur * box.clientWidth, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); };
+    const cardFile = async () => { const blob = await new Promise(res => canvases[cur].toBlob(res, 'image/png'));
+      return { blob, name: `${safeName(ficTitle())} - ${CARDS[cur][0].toLowerCase()}.png` }; };
+    $('cardBtn').onclick = () => {
+      const panel = $('cardPanel'); panel.hidden = !panel.hidden; $('cardBtn').setAttribute('aria-expanded', String(!panel.hidden));
+      if (panel.hidden || canvases) return;
+      canvases = CARDS.map(([, draw]) => draw(r));
+      box.innerHTML = canvases.map((c, i) => `<figure><img src="${c.toDataURL('image/png')}" alt="${esc(CARDS[i][0])} share card" width="1200" height="630"></figure>`).join('');
+      $('cardDots').innerHTML = CARDS.map(() => '<i></i>').join(''); setCur(0);
+    };
+    box.addEventListener('scroll', () => { const i = Math.round(box.scrollLeft / Math.max(1, box.clientWidth)); if (i !== cur) setCur(i); }, { passive: true });
+    box.addEventListener('keydown', e => { if (e.key === 'ArrowRight') { e.preventDefault(); goTo(cur + 1); } else if (e.key === 'ArrowLeft') { e.preventDefault(); goTo(cur - 1); } });
+    $('cardPrev').onclick = () => goTo(cur - 1); $('cardNext').onclick = () => goTo(cur + 1);
+    $('cardSave').onclick = async () => { const { blob, name } = await cardFile(); download(blob, name); };
+    if (navigator.share) { $('cardShare').hidden = false; $('cardShare').onclick = async () => {
+      try { const { blob, name } = await cardFile(), file = new File([blob], name, { type: 'image/png' });
         const data = { title: ficTitle() || 'Novel grade', text: summaryText(r) };
-        if (navigator.canShare && navigator.canShare({ files: [f] })) data.files = [f];
+        if (navigator.canShare && navigator.canShare({ files: [file] })) data.files = [file];
         await navigator.share(data);
-      } catch (e) { if (e.name !== 'AbortError') setStatus("Sharing isn't available here; use Copy summary or Save grade card instead.", true); } }; }
+      } catch (e) { if (e.name !== 'AbortError') setStatus("Sharing isn't available here; use Save this card instead.", true); } }; }
     $('listAddBtn').onclick = () => {
       const l = loadList(), entry = { title: ficTitle() || 'Untitled', author: ficAuthor(), grade: r.letter, score: Math.round(r.overall), words: r.total, profile: r.profile,
         date: new Date().toISOString().slice(0, 10), cats: Object.fromEntries(r.cats.filter(c => c.score != null).map(c => [c.name, Math.round(c.score)])) };
@@ -1892,7 +2008,10 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
         if (hd) parts.push(`${hd} heading${hd === 1 ? '' : 's'}/scene break${hd === 1 ? '' : 's'}`); if (mt) parts.push(`${mt} line${mt === 1 ? '' : 's'} of story info or author's notes`);
         return parts.length ? `<div class="meta">Not graded: ${parts.join(', ')} (${res.skippedWords.toLocaleString()} words)</div>` : ''; })()}
       <div class="meta">${errCount} error${errCount === 1 ? '' : 's'}, ${warnCount} style flag${warnCount === 1 ? '' : 's'}</div></div></div>`;
-    h += `<div class="share"><button class="btn" id="copyBtn" type="button">Copy summary</button><button class="btn" id="shareBtn" type="button" hidden>Share…</button><button class="btn" id="cardBtn" type="button">Save grade card</button><button class="btn" id="listAddBtn" type="button">Add to my list</button></div>`;
+    h += `<div class="share"><button class="btn" id="copyBtn" type="button">Copy summary</button><button class="btn" id="cardBtn" type="button" aria-expanded="false" aria-controls="cardPanel">Share cards…</button><button class="btn" id="listAddBtn" type="button">Add to my list</button></div>
+      <div class="cardpanel" id="cardPanel" hidden><div class="cards" id="cards" tabindex="0" aria-label="Share card options; swipe or use the arrows"></div>
+      <div class="cardnav"><button type="button" id="cardPrev" aria-label="Previous card">‹</button><span class="lbl" id="cardLabel"></span><span class="dots" id="cardDots"></span><button type="button" id="cardNext" aria-label="Next card">›</button></div>
+      <div class="cardacts"><button class="btn" id="cardSave" type="button">Save this card</button><button class="btn" id="cardShare" type="button" hidden>Share this card…</button></div></div>`;
     if (res.skippedWords > 0.15 * (res.total + res.skippedWords) && res.skippedWords > 200) h += `<div class="warnbox">${Math.round(100 * res.skippedWords / (res.total + res.skippedWords))}% of the text (${res.skippedWords.toLocaleString()} words) was treated as headings, story info, or author's notes and left out of the grade. Those parts are grayed out in the manuscript; if story text is among them, let me know what the lines above it look like.</div>`;
     if (res.total < 300) h += `<div class="warnbox">This passage is short, so rates per 1,000 words swing a lot. Grade at least 500 words for a steadier score.</div>`;
     const r1 = v => (Math.round(v * 10) / 10).toFixed(1);
