@@ -1537,6 +1537,7 @@ const Grader = (() => {
     const ERR_PTS = { tier1: 1.5, tier2: 1.5, grammar: 2, typos: 2, povSlip: 2, tense: 3 };
     const ALLOW = {};
     const DED_SCALE = { errors: 35 };                                          // points off that read as a 0 score, for the section's color
+    const CAT_FLOOR = -25;
     const CATS = [
       { id: 'errors', name: 'Common errors', w: 0, deduct: true }, { id: 'words', name: 'Word choice & variety', w: 3 },   // Word choice includes overuse (5×) and clichés (3×)
       { id: 'show', name: 'Show vs. tell', w: 1 }, { id: 'structure', name: 'Sentences & paragraphs', w: 1 },
@@ -1547,7 +1548,8 @@ const Grader = (() => {
       c.metrics = metrics.filter(m => m.cat === c.id);
       const sc2 = c.metrics.filter(m => m.score != null && m.weight > 0);
       const ww = sc2.reduce((a, m) => a + m.weight, 0);
-      c.score = ww ? Math.max(0, sc2.reduce((a, m) => a + m.score * m.weight, 0) / ww) : null;   // a section can't go below 0
+      // the worst offenders can go a little below 0 (a section costs at most 1.25× its share); checks inside can reach −100
+      c.score = ww ? Math.max(CAT_FLOOR, sc2.reduce((a, m) => a + m.score * m.weight, 0) / ww) : null;
     }
     const sc3 = CATS.filter(c => c.score != null && !c.deduct), cw = sc3.reduce((a, c) => a + c.w, 0);
     const base = cw ? sc3.reduce((a, c) => a + c.score * c.w, 0) / cw : 0;
@@ -2751,6 +2753,7 @@ self.onmessage = e => { const { id, text, opts } = e.data;
     if (res.skippedWords > 0.15 * (res.total + res.skippedWords) && res.skippedWords > 200) h += `<div class="warnbox">${Math.round(100 * res.skippedWords / (res.total + res.skippedWords))}% of the text (${res.skippedWords.toLocaleString()} words) was treated as headings, front or back matter, story info, or author's notes and left out of the grade. Those parts are grayed out in the manuscript; if story text is among them, let me know what the lines above it look like.</div>`;
     if (res.total < 300) h += `<div class="warnbox">This passage is short, so rates per 1,000 words swing a lot. Grade at least 500 words for a steadier score.</div>`;
     const r1 = v => (Math.round(v * 10) / 10).toFixed(1);
+    const minus = v => String(v).replace(/^-/, '−');                                  // a real minus sign for scores below 0
     const fmt1 = v => v >= 10 ? Math.round(v).toString() : (Math.round(v * 10) / 10).toString();
     const pts = v => r1(v);
     const chip = sc => `<i class="chip" style="background:${color(sc)}"></i>`;
@@ -2758,7 +2761,7 @@ self.onmessage = e => { const { id, text, opts } = e.data;
     ${(() => { const dcs = res.cats.filter(isDed), ded = dcs.length ? dcs.reduce((a, c) => a - c.points, 0) : null;
       return ded == null
         ? `<p class="bonusrule">Each category below is worth a share of 100 points: Common errors counts four times as much as a standard category, Overuse counts double, and Punctuation counts half. Every category and factor shows its score out of 100 and the points it earned out of the points available. The final score, ${r1(res.base)} / 100, is the sum of the category points.</p>`
-        : `<p class="bonusrule">The style categories below make a score out of 100: each is worth a share of it (Word choice & variety counts three times as much as a standard category and Punctuation half; within Word choice, overused words count 5× and clichés 3×, and a few minor factors elsewhere count less). Every category and factor shows its score out of 100 and the points it earned out of the points available. ${dcs.map(c => c.name).join(' and ')} then come straight off: each costs a set number of points for every one per 1,000 words${dcs.some(c => c.id === 'cliche') ? ' (the first 0.2 clichés per 1,000 words are free)' : ''}, so a handful in a long book costs little and the same number in a short story costs more.</p>
+        : `<p class="bonusrule">The style categories below make a score out of 100: each is worth a share of it (Word choice & variety counts three times as much as a standard category and Punctuation half; within Word choice, overused words count 5× and clichés 3×, and a few minor factors elsewhere count less). Every category and factor shows its score out of 100 and the points it earned out of the points available; the worst categories can go a little below 0 (down to −25), costing more than their share. ${dcs.map(c => c.name).join(' and ')} then come straight off: each costs a set number of points for every one per 1,000 words${dcs.some(c => c.id === 'cliche') ? ' (the first 0.2 clichés per 1,000 words are free)' : ''}, so a handful in a long book costs little and the same number in a short story costs more.</p>
           <table class="calc"><tbody><tr><td>Style score</td><td class="n">${r1(res.base)}</td></tr>${dcs.map(c => `<tr><td>${esc(c.name)}</td>${c.points < -0.05 ? `<td class="n minus">−${r1(-c.points)}</td>` : '<td class="n">0</td>'}</tr>`).join('')}<tr class="tot"><td>Final score</td><td class="n">${r1(res.overall)}${res.base - ded < 0 ? ' <span class="of">(can\'t go below 0)</span>' : ''}</td></tr></tbody></table>`; })()}`;
     scored.splice(3);
     if (scored.length) h += `<h2>Fix first</h2><ol class="fixes">${scored.map(m => `<li>${m.name}: ${esc(m.display)}</li>`).join('')}</ol>`;
@@ -2766,7 +2769,7 @@ self.onmessage = e => { const { id, text, opts } = e.data;
       <button class="btn expand" id="expandAll" type="button">Show all grading rules</button>`;
     for (const c of res.cats) {
       const ded = isDed(c);
-      h += `<div class="cat"><div class="cat-h"><h3>${c.name}</h3><span class="cs">${c.score == null ? '<span class="of">not scored</span>' : ded ? `<i style="background:${color(c.score)}"></i><span class="cpts">${c.points < -0.05 ? `−${r1(-c.points)} pts off the final score` : 'no points off'}</span>` : `<i style="background:${color(c.score)}"></i>${Math.round(c.score)}<span class="of">/100</span> <span class="cpts">${r1(c.points)} / ${r1(c.avail)} pts</span>`}</span></div>`;
+      h += `<div class="cat"><div class="cat-h"><h3>${c.name}</h3><span class="cs">${c.score == null ? '<span class="of">not scored</span>' : ded ? `<i style="background:${color(c.score)}"></i><span class="cpts">${c.points < -0.05 ? `−${r1(-c.points)} pts off the final score` : 'no points off'}</span>` : `<i style="background:${color(c.score)}"></i>${minus(Math.round(c.score))}<span class="of">/100</span> <span class="cpts">${minus(r1(c.points))} / ${r1(c.avail)} pts</span>`}</span></div>`;
       for (const m of c.metrics) {
         const meter = m.score == null ? `<span class="na">${m.weight === 0 ? 'info' : 'n/a'}</span>` : `<div class="meter" title="Score ${Math.round(m.score)} / 100"><i style="width:${Math.max(6, m.score)}%;background:${color(m.score)}"></i></div>`;
         let body = ruleHtml(m, res) + `<p>${esc(m.note)}</p>`;
@@ -2776,7 +2779,7 @@ self.onmessage = e => { const { id, text, opts } = e.data;
           body += `<div class="flist">${shown.map(f => `<button class="fitem" type="button" data-f="${f.id}"><q>${esc(res.text.slice(f.s, f.e).slice(0, 70))}</q>${f.fix ? ` <span class="fix">→ ${esc(f.fix)}</span>` : ''}${f.dlg && f.sev === 'error' && res.dlgMode === 'reduce' ? ' <span class="dl">(dialogue)</span>' : ''}</button>`).join('')}</div>`;
           if (nAll > shown.length) body += `<div class="more">…and ${(nAll - shown.length).toLocaleString()} more, ${res.shared ? 'not included in this shared report' : 'all marked in the text'}.</div>`;
         }
-        h += `<details><summary><span>${m.name}<small class="pts">${m.role === 'deduct' ? (m.points < -0.05 ? `−${r1(-m.points)} pts` : 'no points off') : m.role === 'scored' ? `score ${Math.round(m.score)}/100, ${r1(m.points)} / ${r1(m.avail)} pts` : m.role === 'info' ? 'for information, not scored' : `${m.naNote || 'not enough text to judge'}, not scored`}</small></span><span class="val">${esc(m.display + (m.unit.startsWith('per 1,000') && !/\/ ?1k/.test(m.display) ? ` (${num(m.value)} / 1k)` : ''))}</span>${meter}</summary><div class="body">${body}</div></details>`;
+        h += `<details><summary><span>${m.name}<small class="pts">${m.role === 'deduct' ? (m.points < -0.05 ? `−${r1(-m.points)} pts` : 'no points off') : m.role === 'scored' ? `score ${minus(Math.round(m.score))}/100, ${minus(r1(m.points))} / ${r1(m.avail)} pts` : m.role === 'info' ? 'for information, not scored' : `${m.naNote || 'not enough text to judge'}, not scored`}</small></span><span class="val">${esc(m.display + (m.unit.startsWith('per 1,000') && !/\/ ?1k/.test(m.display) ? ` (${num(m.value)} / 1k)` : ''))}</span>${meter}</summary><div class="body">${body}</div></details>`;
       }
       h += `</div>`;
     }
