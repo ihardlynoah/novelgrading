@@ -1500,18 +1500,6 @@ const Grader = (() => {
       return out;
     }
     const t1 = errs(TIER1, 'tier1'), t2 = errs(TIER2, 'tier2'), gr = errs(GRAMMAR, 'grammar'), ty = errs(TYPOS, 'typos');
-    // Contractions written without the apostrophe the same way throughout (5+ times, and at least 80% of the time), are the
-    // writer's style (Faulkner's and McCarthy's "dont", "aint", "didnt"), so each counts once. Real misspellings ("definately") always count.
-    { const byForm = new Map();
-      for (const f of ty) { const key = norm.slice(f.s, f.e).toLowerCase(); if (!byForm.has(key)) byForm.set(key, []); byForm.get(key).push(f); }
-      for (const [key, fs] of byForm) {
-        const fix = typeof fs[0].fix === 'string' ? fs[0].fix.trim().replace(/[’‘]/g, "'") : '';
-        if (fs.length < 5 || !fix || /\s/.test(key.trim()) || !/'/.test(fix) || fix.replace(/'/g, '').toLowerCase() !== key.trim()) continue;
-        const std = (norm.match(new RegExp(`(?<![\\p{L}'])${fix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\p{L}'])`, 'giu')) || []).length;
-        if (std > 0.25 * fs.length) continue;                                            // mixed (under 80% one way): every slip counts
-        fs[0].msg += ` (spelled this way all ${fs.length} times: counted once, as a style choice)`;
-        for (const f of fs.slice(1)) { f.w = 0; f.msg += ' (same spelling throughout: counted once)'; }
-      } }
     const wsum = a => a.reduce((s, f) => s + f.w, 0);
     M('errors', 'tier1', 'Misused phrases', k(wsum(t1)), `${t1.length} found`, 'Fixed phrases that are always wrong in narration: "per say," "could of," "for all intensive purposes," "I wish I would have"…', { flags: t1, weight: 1.5 });
     M('errors', 'tier2', 'Confused words', k(wsum(t2)), `${t2.length} found`, 'Than/then, your/you\'re, lose/loose, its/it\'s, whose/who\'s, affect/effect, breath/breathe, fewer/less, among/between — clear-cut patterns only.', { flags: t2 });
@@ -1580,7 +1568,8 @@ const Grader = (() => {
     // Errors aren't a share of the grade: they come straight off it. The other categories make a style score out of 100, and each
     // error costs a fixed number of points per error per 1,000 words (calibrated to cost what it did when errors were 4× a category)
     const ERR_PTS = { tier1: 3, tier2: 2.5, grammar: 3, typos: 2.5, povSlip: 3, tense: 4 };
-    const ALLOW = { povSlip: 0.2, tense: 0.2 };                                           // the first 0.2 per 1,000 words are free: classics have the odd deliberate one
+    const ALLOW = { povSlip: 0.2, tense: 0.2 };
+    const STEP = { tier1: 0.01, tier2: 0.01, grammar: 0.01 };                            // these cost points for each full 0.01 errors per 1,000 words                                           // the first 0.2 per 1,000 words are free: classics have the odd deliberate one
     const DED_SCALE = { errors: 35 };                                          // points off that read as a 0 score, for the section's color
     const CAT_FLOOR = -25;
     const CATS = [
@@ -1603,7 +1592,8 @@ const Grader = (() => {
       c.avail = 0; c.points = 0;
       for (const m of c.metrics) {
         if (m.score == null) { m.role = 'na'; continue; }
-        m.role = 'deduct'; m.avail = 0; m.points = -Math.max(0, m.value - (ALLOW[m.id] || 0)) * (ERR_PTS[m.id] || 2); c.points += m.points;
+        const over = Math.max(0, m.value - (ALLOW[m.id] || 0)), st = STEP[m.id], counted = st ? Math.floor(over / st + 1e-9) * st : over;
+        m.role = 'deduct'; m.avail = 0; m.points = -counted * (ERR_PTS[m.id] || 2); c.points += m.points;
       }
       deduction -= c.points;
       c.score = c.metrics.some(m => m.role === 'deduct') ? Math.max(0, 100 + c.points * 100 / DED_SCALE[c.id]) : null;   // for display: that many points off reads as 0
@@ -1620,7 +1610,7 @@ const Grader = (() => {
     const overall = Math.max(0, Math.min(100, base - deduction));
     const letter = letterFor(overall);
 
-    return { text, headings, skippedWords, overuseRules: OVERUSE, total, narr, dlgWords, sentences: S.length, paragraphs: paras.length, flags, metrics, cats: CATS, base, deduction, errPts: ERR_PTS, dedAllow: ALLOW, overuse, overusePts, overall, letter, profile: prof.label, dlgMode };
+    return { text, headings, skippedWords, overuseRules: OVERUSE, total, narr, dlgWords, sentences: S.length, paragraphs: paras.length, flags, metrics, cats: CATS, base, deduction, errPts: ERR_PTS, dedAllow: ALLOW, dedStep: STEP, overuse, overusePts, overall, letter, profile: prof.label, dlgMode };
   }
   // ---- Chapters: split at chapter headings ("Chapter 12", "Book II", "Prologue", "IV", "12", file separators). A run of heading lines
   // with no prose between them ("Book I / The Shimerdas / I") starts one chapter, titled with all of them.
@@ -2349,7 +2339,8 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
         <dt></dt><dd><b>Rare but repeated:</b> ${o.minRatio}× normal or more (single words). 0.5 at ${o.minRatio}×, 1.75 at ${o.minRatio * 10}×, up to ${o.maxPerRare}. Needs ${o.minCount}+ uses.</dd>${o.midRatio ? `
         <dt></dt><dd><b>Far over normal:</b> ${o.midRatio}× normal or more and ${o.midRate}+ use${o.midRate === 1 ? '' : 's'} per 1,000 words (single words, ${o.midCount}+ uses): (uses per 1,000 words − 0.5) × log₁₀(times normal ÷ 2) points, up to ${o.maxPerMid}. Each item counts under whichever rule gives the most.</dd>` : ''}</dl>`; }
     if (m.role === 'deduct') { const per = (res.errPts || {})[m.id] || 2;
-      const allow = ((res.dedAllow || {})[m.id]) || 0, what = m.id === 'cliches' ? 'cliché' : 'error';
+      const allow = ((res.dedAllow || {})[m.id]) || 0, step = ((res.dedStep || {})[m.id]) || 0, what = m.id === 'cliches' ? 'cliché' : 'error';
+      if (step) return `<dl class="rule"><dt>Points off</dt><dd>${num(per * step)} points off the final score for each full ${num(step)} errors per 1,000 words (${num(per)} for every error per 1,000 words). Under ${num(step)} per 1,000 words costs nothing.</dd>${res.dlgMode === 'reduce' ? '<dt></dt><dd class="between">Errors inside dialogue count a quarter (see “Mistakes in character speech”).</dd>' : ''}</dl>`;
       return `<dl class="rule"><dt>Points off</dt><dd>${num(per)} point${per === 1 ? '' : 's'} off the final score for every ${what} ${/narration/.test(m.unit) ? 'per 1,000 narration words' : 'per 1,000 words'}${allow ? `, after the first ${num(allow)} per 1,000 words (the occasional one is normal in published novels)` : ''}. None found costs nothing.</dd>${!['povSlip', 'tense', 'cliches'].includes(m.id) && res.dlgMode === 'reduce' ? '<dt></dt><dd class="between">Errors inside dialogue count a quarter (see “Mistakes in character speech”).</dd>' : ''}</dl>`; }
     if (!m.rule) return `<dl class="rule"><dt>Scoring</dt><dd>For information only; not graded</dd></dl>`;
     const [lo, hi] = m.rule.good, [blo, bhi] = m.rule.bad, u = m.unit;
@@ -2409,7 +2400,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     const metrics = res.metrics.map(m => [m.id, r3(m.value), m.display, r3(m.score), m.role, r3(m.avail), r3(m.points), m.flagTotal ?? m.flags.length,
       m.flags.slice(0, SNAP_FLAGS).map((f, i) => [res.text.slice(f.s, f.e).replace(/\s+/g, ' ').slice(0, 70), SEV.indexOf(f.sev), typeof f.fix === 'string' ? f.fix : 0, i ? 0 : f.msg, f.dlg ? 1 : 0]),
       skM.get(m.id)?.note === m.note ? 0 : m.note, m.naNote || 0]);
-    return { v: 2, o, t: ficTitle() ? shownTitle() : scopeTitle, a: ficAuthor(), ch: res.scope == null && res.chapterRows && res.chapterRows.length === (res.chapters || []).length ? res.chapterRows.map(c => [c.title, c.words, c.letter, c.score, c.issue]) : undefined, at: new Date().toISOString().slice(0, 10), n: res.total, sk: res.skippedWords, g: res.letter, s: r3(res.overall), b: r3(res.base), ep: res.errPts, ea: res.dedAllow,
+    return { v: 2, o, t: ficTitle() ? shownTitle() : scopeTitle, a: ficAuthor(), ch: res.scope == null && res.chapterRows && res.chapterRows.length === (res.chapters || []).length ? res.chapterRows.map(c => [c.title, c.words, c.letter, c.score, c.issue]) : undefined, at: new Date().toISOString().slice(0, 10), n: res.total, sk: res.skippedWords, g: res.letter, s: r3(res.overall), b: r3(res.base), ep: res.errPts, ea: res.dedAllow, es: res.dedStep,
       m: metrics, c: res.cats.map(c => [c.id, r3(c.score), r3(c.points), r3(c.avail)]),
       u: res.overuse.slice(0, 15).map(x => [x.w, x.kind === 'phrase' ? 1 : 0, x.c, r3(x.rate), r3(x.expRate), r3(x.ratio), x.known ? 1 : 0, r3(x.pen)]),
       h: [res.headings.filter(h => h.kind === 'heading').length, res.headings.filter(h => h.kind === 'meta').length, res.headings.some(h => h.kind === 'matter' && h.s === 0) ? 1 : 0, res.headings.some(h => h.kind === 'matter' && h.s > 0) ? 1 : 0],
@@ -2427,7 +2418,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
       ratioTxt: `${known ? '' : 'at least '}${ratio >= 100 ? Math.round(ratio).toLocaleString() : fmt1(ratio)}× normal`, rateTxt: `${fmt1(rate)} per 1,000 words (normal ${expRate < 0.1 ? 'under 0.1' : fmt1(expRate)})` }));
     const headings = [...Array(d.h[0]).fill({ kind: 'heading' }), ...Array(d.h[1]).fill({ kind: 'meta' }), ...(d.h[2] ? [{ kind: 'matter', s: 0 }] : []), ...(d.h[3] ? [{ kind: 'matter', s: 1 }] : [])];
     return { text, total: d.n, skippedWords: d.sk, letter: d.g, overall: d.s, base: d.b, profile: sk.profile, dlgMode: d.o.dlgMode, overuseRules: sk.overuseRules, opts: d.o,
-      metrics, cats, overuse, headings, flags: metrics.flatMap(m => m.flags), errPts: d.ep, dedAllow: d.ea, chapterRows: (d.ch || []).map(([title, words, letter, score, issue]) => ({ title, words, letter, score, issue })), sevCounts: { error: d.e[0], warn: d.e[1] }, shared: true, sharedAt: d.at, title: d.t, author: d.a };
+      metrics, cats, overuse, headings, flags: metrics.flatMap(m => m.flags), errPts: d.ep, dedAllow: d.ea, dedStep: d.es, chapterRows: (d.ch || []).map(([title, words, letter, score, issue]) => ({ title, words, letter, score, issue })), sevCounts: { error: d.e[0], warn: d.e[1] }, shared: true, sharedAt: d.at, title: d.t, author: d.a };
   }
   const b64url = bytes => { let bin = ''; for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000)); return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
   const unb64url = str => Uint8Array.from(atob(str.replace(/-/g, '+').replace(/_/g, '/')), ch => ch.charCodeAt(0));
