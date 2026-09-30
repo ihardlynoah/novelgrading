@@ -109,6 +109,37 @@ summary .val{color:var(--muted);font-size:12.5px;text-align:right;white-space:no
 .cardacts{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
 .scope{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px;font-size:13px;color:var(--muted)}
 .scope select{max-width:100%;font-size:13px;padding:3px 6px;border:1px solid var(--rule);border-radius:5px;background:var(--sheet);color:var(--ink)}
+.progress{display:flex;align-items:center;gap:12px;max-width:1200px;margin:14px auto 0;padding:0 28px;font-size:13px;color:var(--muted)}
+.progress[hidden]{display:none}
+.progress .plbl{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:45%}
+.progress .pbar{flex:1;height:10px;border-radius:5px;background:var(--rule);overflow:hidden;min-width:80px}
+.progress .pbar i{display:block;height:100%;width:0;background:var(--pencil);transition:width .2s}
+.progress .pct{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink);min-width:3.2em;text-align:right}
+@media (max-width:640px){.progress{padding:0 16px}.progress .plbl{max-width:40%}}
+.dlg{border:1px solid var(--rule);border-radius:10px;background:var(--sheet);color:var(--ink);padding:20px 22px;max-width:min(460px,calc(100vw - 32px))}
+.dlg::backdrop{background:rgba(10,15,25,.45)}
+.dlg h2{font-family:var(--serif);font-size:20px;margin:0 0 6px}.dlg p{margin:6px 0}
+.dlg-acts{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}.dlg-note{font-size:13px;color:var(--muted)}
+.compare{max-width:1200px;margin:0 auto;padding:20px 28px 60px}
+@media (max-width:640px){.compare{padding:16px}}
+.compare h2{font-family:var(--serif);font-size:22px;margin:0 0 4px}.compare h3{font-size:16px;margin:22px 0 8px}
+.compare .meta{color:var(--muted);font-size:13px;margin:0}
+.tblwrap{overflow-x:auto;background:var(--sheet);border:1px solid var(--rule);border-radius:8px;margin-top:10px}
+table.cmp{width:100%;border-collapse:collapse;font-size:13px}
+table.cmp th,table.cmp td{padding:6px 8px;border-bottom:1px solid var(--rule);text-align:left;vertical-align:top}
+table.cmp th{font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}
+table.cmp td.n{white-space:nowrap;font-variant-numeric:tabular-nums}
+table.cmp td.best{font-weight:700}table.cmp td:first-child{min-width:190px}
+table.cmp tr.sub td:first-child{padding-left:20px;color:var(--muted)}
+table.cmp tr.cath td{background:var(--pencil-bg);font-weight:600}
+table.cmp .chip{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+table.cmp .up{color:var(--green)}table.cmp .down{color:var(--red)}
+.cmp-pick{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px;margin-top:6px}
+.cmp-pick label{display:flex;flex-direction:column;font-size:12.5px;color:var(--muted);gap:3px}
+.cmp-pick select{min-width:0;max-width:min(340px,100%)}
+.linkbtn{background:none;border:0;padding:0;color:var(--pencil);cursor:pointer;text-align:left;font:inherit;text-decoration:underline;text-underline-offset:2px}
+.diffs{margin:8px 0 0;padding-left:20px;font-size:14px}.diffs li{margin:3px 0}
+.backbar{margin-bottom:10px}.compare .of{color:var(--muted)}
 .chapters{margin:14px 0 6px}.chapters h3{font-size:15px;margin:0 0 6px}
 .chapters table{width:100%;border-collapse:collapse;font-size:13px}
 .chapters td,.chapters th{padding:4px 5px;text-align:left;border-bottom:1px solid var(--rule);vertical-align:top}
@@ -212,6 +243,19 @@ body.dragging .sheet{outline:2px dashed var(--pencil);outline-offset:6px}
   <br><b>Count lightly</b> gives each one a quarter of the usual penalty and marks it "in dialogue." <b>Count fully</b> treats it like any other error. <b>Don't count</b> leaves it out of the grade and the report.
 </div>
 
+<div class="progress" id="progress" role="progressbar" aria-label="Grading progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden>
+  <span class="plbl" id="progLbl">Grading…</span><span class="pbar"><i id="progFill"></i></span><span class="pct" id="progPct">0%</span>
+</div>
+<div class="compare" id="compare" hidden></div>
+<dialog class="dlg" id="multiDlg" aria-labelledby="multiTitle">
+  <form method="dialog">
+    <h2 id="multiTitle">Several files</h2>
+    <p id="multiMsg"></p>
+    <div class="dlg-acts"><button class="btn primary" value="chapters">Chapters of one novel</button><button class="btn" value="novels">Separate novels to compare</button></div>
+    <p class="dlg-note"><b>Chapters</b> are joined in file-name order and graded as one work, with a grade for each chapter. <b>Separate novels</b> are each graded on their own and compared side by side.</p>
+    <button class="linkish" value="cancel">Cancel</button>
+  </form>
+</dialog>
 <main>
   <section>
     <div class="bar">
@@ -982,8 +1026,18 @@ const Grader = (() => {
   // only in the copy used to find sentence boundaries.
   const ABBR = /\b(?:Mr|Mrs|Ms|Messrs|Mmes|Dr|St|Jr|Sr|Mme|Mlle|Col|Gen|Capt|Lt|Sgt|Cpl|Rev|Prof|Hon|Gov|Sen|Rep|Mt|Ft|Ave|Bros|vs)\.(?=\s|$)|\b[A-Z]\.(?=\s*[A-Z][.\w])|\b(?:[A-Za-z]\.){2,}(?=\s+[a-z])/g;
   const maskAbbr = t => t.replace(ABBR, m => m.replace(/\./g, '\u2024'));
+  const letterFor = s => s >= 93 ? 'A' : s >= 90 ? 'A−' : s >= 87 ? 'B+' : s >= 83 ? 'B' : s >= 80 ? 'B−' :
+      s >= 77 ? 'C+' : s >= 73 ? 'C' : s >= 70 ? 'C−' : s >= 67 ? 'D+' : s >= 60 ? 'D' : 'F';
+  // Share of the analysis done when each check finishes (timed on four novels), for the progress bar
+  const PROGRESS = {setup:0.13,filler:0.155,adverbs:0.158,hedging:0.161,cliches:0.425,epithets:0.43,coyBody:0.443,britishisms:0.456,redund:0.491,crutch:0.675,echoes:0.683,vocab:0.698,
+    filter:0.7,emotions:0.707,body:0.71,sensory:0.714,passive:0.717,progressive:0.718,openers:0.719,openerTop:0.72,ingOpeners:0.721,adjStack:0.723,appositives:0.727,longSent:0.728,
+    fragments:0.729,simStack:0.73,paragraphs:0.73,readability:0.752,daleChall:0.761,dlgRatio:0.761,fancyTags:0.765,tagAdverbs:0.77,dlgPunct:0.773,excl:0.773,ellipses:0.773,
+    dashes:0.774,commaSplice:0.777,tier1:0.976,povSlip:0.987,tense:1};
   function analyze(text, opts = {}) {
     const prof = PROFILES[opts.profile] || PROFILES.general;
+    // opts.onProgress(0…1) is called as the checks finish, for a progress bar
+    let done = 0; const tick = typeof opts.onProgress === 'function' ? x => { const v = typeof x === 'number' ? x : PROGRESS[x]; if (v != null && v > done) { done = v; opts.onProgress(v); } } : null;
+    const between = (a, b, i, n) => tick && i % 8 === 0 && tick(PROGRESS[a] + (PROGRESS[b] - PROGRESS[a]) * i / n);   // progress inside a long step
     const R = id => prof.o[id] || DEFAULTS[id];
     const dlgMode = opts.dlgMode || 'reduce';
     let norm = text.replace(/[’‘]/g, "'").replace(/[“”]/g, '"').replace(/\r/g, ' ');
@@ -1046,12 +1100,14 @@ const Grader = (() => {
       return out;
     };
     const M = (cat, id, name, value, display, note, o = {}) => {
+      if (tick) tick(id);
       const r = R(id);
       const score = o.na ? null : (o.score != null ? o.score : rangeScore(value, r));
       const m = { cat, id, name, value, display, note, score, weight: o.weight ?? 1, flags: o.flags || [], rule: DEFAULTS[id] ? r : null, unit: UNITS[id] || '', naNote: o.naNote };
       metrics.push(m); return m;
     };
 
+    if (tick) tick('setup');
     // ===== Word overuse & variety
     // Names: capitalised when not at the start of a sentence, or a proper noun in the reference corpus
     const cnt = new Map(), nonInit = new Map(), capNon = new Map(), capAny = new Set(), inName = new Map();
@@ -1076,7 +1132,7 @@ const Grader = (() => {
       .map(x => F(x.s, x.e, 'warn', `Hedging: "${x.m[0]}"`, 'hedging', 'state the action directly'));
     M('words', 'hedging', 'Hedging verbs', k(hed.length, narr), `${fmt(k(hed.length, narr))} / 1k`, '"She began to run" is usually weaker than "she ran."', { flags: hed });
 
-    const cl = []; for (const x of uniq(CLICHES.flatMap(re => scan(re)))) cl.push(F(x.s, x.e, 'warn', `Cliché: "${x.m[0]}"`, 'cliches', 'rewrite in your own words'));
+    const cl = []; for (const x of uniq(CLICHES.flatMap((re, i) => (between('hedging', 'cliches', i, CLICHES.length), scan(re))))) cl.push(F(x.s, x.e, 'warn', `Cliché: "${x.m[0]}"`, 'cliches', 'rewrite in your own words'));
     M('words', 'cliches', 'Clichés', k(cl.length), `${cl.length} found`, 'Stock phrases readers have seen many times. Counts double within this section.', { flags: cl, weight: 2 });
 
     const ep = uniq(EPITHETS.flatMap(re => scan(re, { narr: true }))).map(x => F(x.s, x.e, 'warn', `Epithet: "${x.m[0]}"`, 'epithets', "use the character's name or a pronoun"));
@@ -1121,8 +1177,10 @@ const Grader = (() => {
       if (allFunc) return null;                                                            // also skips plain tags: "said the", "asked her"
       return n === 3 ? W[i].w + ' ' + W[i + 1].w + ' ' + W[i + 2].w : W[i].w + ' ' + W[i + 1].w;
     };
+    if (tick) tick(PROGRESS.redund + (PROGRESS.crutch - PROGRESS.redund) * 0.3);
     const phCount = new Map();
     for (let i = 0; i < W.length; i++) for (const n of [3, 2]) { const key = phraseKey(i, n); if (key) phCount.set(key, (phCount.get(key) || 0) + 1); }
+    if (tick) tick(PROGRESS.redund + (PROGRESS.crutch - PROGRESS.redund) * 0.6);
     const phr = new Map();
     for (let i = 0; i < W.length; i++) for (const n of [3, 2]) { const key = phraseKey(i, n); if (key && phCount.get(key) >= O.minCount) { if (!phr.has(key)) phr.set(key, []); phr.get(key).push(i); } }
     const phCand = [];
@@ -1394,9 +1452,10 @@ const Grader = (() => {
 
     // ===== Errors
     const dlgW = dlgMode === 'full' ? 1 : dlgMode === 'reduce' ? 0.25 : 0;
+    let errDone = 0; const errTotal = TIER1.length + TIER2.length + GRAMMAR.length + TYPOS.length;
     function errs(list, id) {
       const out = [];
-      for (const x of uniq(list.flatMap(([re, fix]) => scan(re).map(y => ({ ...y, fix }))))) { const fix = x.fix;
+      for (const x of uniq(list.flatMap(([re, fix]) => (between('commaSplice', 'tier1', errDone++, errTotal), scan(re).map(y => ({ ...y, fix })))))) { const fix = x.fix;
         if (x.dlg && dlgMode === 'ignore') continue;
         const f = F(x.s, x.e, 'error', `"${x.m[0]}"${x.dlg && dlgMode === 'reduce' ? ' (in dialogue, possibly intentional)' : ''}`, id, typeof fix === 'function' ? fix(x.m) : fix);
         f.w = x.dlg ? dlgW : 1; out.push(f);
@@ -1492,8 +1551,7 @@ const Grader = (() => {
       }
     }
     const overall = Math.max(0, Math.min(100, base));
-    const letter = overall >= 93 ? 'A' : overall >= 90 ? 'A−' : overall >= 87 ? 'B+' : overall >= 83 ? 'B' : overall >= 80 ? 'B−' :
-      overall >= 77 ? 'C+' : overall >= 73 ? 'C' : overall >= 70 ? 'C−' : overall >= 67 ? 'D+' : overall >= 60 ? 'D' : 'F';
+    const letter = letterFor(overall);
 
     return { text, headings, skippedWords, overuseRules: OVERUSE, total, narr, dlgWords, sentences: S.length, paragraphs: paras.length, flags, metrics, cats: CATS, base, overuse, overusePts, overall, letter, profile: prof.label, dlgMode };
   }
@@ -1544,7 +1602,7 @@ const Grader = (() => {
     const out = starts.map((c, k) => ({ title: c.title, s: c.s, e: k + 1 < starts.length ? starts[k + 1].s : to })).map(c => ({ ...c, words: wc(c.s, c.e) })).filter(c => c.words >= 30);
     return out.length >= 2 ? out : [];
   }
-  return { analyze, PROFILES, chapters, chapterLine, knownWord: w => FREQ.has(w) };
+  return { analyze, PROFILES, chapters, chapterLine, knownWord: w => FREQ.has(w), letterFor, UNITS };
 })();
 /*GRADER-END*/
 </script>
@@ -1572,7 +1630,7 @@ Sarah let out a breath she didn't know she was holding. Her heart skipped a beat
 
 The old house creaked around them. Somewhere below, water dripped, and the air smelled of dust and wet stone. John was standing by the window, watching the rain.`;
 
-  $('sampleBtn').onclick = () => { setStatus(''); setMeta('Sample passage', ''); input.value = SAMPLE; scope = null; countWords(); showEdit(); input.focus(); };
+  $('sampleBtn').onclick = () => { exitCompare(); setStatus(''); setMeta('Sample passage', ''); input.value = SAMPLE; scope = null; countWords(); showEdit(); input.focus(); };
   $('loadBtn').onclick = () => $('file').click();
   $('file').onchange = e => { const fs = [...e.target.files]; e.target.value = ''; if (fs.length) handleFiles(fs); };
   $('folderBtn').onclick = () => $('folder').click();
@@ -1768,6 +1826,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     return parts.length === 1 ? parts[0].text : parts.map(p => `=== ${p.name} ===\n\n${p.text.trim()}`).join('\n\n');
   }
   function finishImport(parts, failed, where) {
+    exitCompare();
     if (!parts.length) throw new Error(`Nothing could be read${failed.length ? ': ' + failed.map(f => `${f.name} (${f.err})`).join('; ') : '.'}`);
     input.value = combine(parts); countWords(); showEdit(); scope = null;
     const found = parts.map(p => p.meta).find(m => m && (m.title || m.author)) || {}, guess = guessMeta(input.value);
@@ -1784,6 +1843,8 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     if (fromFolder) list = list.filter(f => /\.(html?|xhtml|pdf|epub|mhtml?|webarchive)$/i.test(f.name));   // a folder: its .html and .pdf files
     if (!list.length) { setStatus(fromFolder ? 'That folder has no .html or .pdf files.' : 'No files were chosen.', true); return; }
     list.sort((a, b) => natural(a.webkitRelativePath || a.name, b.webkitRelativePath || b.name));
+    let mode = 'chapters';
+    if (list.length > 1) { mode = await askMultiple(list.length, fromFolder); if (mode === 'cancel') { setStatus('Nothing was opened.'); return; } }
     const parts = [], failed = [];
     for (let i = 0; i < list.length; i++) {
       const f = list[i];
@@ -1794,8 +1855,125 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
         if (text.trim()) parts.push({ name: f.name, text, meta: sink.meta }); else failed.push({ name: f.name, err: 'no story text' });
       } catch (e) { console.error(e); failed.push({ name: f.name, err: e.message || String(e) }); }
     }
+    if (mode === 'novels' && parts.length > 1) { startCompare(parts, failed); return; }
+    exitCompare();
     try { finishImport(parts, failed, parts.length === 1 ? parts[0].name : fromFolder ? 'from the folder' : ''); }
     catch (e) { setStatus(e.message, true); }
+  }
+  // Several files: chapters of one novel, or separate novels to compare?
+  function askMultiple(n, fromFolder) {
+    const d = $('multiDlg');
+    $('multiMsg').textContent = `You opened ${n} files${fromFolder ? ' from a folder' : ''}. Are they chapters of one novel, or separate novels?`;
+    if (typeof d.showModal !== 'function') return Promise.resolve(confirm(`You opened ${n} files. Press OK if they are chapters of one novel, or Cancel if they are separate novels to compare.`) ? 'chapters' : 'novels');
+    return new Promise(resolve => { d.returnValue = ''; d.onclose = () => resolve(d.returnValue || 'cancel'); d.showModal(); });
+  }
+
+  // ---------- Comparing separate novels ----------
+  let novels = null, novelSeq = 0, cmpA = 0, cmpB = 1;
+  const optsKey = () => JSON.stringify(snapOpts());
+  function startCompare(parts, failed) {
+    const seen = new Map();
+    novels = parts.map(p => { const g = guessMeta(p.text), m = p.meta || {};
+      let title = (m.title || g.title || prettyName(p.name)).trim(); const k = title.toLowerCase();
+      seen.set(k, (seen.get(k) || 0) + 1); if (seen.get(k) > 1) title += ` (${seen.get(k)})`;
+      return { name: p.name, title, author: (m.author || g.author || '').trim(), text: p.text, res: null, key: null }; });
+    cmpA = 0; cmpB = novels.length > 2 ? 'avg' : 1; last = null;
+    setStatus(failed.length ? `Skipped ${failed.length}: ${failed.map(f => `${f.name} (${f.err})`).join('; ')}.` : '', failed.length > 0);
+    showCompare(); gradeNovels();
+  }
+  // "agatha-christie_the-murder-of-roger-ackroyd.txt" → "Agatha Christie – The Murder of Roger Ackroyd"
+  function prettyName(name) {
+    let t = name.replace(/\.[^.]+$/, '');
+    if (!/\s/.test(t)) t = t.replace(/_+/g, ' – ').replace(/[-.]+/g, ' ');
+    if (t === t.toLowerCase()) t = t.replace(/\p{L}+/gu, (w, at) => at && /^(?:a|an|the|and|or|of|to|in|on|at|for|with|by)$/.test(w) && !/–\s$/.test(t.slice(0, at)) ? w : w[0].toUpperCase() + w.slice(1));
+    return t;
+  }
+  function showCompare() { $('compare').hidden = false; document.querySelector('main').hidden = true; }
+  function hideCompare() { $('compare').hidden = true; document.querySelector('main').hidden = false; }
+  function exitCompare() { if (!novels) return; novels = null; ++novelSeq; hideCompare(); }
+  async function gradeNovels() {
+    const my = ++novelSeq, o = snapOpts(), key = optsKey(), n = novels.length;
+    cancelAnalyses(); ++gradeSeq; grading = false;
+    renderCompare();
+    for (let i = 0; i < n; i++) {
+      const nv = novels[i]; if (nv.res && nv.key === key) continue;
+      nv.res = null; nv.err = null; renderCompare();
+      const label = `Grading novel ${i + 1} of ${n}: ${nv.title}…`;
+      showProgress(i / n, label);
+      try { nv.res = await analyzeAsync(nv.text, o, p => { if (my === novelSeq) showProgress((i + p) / n, label); }); nv.key = key; nv.res.opts = o; }
+      catch (e) { if (e.cancelled || my !== novelSeq) return; nv.err = e.message; }
+      if (my !== novelSeq) return;
+    }
+    hideProgress(); renderCompare();
+  }
+  function openNovel(i) {
+    const nv = novels[i]; hideCompare();
+    input.value = nv.text; countWords(); setMeta(nv.title, nv.author); scope = null;
+    if (nv.res && nv.key === optsKey()) present(nv.res, Grader.chapters(nv.text), nv.text, gradeKey()); else grade();
+    scrollTo(0, 0);
+  }
+  function backToCompare() { showCompare(); if (novels.some(nv => nv.key !== optsKey())) gradeNovels(); else renderCompare(); scrollTo(0, 0); }
+  // The average of several results, shaped like one result (for "compare with the average of the others")
+  function averageOf(rs) {
+    const mean = a => { const v = a.filter(x => x != null && isFinite(x)); return v.length ? v.reduce((p, q) => p + q, 0) / v.length : null; };
+    const overall = mean(rs.map(r => r.overall));
+    return { avg: true, overall, letter: Grader.letterFor(overall), total: Math.round(mean(rs.map(r => r.total))),
+      cats: rs[0].cats.map(c => ({ id: c.id, name: c.name, score: mean(rs.map(r => (r.cats.find(x => x.id === c.id) || {}).score)) })),
+      metrics: rs[0].metrics.map(m => { const ms = rs.map(r => r.metrics.find(x => x.id === m.id)).filter(Boolean), v = mean(ms.map(x => x.value));
+        return { id: m.id, cat: m.cat, name: m.name, unit: m.unit, value: v, score: mean(ms.map(x => x.score)), display: v == null ? '—' : `${valTxt(v)}${shortUnit(m.unit)}` }; }) };
+  }
+  const valTxt = v => Math.abs(v) >= 100 ? Math.round(v).toLocaleString() : Math.abs(v) >= 10 ? (Math.round(v * 10) / 10).toString() : (Math.round(v * 100) / 100).toString();
+  const shortUnit = u => !u ? '' : u.startsWith('%') ? '%' : /^per 1,000/.test(u) ? ' / 1k' : u === 'words per sentence' ? ' words' : ` ${u}`;
+  function renderCompare() {
+    const box = $('compare'), done = novels.filter(nv => nv.res), prof = (Grader.PROFILES[profileSel.value] || {}).label || '';
+    const cell = sc => sc == null ? '<span class="of">—</span>' : `<i class="chip" style="background:${color(sc)}"></i>${Math.round(sc)}`;
+    let h = `<h2>Comparing ${novels.length} novels</h2><p class="meta">All graded with the ${esc(prof)} profile. Change the settings above to regrade them all. Select a title for that novel's full report.</p>`;
+    const cats = done.length ? done[0].res.cats : [];
+    const best = {}; for (const c of cats) best[c.id] = Math.max(...done.map(nv => (nv.res.cats.find(x => x.id === c.id) || {}).score ?? -1e9));
+    const bestAll = Math.max(...done.map(nv => nv.res.overall));
+    h += `<h3>All novels</h3><div class="tblwrap"><table class="cmp"><thead><tr><th>Novel</th><th>Words</th><th>Grade</th>${cats.map(c => `<th>${esc(c.name)}</th>`).join('')}</tr></thead><tbody>`;
+    novels.forEach((nv, i) => {
+      const name = `<button class="linkbtn" data-open="${i}" type="button">${esc(nv.title)}</button>${nv.author ? ` <span class="of">by ${esc(nv.author)}</span>` : ''}`;
+      if (!nv.res) { h += `<tr><td>${name}</td><td colspan="${2 + cats.length}" class="of">${nv.err ? `Couldn't grade: ${esc(nv.err)}` : 'Waiting to be graded…'}</td></tr>`; return; }
+      const r = nv.res;
+      h += `<tr><td>${name}</td><td class="n">${r.total.toLocaleString()}</td><td class="n${done.length > 1 && r.overall === bestAll ? ' best' : ''}"><span style="color:${MARK(r.letter)};font-weight:700">${esc(r.letter)}</span> ${Math.round(r.overall)}</td>${
+        cats.map(c => { const sc = (r.cats.find(x => x.id === c.id) || {}).score; return `<td class="n${done.length > 1 && sc != null && sc === best[c.id] ? ' best' : ''}">${cell(sc)}</td>`; }).join('')}</tr>`;
+    });
+    h += `</tbody></table></div>`;
+    if (done.length > 2) { const av = averageOf(done.map(nv => nv.res));
+      h += `<p class="meta" style="margin-top:6px">Average of all ${done.length}: ${esc(av.letter)} ${Math.round(av.overall)} · bold marks the best score in each column.</p>`; }
+    else if (done.length === 2) h += `<p class="meta" style="margin-top:6px">Bold marks the better score in each column.</p>`;
+    if (done.length >= 2) {
+      const iA = done.includes(novels[cmpA]) ? cmpA : novels.indexOf(done[0]);
+      let iB = cmpB === 'avg' && novels.length > 2 ? 'avg' : done.includes(novels[cmpB]) && cmpB !== iA ? cmpB : novels.indexOf(done.find(nv => nv !== novels[iA]));
+      cmpA = iA; cmpB = iB;
+      const A = novels[iA].res, others = done.filter(nv => nv !== novels[iA]).map(nv => nv.res);
+      const B = iB === 'avg' ? averageOf(others) : novels[iB].res, nameA = novels[iA].title, nameB = iB === 'avg' ? `Average of the other ${others.length}` : novels[iB].title;
+      const opt = (i, sel) => `<option value="${i}"${sel ? ' selected' : ''}>${esc(novels[i].title)}</option>`;
+      h += `<h3>Head to head</h3><div class="cmp-pick"><label>Compare<select id="cmpA">${novels.map((nv, i) => nv.res ? opt(i, i === iA) : '').join('')}</select></label>
+        <label>with<select id="cmpB">${novels.map((nv, i) => nv.res && i !== iA ? opt(i, i === iB) : '').join('')}${novels.length > 2 ? `<option value="avg"${iB === 'avg' ? ' selected' : ''}>Average of all the other novels</option>` : ''}</select></label></div>`;
+      // the checks that differ most
+      const diffs = A.metrics.filter(m => m.score != null).map(m => { const b = B.metrics.find(x => x.id === m.id); return b && b.score != null ? { m, b, d: m.score - b.score } : null; })
+        .filter(Boolean).filter(x => Math.abs(x.d) >= 10).sort((x, y) => Math.abs(y.d) - Math.abs(x.d)).slice(0, 5);
+      if (diffs.length) h += `<p class="meta" style="margin-top:12px">Biggest differences:</p><ul class="diffs">${diffs.map(x => `<li><b>${esc(x.m.name)}</b>: ${esc(nameA)} ${esc(x.m.display)} (score ${Math.round(x.m.score)}) · ${esc(nameB)} ${esc(x.b.display)} (score ${Math.round(x.b.score)}). <span class="${x.d > 0 ? 'up' : 'down'}">${esc(nameA)} is ${x.d > 0 ? 'better' : 'worse'} by ${Math.round(Math.abs(x.d))} points.</span></li>`).join('')}</ul>`;
+      const dcell = (a, b) => a == null || b == null ? '' : Math.round(a - b) === 0 ? '<span class="of">same</span>' : `<span class="${a > b ? 'up' : 'down'}">${a > b ? '+' : '−'}${Math.round(Math.abs(a - b))}</span>`;
+      h += `<div class="tblwrap"><table class="cmp"><thead><tr><th>Check</th><th>${esc(nameA)}</th><th>${esc(nameB)}</th><th title="${esc(nameA)}'s score minus the other's">Difference</th></tr></thead><tbody>
+        <tr class="cath"><td>Overall</td><td class="n"><span style="color:${MARK(A.letter)}">${esc(A.letter)}</span> ${Math.round(A.overall)}</td><td class="n"><span style="color:${MARK(B.letter)}">${esc(B.letter)}</span> ${Math.round(B.overall)}</td><td class="n">${dcell(A.overall, B.overall)}</td></tr>
+        <tr><td>Words graded</td><td class="n">${A.total.toLocaleString()}</td><td class="n">${B.total.toLocaleString()}</td><td></td></tr>`;
+      for (const c of A.cats) { const cb = B.cats.find(x => x.id === c.id) || {};
+        h += `<tr class="cath"><td>${esc(c.name)}</td><td class="n">${cell(c.score)}</td><td class="n">${cell(cb.score)}</td><td class="n">${dcell(c.score, cb.score)}</td></tr>`;
+        for (const m of A.metrics.filter(x => x.cat === c.id)) { const mb = B.metrics.find(x => x.id === m.id) || {};
+          h += `<tr class="sub"><td>${esc(m.name)}</td><td>${esc(m.display)} <span class="of">${m.score == null ? '' : `· ${cell(m.score)}`}</span></td><td>${esc(mb.display || '—')} <span class="of">${mb.score == null ? '' : `· ${cell(mb.score)}`}</span></td><td class="n">${dcell(m.score, mb.score)}</td></tr>`; }
+      }
+      h += `</tbody></table></div>`;
+      const top = r => r.avg ? '' : `<ol class="diffs">${worstIssues(r).slice(0, 3).map(w => `<li>${esc(w.cat)}: ${esc(w.head)}</li>`).join('') || '<li>No issue cost more than a fraction of a point</li>'}</ol>`;
+      if (iB !== 'avg') h += `<h3>Biggest issues</h3><div class="tblwrap"><table class="cmp"><thead><tr><th>${esc(nameA)}</th><th>${esc(nameB)}</th></tr></thead><tbody><tr><td>${top(A)}</td><td>${top(B)}</td></tr></tbody></table></div>`;
+      else h += `<h3>Biggest issues in ${esc(nameA)}</h3>${top(A)}`;
+    } else if (novels.length > 1) h += `<p class="meta" style="margin-top:14px">The side-by-side comparison appears once at least two novels are graded.</p>`;
+    box.innerHTML = h;
+    box.querySelectorAll('[data-open]').forEach(b => b.onclick = () => openNovel(+b.dataset.open));
+    if ($('cmpA')) $('cmpA').onchange = e => { cmpA = +e.target.value; if (cmpB === cmpA) cmpB = novels.length > 2 ? 'avg' : novels.findIndex((nv, i) => i !== cmpA && nv.res); renderCompare(); };
+    if ($('cmpB')) $('cmpB').onchange = e => { cmpB = e.target.value === 'avg' ? 'avg' : +e.target.value; renderCompare(); };
   }
 
   // ---------- Links: a single page/PDF, or a folder / table of contents ----------
@@ -2034,12 +2212,9 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     return paras.join('\n\n');
   }
   $('editBtn').onclick = showEdit;
-  // A click made while a long grade was running is delivered once it finishes: skip it if nothing has changed since that grade started
-  $('gradeBtn').onclick = e => { if (last && !last.shared && e.timeStamp < gradedAt && last.key === gradeKey()) return; grade(); };
-  // A changed setting regrades a short work right away; a long one (which can take a minute on a phone) waits for the Grade button,
-  // so changing several settings doesn't start several slow regrades
-  const settingChanged = () => { if (!last || last.shared) return;
-    if (input.value.length > BIG_TEXT) setStatus('Settings changed. Press Grade to regrade with the new settings.'); else grade(); };
+  $('gradeBtn').onclick = () => grade();
+  // A changed setting regrades what's loaded (grading runs in the background, and a newer grade replaces one still running)
+  const settingChanged = () => { if (novels && !$('compare').hidden) { gradeNovels(); return; } if (!last || last.shared) return; grade(); };
   profileSel.onchange = settingChanged; $('dlgMode').onchange = settingChanged; $('english').onchange = settingChanged;
   $('saveBtn').onclick = saveReport;
 
@@ -2363,11 +2538,54 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   // What is being graded: the whole work, or one chapter of it (index into the detected chapters)
   let scope = null, scopeTitle = '', chapterCache = { key: '', rows: [] };
   const shownTitle = () => (ficTitle() || 'Untitled') + (scopeTitle ? ` — ${scopeTitle}` : '');
-  const BIG_TEXT = 350000;
-  let grading = false, gradeAgain = false, gradedAt = 0;
+  // ---------- Grading engine: runs in a background worker so the page stays responsive and can show progress ----------
+  // (falls back to grading on the page if the browser won't start a worker)
+  let engine = null; const engineJobs = new Map(); let engineSeq = 0;
+  function startEngine() {
+    try {
+      const src = [...document.scripts].find(sc => sc.textContent.includes('/*GRADER-START*/')).textContent;
+      const code = src + `
+self.onmessage = e => { const { id, text, opts } = e.data;
+  try { const res = Grader.analyze(text, Object.assign({}, opts, { onProgress: p => self.postMessage({ id, p }) })); self.postMessage({ id, res }); }
+  catch (err) { self.postMessage({ id, err: String((err && err.message) || err) }); } };`;
+      const w = new Worker(URL.createObjectURL(new Blob([code], { type: 'text/javascript' })));
+      w.onmessage = e => { const j = engineJobs.get(e.data.id); if (!j) return;
+        if ('p' in e.data) { if (j.onProgress) j.onProgress(e.data.p); return; }
+        engineJobs.delete(e.data.id); if (e.data.err) j.reject(new Error(e.data.err)); else j.resolve(e.data.res); };
+      w.onerror = e => { e.preventDefault(); if (engine === w) engine = false; const js = [...engineJobs.values()]; engineJobs.clear(); js.forEach(runHere); };
+      return w;
+    } catch (e) { console.warn('Grading on the page:', e); return false; }
+  }
+  function runHere(j) { setTimeout(() => { try { j.resolve(Grader.analyze(j.text, { ...j.opts, onProgress: j.onProgress })); } catch (e) { j.reject(e); } }, 30); }
+  function analyzeAsync(text, opts, onProgress) {
+    if (engine === null) engine = startEngine();
+    return new Promise((resolve, reject) => {
+      const j = { text, opts, onProgress, resolve, reject };
+      if (!engine) { runHere(j); return; }
+      const id = ++engineSeq; engineJobs.set(id, j); engine.postMessage({ id, text, opts });
+    });
+  }
+  // Stop everything queued or running (a newer grade replaces it)
+  function cancelAnalyses() {
+    if (engine) { engine.terminate(); engine = null; }
+    for (const j of engineJobs.values()) j.reject(Object.assign(new Error('cancelled'), { cancelled: true }));
+    engineJobs.clear();
+  }
+
+  // ---------- Progress bar ----------
+  const progress = $('progress');
+  function showProgress(frac, label) {
+    const pct = Math.max(0, Math.min(100, Math.floor(frac * 100)));
+    progress.hidden = false; $('progFill').style.width = pct + '%'; $('progPct').textContent = pct + '%'; progress.setAttribute('aria-valuenow', pct);
+    if (label != null) { $('progLbl').textContent = label; progress.setAttribute('aria-valuetext', `${label} ${pct}%`); }
+  }
+  const hideProgress = () => { progress.hidden = true; };
+
+  let grading = false, gradingKey = null, gradeSeq = 0;
   const gradeKey = () => [profileSel.value, $('dlgMode').value, $('english').value, scope, input.value.length, input.value.slice(0, 200), input.value.slice(-200)].join('|');
-  function grade() {
-    if (grading) { gradeAgain = true; setStatus('Will regrade with the new settings as soon as the current grade finishes…'); return; }   // pressed while a long grade is running
+  async function grade() {
+    if (novels && !$('compare').hidden) { gradeNovels(); return; }
+    if (grading && gradingKey === gradeKey()) return;                                  // this exact grade is already running
     if (!input.value.trim() && last && last.shared) { setStatus('This is a shared report, so the story itself isn\'t loaded here. Open the story to grade it with other settings.'); return; }
     const full = input.value, chs = full.trim() ? Grader.chapters(full) : [];
     if (scope != null && !chs[scope]) scope = null;
@@ -2375,43 +2593,42 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     scopeTitle = scope == null ? '' : chs[scope].title;
     if (!ficTitle() && !ficAuthor()) { const g = guessMeta(text); setMeta(g.title, g.author); }
     if (!text.trim()) { report.innerHTML = '<div class="empty">Paste some text into the page first, then press Grade.</div>'; return; }
-    const key = gradeKey();
-    const run = () => { try { run0(); } catch (e) { grading = false; gradeAgain = false; throw e; } finally { gradedAt = performance.now(); } };
-    const run0 = () => {
-      const res = Grader.analyze(text, { profile: profileSel.value, dlgMode: $('dlgMode').value, english: $('english').value });
-      res.chapters = chs; res.scope = scope; res.fullText = full; res.key = key;
-      last = res;
-      renderManuscript(res);
-      renderReport(res);
-      input.hidden = true; ms.hidden = false; $('editBtn').hidden = false; $('saveBtn').hidden = false; $('legend').hidden = false;
-      grading = false; setStatus('');
-      if (scope == null && chs.length) gradeChapters(res);
-      if (gradeAgain) { gradeAgain = false; setTimeout(grade, 0); }
-    };
-    // Long books take a while (longest on phones): show a message and let the page repaint before the work starts
-    const big = text.length > BIG_TEXT;
-    if (big) { grading = true; setStatus(`Grading ${Math.round(text.length / 5.7 / 1000)}k words… this can take up to a minute on a phone.`); setTimeout(run, 60); } else run();
+    const key = gradeKey(), my = ++gradeSeq, words = Math.round(text.length / 5.7);
+    cancelAnalyses(); grading = true; gradingKey = key; setStatus('');
+    showProgress(0, `Grading ${scopeTitle ? scopeTitle + ', ' : ''}${words >= 10000 ? Math.round(words / 1000) + 'k' : words.toLocaleString()} words…`);
+    let res;
+    try { res = await analyzeAsync(text, { profile: profileSel.value, dlgMode: $('dlgMode').value, english: $('english').value }, p => { if (my === gradeSeq) showProgress(p); }); }
+    catch (e) { if (e.cancelled || my !== gradeSeq) return; grading = false; gradingKey = null; hideProgress(); setStatus(`Grading failed: ${e.message}`, true); return; }
+    if (my !== gradeSeq) return;
+    grading = false; gradingKey = null; hideProgress();
+    present(res, chs, full, key);
+  }
+  function present(res, chs, full, key) {
+    res.chapters = chs; res.scope = scope; res.fullText = full; res.key = key;
+    last = res;
+    renderManuscript(res);
+    renderReport(res);
+    input.hidden = true; ms.hidden = false; $('editBtn').hidden = false; $('saveBtn').hidden = false; $('legend').hidden = false;
+    if (scope == null && chs.length) gradeChapters(res);
   }
 
   // Grade each chapter in the background and fill in the whole-work Chapters table as results arrive
-  function gradeChapters(res) {
+  async function gradeChapters(res) {
     const o = { profile: profileSel.value, dlgMode: $('dlgMode').value, english: $('english').value };
     const key = JSON.stringify(o) + res.fullText.length + ':' + res.fullText.slice(0, 200) + res.fullText.slice(-200);
     if (chapterCache.key !== key) chapterCache = { key, rows: [] };
     const rows = chapterCache.rows; res.chapterRows = rows;
     const fill = i => { const tr = document.querySelector(`#chapSum tr[data-ch="${i}"]`); if (!tr || !rows[i]) return;
       const c = rows[i]; tr.querySelector('.g').innerHTML = `<span style="color:${MARK(c.letter)}">${esc(c.letter)}</span> ${c.score}`; tr.querySelector('.iss').textContent = c.issue; };
-    let i = 0;
-    const step = () => {
+    for (let i = 0; i < res.chapters.length; i++) {
       if (last !== res) return;                                   // a newer grade replaced this one
-      for (; i < res.chapters.length; i++) {
-        if (rows[i]) { fill(i); continue; }
-        const ch = res.chapters[i], r = Grader.analyze(res.fullText.slice(ch.s, ch.e), o), w = worstIssues(r)[0];
-        rows[i] = { title: ch.title, words: r.total, letter: r.letter, score: Math.round(r.overall), issue: w ? `${w.cat}: ${w.head}` : 'No issue cost more than a fraction of a point' };
-        fill(i); i++; setTimeout(step, 0); return;                // one chapter at a time keeps the page responsive
-      }
-    };
-    step();
+      if (rows[i]) { fill(i); continue; }
+      const ch = res.chapters[i]; let r;
+      try { r = await analyzeAsync(res.fullText.slice(ch.s, ch.e), o); } catch (e) { return; }
+      const w = worstIssues(r)[0];
+      rows[i] = { title: ch.title, words: r.total, letter: r.letter, score: Math.round(r.overall), issue: w ? `${w.cat}: ${w.head}` : 'No issue cost more than a fraction of a point' };
+      fill(i);
+    }
   }
   function renderManuscript(res) {
     const n = res.text.length, occ = new Int32Array(n).fill(-1);
@@ -2486,7 +2703,9 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
       h += `</div>`;
     }
     h += `<div class="mylist" id="myList"></div>`;
+    if (novels && !res.shared) h = `<div class="backbar"><button class="btn" id="backCmp" type="button">← Back to the comparison</button></div>` + h;
     report.innerHTML = h;
+    if ($('backCmp')) $('backCmp').onclick = backToCompare;
     wireShare(res); renderList();
     if ($('scopeSel')) $('scopeSel').onchange = e => { scope = e.target.value === '' ? null : +e.target.value; grade(); };
     report.querySelectorAll('#chapSum tr.go').forEach(tr => tr.onclick = () => { scope = +tr.dataset.ch; grade(); report.scrollTop = 0; scrollTo({ top: report.getBoundingClientRect().top + scrollY - 10 }); });
