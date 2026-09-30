@@ -285,6 +285,9 @@ const Grader = (() => {
 
   const ED_ADJ = new Set(words(`tired scared bored interested excited worried surprised confused pleased annoyed embarrassed exhausted frightened terrified relieved used supposed married dressed related located based determined prepared concerned involved red bed shed sled need seed feed deed speed bleed breed greed weed hundred naked sacred wicked rugged ragged jagged crooked beloved aged blessed kindred shocked stunned amazed ashamed disappointed satisfied devoted convinced delighted horrified startled puzzled alarmed thrilled`));
   // Word sets for the fragment, comma-splice and tense checks
+  const TAG_PLAIN = new Set(words(`said says asked asks replied replies`));
+  const ARTICLE = new Set(words(`the a an this that these those`));
+  const CRUTCH_NOUN = new Set(words(`smirk smirks grin grins gaze glare glares sigh sighs chuckle chuckles scoff huff blush shiver shudder pang lump beat beats pause orbs tear tears nod nods shrug shrugs frown frowns wink whimper moan groan gasp`));
   const AUXV = new Set(words(`is are am was were be been being has have had do does did can could will would shall should may might must`));
   const SUBJ = new Set(words(`i he she they we you it there`));
   const PAST_V = new Set(words(`was were had did said went came saw took got made knew thought felt told left found gave stood sat ran held brought began kept heard meant let put became seemed lay rose fell grew drew threw wore spoke broke chose woke drove rode wrote ate drank sang swam won lost paid sent spent built caught taught bought fought sought slept swept wept led fed bled met shook stole froze hid bit struck hung flew shone shot understood forgot forgave knelt leapt crept dealt swung clung spun sank rang stuck dug slid spat tore bore hit cut shut burst cast hurt quit spread could would should`));
@@ -786,7 +789,7 @@ const Grader = (() => {
   function dialogueMask(text, blanked) {
     const N = text.length, mask = new Uint8Array(N);
     const dq = (text.match(/["“”]/g) || []).length, sqOpen = (text.match(/(^|[\s(\[—–-])[‘'](?=[A-Za-z])/gm) || []).length;
-    const single = dq < 4 && sqOpen >= 4;           // British-style 'single quote' dialogue
+    const single = sqOpen >= 4 && sqOpen > dq;      // British-style 'single quote' dialogue (double quotes may still appear, nested inside)
     let start = -1;
     const close = i => { if (start >= 0) mask.fill(1, start, i + 1); start = -1; };
     for (let i = 0; i < N; i++) {
@@ -937,7 +940,7 @@ const Grader = (() => {
       let ok = true; for (let j = i; j < i + n - 1; j++) if (!/^[ \t]+$/.test(norm.slice(W[j].e, W[j + 1].s))) { ok = false; break; }
       if (!ok) continue;
       const toks = W.slice(i, i + n).map(x => x.w);
-      if (toks.some(t => t.includes("'") || isName(t)) || toks.every(t => FUNC.has(t))) continue;
+      if (toks.some(t => t.includes("'") || isName(t)) || toks.every(t => FUNC.has(t) || TAG_PLAIN.has(t))) continue;   // also skips plain tags: "said the", "asked her"
       const key = toks.join(' '); if (!phr.has(key)) phr.set(key, []); phr.get(key).push(i);
     }
     const phCand = [];
@@ -956,10 +959,15 @@ const Grader = (() => {
       for (const i of pc.idx) for (let t = i; t < i + pc.n; t++) if (covered[t] === -1) covered[t] = id;
     }
     // single words (uses already inside a flagged phrase aren't counted again)
-    const cntFree = new Map(); W.forEach((x, i) => { if (covered[i] === -1) cntFree.set(x.w, (cntFree.get(x.w) || 0) + 1); });
+    const cntFree = new Map(), artFree = new Map();
+    W.forEach((x, i) => { if (covered[i] !== -1) return; cntFree.set(x.w, (cntFree.get(x.w) || 0) + 1);
+      if ([W[i - 1], W[i - 2]].some(y => y && ARTICLE.has(y.w))) artFree.set(x.w, (artFree.get(x.w) || 0) + 1); });
+    // A rare word usually preceded by "the/a/an" ("the whale", "the jury", "an anarchist") is what the story is about, not a verbal tic.
+    const isSubject = (w, c) => c >= 6 && !CRUTCH_NOUN.has(w) && (artFree.get(w) || 0) / c >= 0.5;
+    const isSubjectOrPlural = (w, c) => isSubject(w, c) || (/s$/.test(w) && !CRUTCH_NOUN.has(w) && [w.slice(0, -1), w.replace(/es$/, '')].some(b => b !== w && isSubject(b, cntFree.get(b) || 0)));
     const wordsOver = [];
     for (const [w, c] of cntFree) {
-      if (FUNC.has(w) || w.includes("'") || w.length < 3 || isName(w)) continue;
+      if (FUNC.has(w) || w.includes("'") || w.length < 3 || isName(w) || isSubjectOrPlural(w, c)) continue;
       const known = FREQ.has(w), j = judge(c, (known ? FREQ.get(w) : FREQ_FLOOR) / 1e6, known, true);
       if (j) wordsOver.push({ ...j, w, kind: 'word' });
     }
