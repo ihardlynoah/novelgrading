@@ -395,6 +395,18 @@ const Grader = (() => {
   const SELF = '(?:himself|herself|themselves|themself|myself|yourself|ourselves)';
   // ---- Misused phrases: fixed expressions that are wrong as written ----
   const TIER1 = [
+    // ---- more fixed phrases people get wrong ----
+    [/\bon accident\b/gi, 'by accident'], [/\bby in large\b/gi, 'by and large'], [/\b(?:and|then|so) viola\b(?=[,.!])|\bviola!/gi, m => m[0].replace(/viola/i, 'voilà')],
+    [/\ba whole nother\b/gi, 'a whole other'], [/\beek(?:ed|ing|s)? out\b/gi, m => m[0].replace(/^eek/i, 'eke')], [/\bbare in mind\b/gi, 'bear in mind'],
+    [/\bheart-? ?rendering\b/gi, 'heart-rending'], [/\bunchartered (?=(?:territory|territories|waters|seas|ground|lands?)\b)/gi, 'uncharted '],
+    [/\btenants? of (?=(?:his|her|their|the|our|my|your|its) (?:faith|belief|beliefs|religion|philosophy|creed|ideology|order|church|code)\b)/gi, m => m[0].replace(/tenant/i, 'tenet')],
+    [/\b(?:didn't|did not|doesn't|does not|won't|will not|couldn't|could not|wouldn't|would not|to|can't|cannot) past muster\b/gi, m => m[0].replace(/past muster/i, 'pass muster')],
+    [/\bmother load\b/gi, 'mother lode'], [/\b(?:fall|fell|falls|falling|fallen|left) by the waste ?side\b/gi, m => m[0].replace(/waste ?side/i, 'wayside')],
+    [/\bpot-? ?marked\b/gi, 'pockmarked'], [/\bin vein\b(?! of)/gi, 'in vain'], [/\bguilty conscious\b/gi, 'guilty conscience'],
+    [/\b(would|I'd|you'd|he'd|she'd|we'd|they'd) rather of (?=\w+(?:ed|en|wn|rn)\b|(?:stayed|gone|been|had|done|seen|known|died|left)\b)/gi, m => `${m[1]} rather have `],
+    [/\bmake ends meat\b/gi, 'make ends meet'], [/\btaken for granite\b/gi, 'taken for granted'], [/\bbrussel sprouts\b/gi, 'Brussels sprouts'], [/\bsherbert\b/gi, 'sherbet'],
+    [/\bon tenderhooks\b/gi, 'on tenterhooks'], [/\bself-? ?depreciating\b/gi, 'self-deprecating'], [/\bwreck(?:ed|s|ing)? havoc\b/gi, m => m[0].replace(/wreck/i, 'wreak')],
+    [/\bjust desserts\b/gi, 'just deserts'], [/\bvocal chords\b/gi, 'vocal cords'], [/\bhay ?day\b/gi, 'heyday'], [/\bhair-? ?brained\b/gi, 'hare-brained'],
     // modal + "of" + a past participle, including the negatives ("could not of known", "must of cost"); not "all I could of the ways",
     // "the might of his power", "must of necessity"
     [/\b(could|would|should|must|might)(n't| not)? of (?=(?:been|done|gone|had|seen|known|made|said|told|got|gotten|come|taken|given|thought|went|did|let|put|kept|left|found|heard|felt|meant|run|ran|cost|bought|brought|caught|taught|fought|sold|held|hurt|hit|lost|won|sent|spent|built|slept|paid|laid|sat|stood|understood|forgot|forgotten|eaten|written|spoken|broken|chosen|driven|fallen|stolen|woken|drunk|begun|sung|swum|rung|\w+ed|\w+en|\w+[wr]n)\b)/gi, m => `${m[1]}${m[2] || ''} have `],
@@ -487,6 +499,37 @@ const Grader = (() => {
   ];
   // ---- Confused words: only in patterns where the wrong word is clear ----
   const TIER2 = [
+    // ---- more confused words ----
+    [/\b(?:hit|slammed on|slam on|stomped on|stamped on|jammed on|pumped|tapped|hits|hitting|slamming on) the breaks\b|\bbreak (?=pedal|lights?|fluid|pads)\b/gi, m => m[0].replace(/breaks?/i, w => w.toLowerCase() === 'breaks' ? 'brakes' : 'brake')],
+    [/\b(?:out of|in plain|in|at first|at the|on|a|lost|caught|within|line of) site\b(?! (?:of|plan|visit|manager|map|office|for|where)\b)(?=[\s.,!?;:])/gi, m => /^(?:in|on|a|at the|within) site$/i.test(m[0]) ? m[0] : m[0].replace(/site$/i, 'sight')],
+    [/\bsite for sore eyes\b/gi, 'sight for sore eyes'],
+    [/\b(?:go|went|goes|going|come|came|comes|see|saw|sees|do|did|does|walk|walked|run|ran|call|called|eat|ate|work|worked|happen|happens|happened|practice|practiced|swim|swam|visit|visited) (?:\w+ ){0,3}?everyday(?=[.,!?;]|\s+(?:and|but|or|so|at|for|since|until|before|after|when|while|now|anyway)\b)/gi, m => m[0].replace(/everyday$/i, 'every day')],
+    [/\bflare for\b/gi, 'flair for'], [/\bflaunt(?:ed|ing|s)? (?=(?:the|his|her|their|all|every|any) (?:rules?|laws?|regulations?|conventions?|orders?|curfew|ban|treaty|norms?|etiquette)\b)/gi, m => m[0].replace(/flaunt/i, 'flout')],
+    [/\b(?:dug|digs|dig|digging) in (?:his|her|their|my|your|our) heals\b|\bhead over heals\b|\b(?:on|at) (?:his|her|their|my|your|our) heals\b/gi, m => m[0].replace(/heals$/i, 'heels')],
+    [/\b(?:come|over|out|right|up|down|in) hear(?=[.,!?;]|\s+(?:and|now|quick|quickly|please|for|with|to sit|this instant)\b)/gi, m => m[0].replace(/hear$/i, 'here')],
+    [/\bhoards? of (?=(?:zombies|people|fans|reporters|enemies|soldiers|orcs|goblins|tourists|children|students|shoppers|insects|locusts|rats|barbarians|invaders|warriors|men|women)\b)/gi, m => m[0].replace(/hoard/i, 'horde')],
+    [/\b(I|we|they|you) loath (?=(?:him|her|it|them|you|this|that|these|those|myself|everything|everyone|the|my|his|their|people|being|having|doing)\b)/gi, m => `${m[1]} loathe `],
+    [/\b(it|this|that|there|he|she|they|you|I|we) maybe (?=(?:true|right|wrong|possible|impossible|the|a|an|too|so|better|best|late|over|time|worth|useful|dangerous|fine|okay|ok|nothing|something)\b)/gi, m => `${m[1]} may be `],
+    [/\b(?:belly button|(?:his|her|my|your|their) (?:pierced |deep |little |exposed )?naval)\b/gi, m => /belly button/i.test(m[0]) ? m[0] : m[0].replace(/naval/i, 'navel')],
+    [/(?:(?<=^|[.!?]["”]?\s+|["“])|\b(?:please|just|now|everyone|everybody|you|guys|kids|so|all) )quite down\b|\b(?:be|keep|stay|kept|stayed) quite(?=[.!?]|,? (?:now|please|for once|you)\b)/gim, m => m[0].replace(/quite/i, 'quiet')],
+    [/\b(?:was|is|are|were|be|been|it's|that's|felt|feel|seemed|looked|sounded) quiet (?=(?:good|bad|sure|certain|nice|a few|a lot|a bit|possible|likely|well|often|simple|clear|happy|sad|large|small|big|ready|different|similar|close|far|beautiful|pretty|strong|right|wrong|true|interesting|funny|amazing|impressive|surprised)\b)/gi, m => m[0].replace(/quiet $/i, 'quite ')],
+    [/\broles? of (?=(?:tape|paper|film|toilet paper|bills|carpet|fabric|twine|wire|bread|duct tape|parchment|cloth|linoleum|sushi|money|cash|dice)\b)|\bon a role\b/gi, m => m[0].replace(/role/i, 'roll')],
+    [/\b(?:a |the |what a |such a |total |complete )?waist of (?=(?:time|money|space|energy|effort|food|life|talent|breath|a good|potential|resources)\b)/gi, m => m[0].replace(/waist/i, 'waste')],
+    [/\b(?:should|could|would|will|can|might|did|do|does) (?:I|you|he|she|we|they) where (?=(?:tonight|today|tomorrow|it|that|this|those|these|to the|to (?:school|work|church|dinner|bed|the party))\b)/gi, m => m[0].replace(/where $/i, 'wear ')],
+    [/\b(should|could|would|will|can|can't|won't|might|must|gonna|wanna) where (?=(?:tonight|today|tomorrow|it|that|this|those|these|my|your|his|her|their|our|a (?:dress|suit|tie|hat|coat|mask|skirt|uniform|ring)|the (?:dress|suit|tie|hat|coat|mask|skirt|uniform|ring)|pants|jeans|shoes|makeup|glasses|black|white|red|blue|green)\b)(?!(?:it|that|this|those|these|my|your|his|her|their|our) (?:is|was|are|were|went|goes|will|had|has|lives|lived|came|comes)\b)/gi, m => `${m[1]} wear `],
+    [/\bbirds? of pray\b|\b(?:fell|falls|fall|falling|easy) pray (?=to\b)|\bpray(?:ed|s|ing)? (?=on (?:the|his|her|their|weak|young|old|innocent|unsuspecting|people|tourists|victims|children)\b)/gi, m => m[0].replace(/pray/i, 'prey')],
+    [/\bpeddl(?:e|ed|ing|es) (?=(?:faster|harder|away|hard|furiously|up the hill|uphill|the bike|his bike|her bike|my bike|their bikes|backwards|along)\b)/gi, m => m[0].replace(/peddl/i, 'pedal').replace(/pedale/i, 'pedale').replace(/^pedale/i, 'pedal').replace(/pedal(ed|ing|es)? /i, (x, e) => `pedal${e === 'es' ? 's' : e || ''} `)],
+    [/\bthe hole (?=(?:thing|time|day|world|way|story|truth|night|family|town|class|lot|school|city|house|room|point|idea|process|world's|week|year|team|country|place|crew|building)\b)|\b(?:on|as) the hole(?=[.,]| (?:it|the|he|she|they|we|I)\b)/gi, m => m[0].replace(/hole/i, 'whole')],
+    [/\bbrand knew\b/gi, 'brand new'], [/\b(?:is|was|there's|there is|had|have|has|got|there was) know (?=(?:way|one|idea|choice|time|reason|money|doubt|chance|hope|sign|trace|need|use)\b)/gi, m => m[0].replace(/know $/i, 'no ')],
+    [/\b(?:thunder and|flash of|flashes of|bolt of|bolts of|struck by|streak of|forks? of|like|quick as|fast as|as quick as) lightening\b/gi, m => m[0].replace(/lightening/i, 'lightning')],
+    [/\b(?:read|reading|reads|said|say|says|saying|laughed|laughing|wondered|wonder|thought|think|spoke|speak|counted|count|cried|mused|prayed|sang|sing|repeated)(?: (?:it|this|that|them|him|her|the \w+|out))? allowed\b(?! (?:to|in|on|at|for|him|her|them|me|us)\b)/gi, m => m[0].replace(/allowed$/i, 'aloud')],
+    [/\bprecede(?:d|s)? (?=(?:to|with caution)\b)/gi, m => m[0].replace(/precede/i, 'proceed')],
+    [/\bstrait (?=(?:line|face|hair|ahead|away|back|up|down|into|through|to|A's|from|out|on|edge|answer|razor)\b)/gi, 'straight '], [/\bstrait-? ?forward\b/gi, 'straightforward'],
+    [/\bvane (?=(?:man|woman|attempt|attempts|hope|hopes|glory|effort|efforts|boy|girl|creature|person)\b)|\bin vane\b/gi, m => m[0].replace(/vane/i, 'vain')],
+    [/\b(?:was|were|am|is|are|so|very|get|got|getting|be|being|feel|felt|look|looked|seemed|grew|growing|become|became|bit|totally|utterly|completely|thoroughly|incredibly|really) board\b(?! (?:of|meeting|room|members?|games?|the|a|an|his|her|their|with|on|up|game)\b)/gi, m => m[0].replace(/board$/i, 'bored')],
+    [/\bboard (?=out of (?:my|his|her|their|your|our) (?:mind|minds|skull|skulls|wits)\b)/gi, 'bored '],
+    [/\b(?:of|in|on|at|for|with|to|from|by|about) there (?=(?:lies|games|own|house|houses|car|cars|faces|eyes|hands|kids|children|parents|friends|names|lives|mother|father|mothers|fathers|room|rooms|home|homes|dog|dogs|heads|hearts|minds|clothes|money|jobs|work|bodies|feet|voices|backs|stuff|things|plans|problems|business|wedding|marriage|relationship|daughter|son|family|families)\b)/gi, m => m[0].replace(/there $/i, 'their ')],
+    [/\bwreckless(?:ly)?\b/gi, m => m[0].replace(/wreck/i, 'reck')],
     // then for than after a comparison ("better late then never", "more fun then I expected", "farther then her")
     [/\b(better|worse|more|less|fewer|rather|other|bigger|smaller|larger|faster|slower|older|younger|taller|shorter|greater|higher|lower|longer|farther|further|stronger|weaker|smarter|easier|harder|happier|heavier|lighter|closer|louder|quieter|warmer|colder|brighter|darker|richer|poorer|wider|deeper|sooner) (late |fun |time |money |often |so |much |far |more |less )?then (?=(?:never|ever|I|you|he|she|we|they|me|him|her|us|them|anyone|anything|everyone|usual|expected|before|that|this|it|a|an|the)\b)/gi,
       m => `${m[1]} ${m[2] || ''}than `],
@@ -624,6 +667,20 @@ const Grader = (() => {
   // ---- Grammar: clear-cut patterns only ----
   const PAST_PART = {went:"gone",came:"come",saw:"seen",ate:"eaten",wrote:"written",drank:"drunk",began:"begun",swam:"swum",rang:"rung",sang:"sung",took:"taken",gave:"given",drove:"driven",rode:"ridden",spoke:"spoken",froze:"frozen",chose:"chosen",stole:"stolen",knew:"known",threw:"thrown",grew:"grown",flew:"flown",fell:"fallen",did:"done",ran:"run",shook:"shaken",woke:"woken",tore:"torn",wore:"worn",hid:"hidden",bit:"bitten",broke:"broken",forgot:"forgotten",sank:"sunk",shrank:"shrunk",sprang:"sprung",blew:"blown",drew:"drawn",arose:"arisen",forgave:"forgiven",mistook:"mistaken",withdrew:"withdrawn"};
   const GRAMMAR = [
+    // ---- more grammar ----
+    [/\b([Ff]or|[Ww]ith|[Tt]o|[Ff]rom|[Bb]etween|[Aa]bout|[Ll]ike|[Oo]f|[Aa]t|[Bb]y|[Bb]ehind|[Bb]eside|[Nn]ear|[Ww]ithout|[Tt]oward|[Tt]owards|[Aa]gainst|[Aa]mong) (he|she|him|her|they|them|me|us|you|(?!(?:Mrs?|Ms|Dr|St|Mt|Sr|Jr)\b)[A-Z][a-z]+) and I\b(?=\s*(?:[.,;:!?"”)]|$)|\s+(?:tomorrow|tonight|today|yesterday|later|now|then|too|again|alone|together|both|at|in|on|to|for|from|with|about|after|before|instead|anyway|sometime|someday|next|this|last|every|all)\b)/g, m => `${m[1]} ${({ he: 'him', she: 'her', they: 'them' })[m[2].toLowerCase()] || m[2]} and me`],
+    [/\b([Ff]or|[Ww]ith|[Tt]o|[Ff]rom|[Bb]etween|[Aa]bout|[Oo]f|[Aa]t|[Bb]y|[Bb]ehind|[Bb]eside|[Nn]ear|[Ww]ithout|[Tt]oward|[Aa]gainst|[Aa]mong) (he|she|they|we) and (me|him|her|them|us|you|(?!(?:Mrs?|Ms|Dr|St|Mt|Sr|Jr)\b)[A-Z][a-z]+)\b(?=\s*(?:[.,;:!?"”)]|$)|\s+(?:tomorrow|tonight|today|yesterday|later|now|then|too|again|alone|together|both|at|in|on|to|for|from|with|about|after|before|instead|anyway|sometime|someday|next|this|last|every|all)\b)/g, m => `${m[1]} ${({ he: 'him', she: 'her', they: 'them', we: 'us' })[m[2]]} and ${m[3]}`],
+    [/\b([A-Z][a-z]+|he|she|they|you) and myself (?=(?:went|were|are|have|had|did|will|would|could|can|saw|left|ran|walked|got|decided|agreed|stayed|came)\b)/g, m => `${m[1]} and I `],
+    [/(?:^|(?<=[.!?]["”]?\s+))Myself and (\w+) (?=(?:went|were|are|have|had|did|will|would|could|can|saw|left|ran|walked|got|decided|agreed|stayed|came)\b)/gm, m => `${m[1]} and I `],
+    [/\b(these|those) (kind|type|sort) of\b/gi, m => `${m[1].toLowerCase() === 'these' ? 'this' : 'that'} ${m[2]} of`],
+    [/\bhad of (?=(?:known|been|seen|gone|done|had|told|said|thought|come|left|stayed|tried|listened|waited|asked|realized|realised|noticed|\w+ed)\b)/gi, 'had '],
+    [/\b(had|has|have|hadn't|hasn't|haven't|'d|'ve) (became|overcame) /gi, m => `${m[1]} ${m[2].replace(/became/i, 'become')} `],
+    [/\bdrownded\b/gi, 'drowned'], [/\battackted\b/gi, 'attacked'], [/\bbrung\b/gi, 'brought'],
+    [/\b(more|most) (better|worse|easier|easiest|harder|hardest|quicker|quickest|faster|fastest|bigger|biggest|smaller|smallest|happier|happiest|sadder|larger|longer|shorter|stronger|weaker|prettier|prettiest|greater|greatest|higher|lower|older|oldest|younger|smarter|smartest|louder|quieter|closer|cheaper|richer|poorer|darker|brighter|colder|warmer|kinder|nicer|nicest|safer|simpler|simplest|best|worst)\b/gi, m => m[2]],
+    [/(?:^|(?<=[.!?]["”]?\s+|, ))(Everyone|Everybody|Someone|Somebody|No one|Nobody|Anyone|Anybody|everyone|everybody|someone|somebody|no one|nobody|anyone|anybody) (have|are|were|don't)\b(?! (?:to|been)\b)/gm, m => `${m[1]} ${({ have: 'has', are: 'is', were: 'was', "don't": "doesn't" })[m[2].toLowerCase()]}`],
+    [/(?<!\b(?:on|in|at|of|from|to|with|by|for|under|over|into|onto|upon|among|behind|beside|near|inside|outside|across|through|and|or|nor) )\bone of (?:the|my|his|her|their|our|your|those|these) \w+s (?:were|are|have)\b/gi, m => m[0].replace(/(were|are|have)$/i, w => ({ were: 'was', are: 'is', have: 'has' })[w.toLowerCase()])],
+    [/\b(?:here's|there's|where's|here is|there is) (?:two|three|four|five|six|seven|eight|nine|ten|twenty|a hundred|dozens of|hundreds of) \w+s\b/gi, m => m[0].replace(/^(here|there|where)(?:'s| is)/i, '$1 are')],
+    [/\bI is\b/g, 'I am'],
     [/\beach of (?:the|them|us|those|these|his|her|their|my|our|your) (?:(?!to\b)\w+ )?(?:have|are|were|do|don't)\b/gi, m => m[0].replace(/(have|are|were|do|don't)$/i, w => ({ have: 'has', are: 'is', were: 'was', do: 'does', "don't": "doesn't" })[w.toLowerCase()])],
     // a / an (lower-case words only, so initialisms like "an FBI agent" are left alone; "a unicorn", "a one-off", "an hour", "an honest" are correct)
     [/\b([Aa]) ((?![Uu]|[Oo]ne\b|[Oo]nce\b|[Ee]u|[Ee]we|[Oo]uija)[AEIOaeio][a-z]+)\b(?!-)/g, m => `${m[1]}n ${m[2]}`],
