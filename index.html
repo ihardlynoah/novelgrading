@@ -308,7 +308,7 @@ const Grader = (() => {
     adjStack: lower(0.5, 2.5), appositives: lower(2, 6), paragraphs: lower(0.25, 3), readability: higher(7, 1), daleChall: higher(6, 3),
     dlgRatio: band(20, 50, 5, 75), fancyTags: lower(20, 50), tagAdverbs: lower(1, 4), dlgPunct: lower(0, 3),
     excl: lower(1, 5), ellipses: lower(2, 6), dashes: lower(6, 15),
-    tier1: lower(0, 4), tier2: lower(0, 4), grammar: lower(0, 3), typos: lower(0, 3), subjunctive: lower(0, 3), povSlip: lower(0, 3), tense: lower(0, 2), longSent: lower(1, 4), fragments: lower(3, 10), simStack: lower(0.2, 1.5), commaSplice: lower(0.5, 2), britishisms: lower(0.3, 3)
+    tier1: lower(0, 4), tier2: lower(0, 4), grammar: lower(0, 3), typos: lower(0, 3), povSlip: lower(0, 3), tense: lower(0, 2), longSent: lower(1, 4), fragments: lower(3, 10), simStack: lower(0.2, 1.5), commaSplice: lower(0.5, 2), britishisms: lower(0.3, 3)
   };
   const UNITS = {
     echoes: 'per 1,000 words', filler: 'per 1,000 narration words', adverbs: '% of narration words', hedging: 'per 1,000 narration words',
@@ -317,7 +317,7 @@ const Grader = (() => {
     passive: '% of sentences', progressive: 'per 1,000 narration words', openers: 'runs per 1,000 words', ingOpeners: '% of sentences',
     adjStack: 'per 1,000 words', appositives: 'per 1,000 narration words', paragraphs: 'per 1,000 words', readability: 'grade level', daleChall: 'Dale–Chall score', dlgRatio: '% dialogue', fancyTags: '% of tags', tagAdverbs: 'per 1,000 words',
     dlgPunct: 'per 1,000 words', excl: 'per 1,000 narration words', ellipses: 'per 1,000 words', dashes: 'per 1,000 words',
-    tier1: 'per 1,000 words', tier2: 'per 1,000 words', grammar: 'per 1,000 words', typos: 'per 1,000 words', subjunctive: 'per 1,000 words', povSlip: 'per 1,000 words', tense: 'per 1,000 narration words', longSent: 'per 1,000 narration words', fragments: 'per 1,000 narration words', simStack: 'per 1,000 narration words', commaSplice: 'per 1,000 narration words', britishisms: 'per 1,000 words'
+    tier1: 'per 1,000 words', tier2: 'per 1,000 words', grammar: 'per 1,000 words', typos: 'per 1,000 words', povSlip: 'per 1,000 words', tense: 'per 1,000 narration words', longSent: 'per 1,000 narration words', fragments: 'per 1,000 narration words', simStack: 'per 1,000 narration words', commaSplice: 'per 1,000 narration words', britishisms: 'per 1,000 words'
   };
   // Style profiles: genre targets that replace the defaults above, and category weights (w) that replace the usual ones.
   // Calibrated on acclaimed novels of each kind (dialogue share: Woolf ~3%, Gatsby 27%, Hemingway 37–39%, Austen 36–51%,
@@ -1656,12 +1656,11 @@ const Grader = (() => {
       }
       return out;
     }
-    const t1 = errs(TIER1, 'tier1', 0), t2 = errs(TIER2, 'tier2', 0), gr = errs(GRAMMAR, 'grammar', 1), ty = errs(TYPOS, 'typos', 0), sj = errs(SUBJUNCTIVE, 'subjunctive', 1);
+    const t1 = errs(TIER1, 'tier1', 0), t2 = errs(TIER2, 'tier2', 0), gr = errs([...GRAMMAR, ...SUBJUNCTIVE], 'grammar', 1), ty = errs(TYPOS, 'typos', 0);
     const wsum = a => a.reduce((s, f) => s + f.w, 0);
     M('errors', 'tier1', 'Misused phrases', k(wsum(t1)), `${t1.length} found`, 'Fixed phrases that are always wrong in narration: "per say," "could of," "for all intensive purposes," "I wish I would have"…', { flags: t1, weight: 1.5 });
     M('errors', 'tier2', 'Confused words', k(wsum(t2)), `${t2.length} found`, 'Than/then, your/you\'re, lose/loose, its/it\'s, whose/who\'s, affect/effect, breath/breathe, fewer/less, among/between — clear-cut patterns only.', { flags: t2 });
-    M('errors', 'grammar', 'Grammar', k(wsum(gr)), `${gr.length} found`, 'A/an, verb forms ("had went"), subject-verb agreement ("he don\'t", "they was"), double negatives, pronoun case ("between you and I"), lay/lie. Clear-cut patterns only.', { flags: gr });
-    M('errors', 'subjunctive', 'Subjunctive', k(wsum(sj)), `${sj.length} found`, 'Where the subjunctive belongs: "If I were you" (not "was"), "I wish she were here," "if it weren\'t for," and the base verb after demands and requirements ("They demanded that he leave," "It is essential that she be told," not "leaves" / "is"). Correct uses ("If he were…," "Long live the king") are never flagged; real past conditions ("If he was angry, he hid it") are left alone.', { flags: sj });
+    M('errors', 'grammar', 'Grammar', k(wsum(gr)), `${gr.length} found`, 'A/an, verb forms ("had went"), subject-verb agreement ("he don\'t", "they was"), double negatives, pronoun case ("between you and I"), lay/lie, and the subjunctive ("If I were you," "I wish she were here," "demanded that he leave"; correct subjunctives are never flagged). Clear-cut patterns only.', { flags: gr });
     M('errors', 'typos', 'Typos & misspellings', k(wsum(ty)), `${ty.length} found`, 'Common misspellings ("definately", "recieve"), doubled words ("the the"), missing apostrophes ("dont"), a lower-case "i", and spacing or punctuation slips.', { flags: ty });
 
     // Third-person narration that suddenly addresses "you" ("like when you slowly walk in front of doctors"). Only checked when the
@@ -1725,7 +1724,7 @@ const Grader = (() => {
     // ===== Scoring
     // Errors aren't a share of the grade: they come straight off it. The other categories make a style score out of 100, and each
     // error costs a fixed number of points per error per 1,000 words (calibrated to cost what it did when errors were 4× a category)
-    const ERR_PTS = { tier1: 6, tier2: 5, grammar: 6, typos: 2.5, subjunctive: 2, povSlip: 3, tense: 4 };
+    const ERR_PTS = { tier1: 6, tier2: 5, grammar: 6, typos: 2.5, povSlip: 3, tense: 4 };
     const ALLOW = voiceOn ? { povSlip: 0.6, tense: 0.6 } : { povSlip: 0.2, tense: 0.2 };
     const STEP = { tier1: 0.01, tier2: 0.01, grammar: 0.01 };                            // these cost points for each full 0.01 errors per 1,000 words                                           // the first 0.2 per 1,000 words are free: classics have the odd deliberate one
     const DED_SCALE = { errors: 35 };                                          // points off that read as a 0 score, for the section's color
