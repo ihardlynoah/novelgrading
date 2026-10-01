@@ -294,7 +294,7 @@ const Grader = (() => {
     filter: lower(6, 14), emotions: lower(1, 4), body: lower(5, 12), sensory: higher(30, 5),
     sentAvg: band(10, 22, 5, 32), sentSpread: higher(0.55, 0.3), passive: lower(10, 20),
     progressive: lower(6, 14), openers: lower(0.5, 3), ingOpeners: lower(4, 10),
-    adjStack: lower(0.5, 2.5), appositives: lower(2, 6), paragraphs: lower(0.25, 3), readability: higher(8, 2), daleChall: higher(6.5, 3.5),
+    adjStack: lower(0.5, 2.5), appositives: lower(2, 6), paragraphs: lower(0.25, 3), readability: higher(7, 1), daleChall: higher(6, 3),
     dlgRatio: band(20, 50, 5, 75), fancyTags: lower(20, 50), tagAdverbs: lower(1, 4), dlgPunct: lower(0, 3),
     excl: lower(1, 5), ellipses: lower(2, 6), dashes: lower(6, 15),
     tier1: lower(0, 4), tier2: lower(0, 4), grammar: lower(0, 3), typos: lower(0, 3), povSlip: lower(0, 3), tense: lower(0, 2), longSent: lower(1, 4), fragments: lower(3, 10), simStack: lower(0.2, 1.5), commaSplice: lower(0.5, 2), britishisms: lower(0.3, 3)
@@ -1462,7 +1462,7 @@ const Grader = (() => {
     const nS = S.filter(x => x.narr && x.nw.length).length, nWords = narr;
     const syll = narrW.reduce((a, x) => a + syl(x.raw), 0);
     const fk = nS && nWords ? 0.39 * (nWords / nS) + 11.8 * (syll / nWords) - 15.59 : 0;
-    // ===== Readability (narration only). Below grade 8 costs points, more the lower it goes; each profile sets its own range
+    // ===== Readability (narration only). Below grade 7 costs points, more the lower it goes; each profile sets its own range
     // (literary and thrillers read simpler; young adult has a band; middle grade only loses points for reading too hard).
     const rdNA = narr < 100;
     const ruleTxt = (r, u) => r.good[0] === -Infinity ? `${u}${r.good[1]} or below scores full marks; above that the score drops evenly, reaching zero at ${r.bad[1]}.`
