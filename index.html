@@ -211,6 +211,12 @@ body.dragging .sheet{outline:2px dashed var(--pencil);outline-offset:6px}
         <option value="ignore">Don't count</option>
       </select>
     </label>
+    <label><span>Narration <button class="help" id="voiceHelpBtn" type="button" aria-expanded="false" aria-controls="voiceNote" aria-label="What does this setting do?">?</button></span>
+      <select id="voice">
+        <option value="standard">Standard</option>
+        <option value="stylized">Stylized voice or first person</option>
+      </select>
+    </label>
     <label>English
       <select id="english">
         <option value="us">American (flag Britishisms)</option>
@@ -237,6 +243,11 @@ body.dragging .sheet{outline:2px dashed var(--pencil);outline-offset:6px}
   <p><b>1. Copy story bookmark (easiest).</b> Drag this button to your bookmarks bar: <a class="bm" href="javascript:(()=>{const%20t=s=>(s||'').replace(/%C2%A0/g,'%20').replace(/\n{3,}/g,'\n\n').trim();const%20n=s=>s.split(/\s+/).filter(Boolean).length;const%20q=s=>document.querySelector(s);let%20out=[];const%20sel=t(String(getSelection()));if(n(sel)>50)out=[sel];else%20if(/archiveofourown\.org$/.test(location.hostname)){const%20m=location.pathname.match(/\/works\/(\d+)/);if(m&amp;&amp;new%20URLSearchParams(location.search).get('view_full_work')!=='true'&amp;&amp;q('li.chapter.entire,%20a[href*=%22view_full_work=true%22]')){if(confirm('This%20page%20shows%20one%20chapter.%20Load%20the%20whole%20story?%20Click%20the%20bookmark%20again%20once%20it%20has%20loaded.'))location.href='/works/'+m[1]+'?view_full_work=true&amp;view_adult=true';return;}const%20tl=q('%23workskin%20h2.title');if(tl)out.push(t(tl.innerText));const%20au=q('%23workskin%20h3.byline');if(au&amp;&amp;t(au.innerText))out.push('by%20'+t(au.innerText));const%20chs=document.querySelectorAll('%23chapters%20>%20.chapter');if(chs.length)chs.forEach(c=>{const%20h=c.querySelector('h3.title'),u=c.querySelector('div.userstuff');if(!u)return;if(h)out.push(t(h.innerText));out.push(t(u.innerText).replace(/^Chapter%20Text\s*/,''));});else{const%20u=q('%23chapters%20.userstuff');if(u)out.push(t(u.innerText).replace(/^(Chapter|Work)%20Text:?\s*/,''));}}if(!out.length){let%20u=null;for(const%20s%20of%20['%23storytext','.storytext','.chapter-content','.chapter-inner','[itemprop=%22articleBody%22]','.entry-content','.post-content','.article-body']){const%20e=q(s);if(e&amp;&amp;n(e.innerText)>100){u=e;break;}}if(!u){const%20sc=new%20Map();document.querySelectorAll('p').forEach(p=>{if(p.closest('nav,header,footer,aside,form,[role=navigation],[role=complementary]'))return;const%20k=p.parentElement;sc.set(k,(sc.get(k)||0)+n(p.innerText));});let%20b=0;sc.forEach((v,k)=>{if(v>b){b=v;u=k;}});if(b%3C100)u=null;}if(!u)u=q('article')||q('main')||document.body;const%20h=q('h1');if(h&amp;&amp;!u.contains(h)&amp;&amp;n(h.innerText)%3C=15)out.push(t(h.innerText));out.push(t(u.innerText));}const%20txt=out.filter(Boolean).join('\n\n'),w=n(txt);const%20done=()=>alert('Copied%20'+w.toLocaleString()+'%20words.%20Now%20paste%20them%20into%20Novel%20Grader.');const%20fb=()=>{const%20a=document.createElement('textarea');a.value=txt;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove();done();};if(navigator.clipboard&amp;&amp;navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(done,fb);else%20fb();})();" title="Drag me to your bookmarks bar">Copy story for Novel Grader</a>. Then, on any story page, click the bookmark. It finds the story text and copies it without the site's menus, tags, or comments, and tells you how many words it copied. On sites that split a story into chapter pages, it offers to load the whole story when the site allows that. If it picks up the wrong part of the page, highlight the story text first and click the bookmark again; it copies just what you highlighted. Come back here and paste into the text box.</p>
   <p><b>2. Select all and paste.</b> Open the story in your browser (use the site's single-page or full-story view for multi-chapter stories), press Ctrl+A (⌘A on Mac), copy, and paste into the text box here. Short menu, tag, and note lines are left out of the grade automatically.</p>
   <p><b>3. Save or download it.</b> Use the site's Download or Export option if it has one, or save the page from your browser (File → Save Page As, or Print → Save as PDF), then use Open files here.</p>
+</div>
+<div class="helpnote" id="voiceNote" hidden>
+  Choose <b>Stylized voice or first person</b> when the narrator tells the story in their own voice and bends the rules on purpose, such as a dialect narrator who writes "I seen him," a stream of consciousness without apostrophes, or long run-on sentences.
+  <br>The narrator's grammar slips and dropped apostrophes ("me and him went," "dont," "everytime") count like mistakes in character speech, at a quarter of the usual penalty (or not at all if character speech is set to <b>Don't count</b>). Fragments, comma splices, long sentences, low reading level, "I saw / I felt" filter words, and the odd tense shift are given more room.
+  <br>Misspellings ("recieve"), confused words (their/there), misused phrases, "a" vs "an," doubled words, spacing slips, and clichés and other style checks still count as usual.
 </div>
 <div class="helpnote" id="helpNote" hidden>
   Characters sometimes talk incorrectly on purpose. A character who says "could of" or "your welcome" may be written that way to show how they speak, so it isn't necessarily the author's mistake. This setting only affects common errors found <em>inside quotation marks</em>. Narration is always graded in full.
@@ -334,6 +345,10 @@ const Grader = (() => {
            longSent: lower(1, 3.5), readability: lower(7.5, 11), daleChall: lower(6.5, 8.5) } }
   };
 
+  // Targets for a stylized or first-person narrator, used where looser than the profile's own
+  const VOICE_O = { fragments: lower(8, 18), commaSplice: lower(3, 8), longSent: lower(5, 12), sentAvg: band(6, 34, 3, 50), sentSpread: higher(0.4, 0.2),
+    readability: higher(3, -1), daleChall: higher(5, 2), filter: lower(10, 20), hedging: lower(4, 10), paragraphs: lower(2, 8), ellipses: lower(4, 10), dashes: lower(10, 22) };
+  const loosen = (a, b) => ({ good: [Math.min(a.good[0], b.good[0]), Math.max(a.good[1], b.good[1])], bad: [Math.min(a.bad[0], b.bad[0]), Math.max(a.bad[1], b.bad[1])] });
   function rangeScore(v, r) {
     const [lo, hi] = r.good, [blo, bhi] = r.bad;
     if (v >= lo && v <= hi) return 100;
@@ -413,11 +428,11 @@ const Grader = (() => {
     [/\bjust desserts\b/gi, 'just deserts'], [/\bvocal chords\b/gi, 'vocal cords'], [/\bhay ?day\b/gi, 'heyday'], [/\bhair-? ?brained\b/gi, 'hare-brained'],
     // modal + "of" + a past participle, including the negatives ("could not of known", "must of cost"); not "all I could of the ways",
     // "the might of his power", "must of necessity"
-    [/\b(could|would|should|must|might)(n't| not)? of (?=(?:been|done|gone|had|seen|known|made|said|told|got|gotten|come|taken|given|thought|went|did|let|put|kept|left|found|heard|felt|meant|run|ran|cost|bought|brought|caught|taught|fought|sold|held|hurt|hit|lost|won|sent|spent|built|slept|paid|laid|sat|stood|understood|forgot|forgotten|eaten|written|spoken|broken|chosen|driven|fallen|stolen|woken|drunk|begun|sung|swum|rung|\w+ed|\w+en|\w+[wr]n)\b)/gi, m => `${m[1]}${m[2] || ''} have `],
-    [/\bbetween you and I\b/gi, 'between you and me'],
+    [/\b(could|would|should|must|might)(n't| not)? of (?=(?:been|done|gone|had|seen|known|made|said|told|got|gotten|come|taken|given|thought|went|did|let|put|kept|left|found|heard|felt|meant|run|ran|cost|bought|brought|caught|taught|fought|sold|held|hurt|hit|lost|won|sent|spent|built|slept|paid|laid|sat|stood|understood|forgot|forgotten|eaten|written|spoken|broken|chosen|driven|fallen|stolen|woken|drunk|begun|sung|swum|rung|\w+ed|\w+en|\w+[wr]n)\b)/gi, m => `${m[1]}${m[2] || ''} have `, 1],
+    [/\bbetween you and I\b/gi, 'between you and me', 1],
     [/\b(?:a )?(?:new|different|same|another|change|changed|changing) tact\b/gi, m => m[0].replace(/tact$/i, 'tack')],
-    [/\bwish(?:ed|es|ing)? (?:that )?(?:I|you|he|she|they|we|it|[A-Z][a-z]+)(?: would have| would've|'d have| woulda)\b(?= (?:been|gone|known|seen|done|had|taken|given|made|come|said|told|thought|let|put|kept|left|found|heard|felt|meant|run|stayed|\w+ed)\b)/g, m => m[0].replace(/(?: would have| would've|'d have| woulda)$/, ' had')],
-    [/\b[Ii]f(?: only)? (?:I|you|he|she|they|we|it) (?:would have|would've|'d have) (?:known|seen|been|gone|done|had|listened|told|asked|thought|stayed|left|come|tried|realized|realised|noticed|heard|waited|called|said|looked|stopped|let)\b/g, m => m[0].replace(/(?:would have|would've|'d have)/, 'had')],
+    [/\bwish(?:ed|es|ing)? (?:that )?(?:I|you|he|she|they|we|it|[A-Z][a-z]+)(?: would have| would've|'d have| woulda)\b(?= (?:been|gone|known|seen|done|had|taken|given|made|come|said|told|thought|let|put|kept|left|found|heard|felt|meant|run|stayed|\w+ed)\b)/g, m => m[0].replace(/(?: would have| would've|'d have| woulda)$/, ' had'), 1],
+    [/\b[Ii]f(?: only)? (?:I|you|he|she|they|we|it) (?:would have|would've|'d have) (?:known|seen|been|gone|done|had|listened|told|asked|thought|stayed|left|come|tried|realized|realised|noticed|heard|waited|called|said|looked|stopped|let)\b/g, m => m[0].replace(/(?:would have|would've|'d have)/, 'had'), 1],
     [/\bper say\b/gi, 'per se'],
     [/\bfor all intensive purposes\b/gi, 'for all intents and purposes'],
     [/\b(could|would|should|must|might) of (?=(?:been|done|gone|had|seen|known|made|said|told|got|gotten|come|taken|given|thought|went|did|let|put|kept|left|found|heard|felt|meant|run|ran|stayed|tried|asked|killed|died|called|stopped|helped|waited|noticed|realized|realised|guessed|warned|listened|missed|loved|wanted|needed|used|happened|\w+ed)\b)/gi, m => m[1] + ' have '],
@@ -445,7 +460,7 @@ const Grader = (() => {
     [/\bdoggy[- ]dog world\b/gi, 'dog-eat-dog world'],
     [/\ball of the sudden\b/gi, 'all of a sudden'],
     [/\bsupposably\b/gi, 'supposedly'],
-    [/\balot\b/gi, 'a lot'],
+    [/\balot\b/gi, 'a lot', 1],
     [/\bcould care less\b/gi, "couldn't care less"],
     [/\bescape goat\b/gi, 'scapegoat'],
     [new RegExp(`\\bbidding ${P} time\\b`, 'gi'), 'biding (one\'s) time'],
@@ -525,7 +540,7 @@ const Grader = (() => {
     [/\b(?:so|very|too|really|grew|fell|went|got|stayed|became|kept|be) quite(?=[.,;:!?])/gi, m => m[0].replace(/quite$/i, 'quiet')],
     [/(?<!\b(?:did|does|didn't|doesn't|do|would|will|can|could) )\b(?:he|she|it) use to\b/gi, m => m[0].replace(/use to/i, 'used to')], [/\blost (?:his|her|my|their|your|its) balanced\b/gi, m => m[0].replace(/balanced$/i, 'balance')],
     [/\b(?:around|round|grabbed|gripped|held|clutched|encircled|circling|circled|hugged|on) (?:her|his|my|their|your) waste\b|\b(?:her|his|my|their|your) (?:slim|narrow|tiny|small|thin|slender) waste\b/gi, m => m[0].replace(/waste$/i, 'waist')],
-    [/\b(?:we|they|you) where (?:going|gonna|right|wrong|supposed|being|just|always|never|both|all|still|not|trying|doing|talking|looking|so)\b/gi, m => m[0].replace(/where$/i, 'were')], [/\b(?:he|she|I) cant\b|\b(?:I|you|we|they|he|she|it) wont\b/g, m => m[0].replace(/(cant|wont)$/, w => w === 'cant' ? "can't" : "won't")],
+    [/\b(?:we|they|you) where (?:going|gonna|right|wrong|supposed|being|just|always|never|both|all|still|not|trying|doing|talking|looking|so)\b/gi, m => m[0].replace(/where$/i, 'were')], [/\b(?:he|she|I) cant\b|\b(?:I|you|we|they|he|she|it) wont\b/g, m => m[0].replace(/(cant|wont)$/, w => w === 'cant' ? "can't" : "won't"), 1],
     [/\b(?:be|feel|felt|feels|was|were|is|am|are|being|become|became|becoming) apart of\b/gi, m => m[0].replace(/apart/i, 'a part')],
     [/\b(?:voice|voices|throat|whisper|croak|tone)(?: (?:was|sounded|went|grew|came out|still))?(?: (?:a little|slightly|rough and|so|too|very))? horse\b|\bhorse (?:voice|whisper|croak)\b|\bhorsely\b/gi, m => m[0].replace(/horse(ly)?/i, (w, l) => l ? 'hoarsely' : 'hoarse')],
     [/\b(?:he|she|it|who|that|this|what|which|nobody|everyone|anyone) dose\b(?! of)|(?<=(?:^|["(]|[.!?] ))Dose (?=he|she|it|that|this|anyone|anybody|everyone|someone)|\bdosen't\b/gim, m => m[0].replace(/dose(?:n't)?/i, w => /n't$/i.test(w) ? "doesn't" : (w[0] === 'D' ? 'Does' : 'does'))],
@@ -698,9 +713,9 @@ const Grader = (() => {
   const PAST_PART = {went:"gone",came:"come",saw:"seen",ate:"eaten",wrote:"written",drank:"drunk",began:"begun",swam:"swum",rang:"rung",sang:"sung",took:"taken",gave:"given",drove:"driven",rode:"ridden",spoke:"spoken",froze:"frozen",chose:"chosen",stole:"stolen",knew:"known",threw:"thrown",grew:"grown",flew:"flown",fell:"fallen",did:"done",ran:"run",shook:"shaken",woke:"woken",tore:"torn",wore:"worn",hid:"hidden",bit:"bitten",broke:"broken",forgot:"forgotten",sank:"sunk",shrank:"shrunk",sprang:"sprung",blew:"blown",drew:"drawn",arose:"arisen",forgave:"forgiven",mistook:"mistaken",withdrew:"withdrawn"};
   const GRAMMAR = [
     // ---- mechanics common in amateur fiction ----
-    [/\b(?:[Tt]he|[Tt]hese|[Tt]hose) (?!(?:Mrs?|Ms|Dr|St)\b)([A-Z][a-z]+)'s (?:were|are|weren't|aren't|have|haven't|all)\b/g, m => m[0].replace(/'s /, 's ')],
-    [/\b(?:did|would|could|should|is|was|were|are|does|has|have|had|must|need|might)'nt\b/gi, m => m[0].replace(/'nt$/i, "n't")],
-    [/\b(?:in tact|never the less|inspite of|every since|all be it|some how)\b/gi, m => ({ 'in tact': 'intact', 'never the less': 'nevertheless', 'inspite of': 'in spite of', 'every since': 'ever since', 'all be it': 'albeit', 'some how': 'somehow' })[m[0].toLowerCase()]],
+    [/\b(?:[Tt]he|[Tt]hese|[Tt]hose) (?!(?:Mrs?|Ms|Dr|St)\b)([A-Z][a-z]+)'s (?:were|are|weren't|aren't|have|haven't|all)\b/g, m => m[0].replace(/'s /, 's '), 0],
+    [/\b(?:did|would|could|should|is|was|were|are|does|has|have|had|must|need|might)'nt\b/gi, m => m[0].replace(/'nt$/i, "n't"), 0],
+    [/\b(?:in tact|never the less|inspite of|every since|all be it|some how)\b/gi, m => ({ 'in tact': 'intact', 'never the less': 'nevertheless', 'inspite of': 'in spite of', 'every since': 'ever since', 'all be it': 'albeit', 'some how': 'somehow' })[m[0].toLowerCase()], 0],
     // ---- more grammar ----
     [/\b([Ff]or|[Ww]ith|[Tt]o|[Ff]rom|[Bb]etween|[Aa]bout|[Ll]ike|[Oo]f|[Aa]t|[Bb]y|[Bb]ehind|[Bb]eside|[Nn]ear|[Ww]ithout|[Tt]oward|[Tt]owards|[Aa]gainst|[Aa]mong) (he|she|him|her|they|them|me|us|you|(?!(?:Mrs?|Ms|Dr|St|Mt|Sr|Jr)\b)[A-Z][a-z]+) and I\b(?=\s*(?:[.,;:!?"”)]|$)|\s+(?:tomorrow|tonight|today|yesterday|later|now|then|too|again|alone|together|both|at|in|on|to|for|from|with|about|after|before|instead|anyway|sometime|someday|next|this|last|every|all)\b)/g, m => `${m[1]} ${({ he: 'him', she: 'her', they: 'them' })[m[2].toLowerCase()] || m[2]} and me`],
     [/\b([Ff]or|[Ww]ith|[Tt]o|[Ff]rom|[Bb]etween|[Aa]bout|[Oo]f|[Aa]t|[Bb]y|[Bb]ehind|[Bb]eside|[Nn]ear|[Ww]ithout|[Tt]oward|[Aa]gainst|[Aa]mong) (he|she|they|we) and (me|him|her|them|us|you|(?!(?:Mrs?|Ms|Dr|St|Mt|Sr|Jr)\b)[A-Z][a-z]+)\b(?=\s*(?:[.,;:!?"”)]|$)|\s+(?:tomorrow|tonight|today|yesterday|later|now|then|too|again|alone|together|both|at|in|on|to|for|from|with|about|after|before|instead|anyway|sometime|someday|next|this|last|every|all)\b)/g, m => `${m[1]} ${({ he: 'him', she: 'her', they: 'them', we: 'us' })[m[2]]} and ${m[3]}`],
@@ -709,7 +724,7 @@ const Grader = (() => {
     [/\b(these|those) (kind|type|sort) of\b/gi, m => `${m[1].toLowerCase() === 'these' ? 'this' : 'that'} ${m[2]} of`],
     [/\bhad of (?=(?:known|been|seen|gone|done|had|told|said|thought|come|left|stayed|tried|listened|waited|asked|realized|realised|noticed|\w+ed)\b)/gi, 'had '],
     [/\b(had|has|have|hadn't|hasn't|haven't|'d|'ve) (became|overcame) /gi, m => `${m[1]} ${m[2].replace(/became/i, 'become')} `],
-    [/\bcasted\b/gi, 'cast'],                                                         // "she casted a spell" (not broadcasted / forecasted, which are accepted)
+    [/\bcasted\b/gi, 'cast', 0],                                                         // "she casted a spell" (not broadcasted / forecasted, which are accepted)
     [/\bdrownded\b/gi, 'drowned'], [/\battackted\b/gi, 'attacked'], [/\bbrung\b/gi, 'brought'],
     [/\b(more|most) (better|worse|easier|easiest|harder|hardest|quicker|quickest|faster|fastest|bigger|biggest|smaller|smallest|happier|happiest|sadder|larger|longer|shorter|stronger|weaker|prettier|prettiest|greater|greatest|higher|lower|older|oldest|younger|smarter|smartest|louder|quieter|closer|cheaper|richer|poorer|darker|brighter|colder|warmer|kinder|nicer|nicest|safer|simpler|simplest|best|worst)\b/gi, m => m[2]],
     [/(?:^|(?<=[.!?]["”]?\s+|, ))(Everyone|Everybody|Someone|Somebody|No one|Nobody|Anyone|Anybody|everyone|everybody|someone|somebody|no one|nobody|anyone|anybody) (have|are|were|don't)\b(?! (?:to|been)\b)/gm, m => `${m[1]} ${({ have: 'has', are: 'is', were: 'was', "don't": "doesn't" })[m[2].toLowerCase()]}`],
@@ -718,9 +733,9 @@ const Grader = (() => {
     [/\bI is\b/g, 'I am'],
     [/\beach of (?:the|them|us|those|these|his|her|their|my|our|your) (?:(?!to\b)\w+ )?(?:have|are|were|do|don't)\b/gi, m => m[0].replace(/(have|are|were|do|don't)$/i, w => ({ have: 'has', are: 'is', were: 'was', do: 'does', "don't": "doesn't" })[w.toLowerCase()])],
     // a / an (lower-case words only, so initialisms like "an FBI agent" are left alone; "a unicorn", "a one-off", "an hour", "an honest" are correct)
-    [/\b([Aa]) ((?![Uu]|[Oo]ne\b|[Oo]nce\b|[Ee]u|[Ee]we|[Oo]uija)[AEIOaeio][a-z]+)\b(?!-)/g, m => `${m[1]}n ${m[2]}`],
-    [/\b([Aa]) (hour|hours|honest|honestly|honour|honor|heir|honorable|honourable)\b/g, m => `${m[1]}n ${m[2]}`],
-    [/\b([Aa]n) ((?!(?:hour|honest|honor|honour|heir|herb|homage|historic|historical|hotel|one|once|x)[a-z]*\b)[b-df-hj-np-tv-z][a-z]+)\b/g, m => `${m[1].slice(0, 1)} ${m[2]}`],
+    [/\b([Aa]) ((?![Uu]|[Oo]ne\b|[Oo]nce\b|[Ee]u|[Ee]we|[Oo]uija)[AEIOaeio][a-z]+)\b(?!-)/g, m => `${m[1]}n ${m[2]}`, 0],
+    [/\b([Aa]) (hour|hours|honest|honestly|honour|honor|heir|honorable|honourable)\b/g, m => `${m[1]}n ${m[2]}`, 0],
+    [/\b([Aa]n) ((?!(?:hour|honest|honor|honour|heir|herb|homage|historic|historical|hotel|one|once|x)[a-z]*\b)[b-df-hj-np-tv-z][a-z]+)\b/g, m => `${m[1].slice(0, 1)} ${m[2]}`, 0],
     // past tense where the past participle belongs: "had went" -> "had gone"
     [/(?:\b(?:had|has|have|having)|'d|'ve) (went|came|saw|ate|wrote|drank|began|swam|rang|sang|took|gave|drove|rode|spoke|froze|chose|stole|knew|threw|grew|flew|fell|did|ran|shook|woke|tore|wore|hid|bit|broke|forgot|sank|shrank|sprang|blew|drew|arose|forgave|mistook|withdrew)\b(?!-)/gi, m => m[0].replace(new RegExp(m[1] + '$', 'i'), PAST_PART[m[1].toLowerCase()])],
     [/(?<!\b(?:[Hh]ave|[Hh]as|[Hh]ad|[Hh]aven't|[Hh]asn't|[Hh]adn't|ever|never) )\b(?:I|[Yy]ou|[Hh]e|[Ss]he|[Ww]e|[Tt]hey) seen\b/g, m => m[0].replace(/seen$/, 'saw (or have seen)')],
@@ -749,16 +764,17 @@ const Grader = (() => {
   const MISSPELL = {definately:"definitely",definatly:"definitely",seperate:"separate",seperately:"separately",seperated:"separated",recieve:"receive",recieved:"received",beleive:"believe",beleived:"believed",belive:"believe",wierd:"weird",untill:"until",occured:"occurred",occuring:"occurring",occurence:"occurrence",tommorow:"tomorrow",tomorow:"tomorrow",truely:"truly",truley:"truly",accidently:"accidentally",arguement:"argument",begining:"beginning",embarass:"embarrass",embarassed:"embarrassed",embarassing:"embarrassing",existance:"existence",goverment:"government",independant:"independent",neccessary:"necessary",necesary:"necessary",noticable:"noticeable",occassion:"occasion",occassionally:"occasionally",ocassion:"occasion",persue:"pursue",publically:"publicly",reccomend:"recommend",rythm:"rhythm",suprise:"surprise",suprised:"surprised",supprise:"surprise",threshhold:"threshold",tounge:"tongue",tounges:"tongues",wich:"which",withold:"withhold",thier:"their",freind:"friend",freinds:"friends",becuase:"because",becasue:"because",beacuse:"because",heigth:"height",acheive:"achieve",acheived:"achieved",apparantly:"apparently",basicly:"basically",collegue:"colleague",comming:"coming",completly:"completely",concious:"conscious",curiousity:"curiosity",dissapear:"disappear",dissapeared:"disappeared",dissapoint:"disappoint",dissapointed:"disappointed",enviroment:"environment",finaly:"finally",foriegn:"foreign",fourty:"forty",gaurd:"guard",grammer:"grammar",happend:"happened",harrass:"harass",immediatly:"immediately",knowlege:"knowledge",liason:"liaison",libary:"library",maintainance:"maintenance",millenium:"millennium",minature:"miniature",mischevious:"mischievous",neice:"niece",noone:"no one",oppurtunity:"opportunity",paralell:"parallel",peice:"piece",posession:"possession",prefered:"preferred",prescence:"presence",probaly:"probably",realy:"really",reciept:"receipt",refered:"referred",relevent:"relevant",religous:"religious",remeber:"remember",rember:"remember",resistence:"resistance",responsability:"responsibility",sieze:"seize",similiar:"similar",sincerly:"sincerely",speach:"speech",stoped:"stopped",strenght:"strength",succesful:"successful",sucess:"success",tatoo:"tattoo",tendancy:"tendency",thourough:"thorough",tomatos:"tomatoes",potatos:"potatoes",unforseen:"unforeseen",unfortunatly:"unfortunately",usualy:"usually",vaccum:"vacuum",vegtable:"vegetable",visable:"visible",whereever:"wherever",whith:"with",writting:"writing",yeild:"yield",wieght:"weight",recieving:"receiving",agressive:"aggressive",agression:"aggression",allready:"already",alltogether:"altogether",amatuer:"amateur",aquire:"acquire",begginning:"beginning",buisness:"business",catagory:"category",cemetary:"cemetery",commited:"committed",comittee:"committee",concensus:"consensus",dilema:"dilemma",ecstacy:"ecstasy",exhilirating:"exhilarating",facinating:"fascinating",flourescent:"fluorescent",gaurantee:"guarantee",glamourous:"glamorous",humerous:"humorous",ignorence:"ignorance",innoculate:"inoculate",jewelery:"jewelry",lenght:"length",manuever:"maneuver",medeval:"medieval",momento:"memento",occurrance:"occurrence",perseverence:"perseverance",playwrite:"playwright",privelege:"privilege",pronounciation:"pronunciation",questionaire:"questionnaire",recomend:"recommend",rediculous:"ridiculous",sargent:"sergeant",shoudl:"should",tyrany:"tyranny",wherabouts:"whereabouts"};
   const TYPOS = [
     // ---- run-together words, missing apostrophes, mechanics ----
-    [/\b(eachother|infront|aswell|atleast|incase|inbetween|everytime|eventhough|ofcourse|alittle|abit|thankyou|nevermind|ontop|infact|theres|whos|layed|mischievious|beautifull|carefull|wonderfull|gratefull|thankfull|hopefull|painfull|powerfull|peacefull|helpfull|usefull|faithfull|playfull|excercise|excercised|accross|foward|fowards|accomodate|greatful|hieght|hipocrite|jewlery|miniscule|nieghbor|nieghbour|occurance|persistant|restaraunt|resturant|seige|temperture|vegatables?|ect|twelth|febuary|lisence|excape|mispelled|aggresive|embarrased|harrassed|definitly|consistant|convienient|dissappoint|dissappointed|guage|hygeine|imediately|independance|intresting|mantain|neccesary|sentance|unconcious|wellcome|breif|cheif|concieve|decieve|percieve|bizzare|tommorrow|tomorow|beleif|calender|priviledge|posess|existant|vaccuum|whitch|writen|ambulence|knowlegde|carress|insistant|recieves|garantee|sherrif|wierdly|hense)\b(?!['’])/gi, m => FANSPELL[m[1].toLowerCase()]],
+    [/\b(eachother|infront|aswell|atleast|incase|inbetween|everytime|eventhough|ofcourse|alittle|abit|thankyou|nevermind|ontop|infact|theres|whos)\b(?!['’])/gi, m => FANSPELL[m[1].toLowerCase()], 1],
+    [/\b(layed|mischievious|beautifull|carefull|wonderfull|gratefull|thankfull|hopefull|painfull|powerfull|peacefull|helpfull|usefull|faithfull|playfull|excercise|excercised|accross|foward|fowards|accomodate|greatful|hieght|hipocrite|jewlery|miniscule|nieghbor|nieghbour|occurance|persistant|restaraunt|resturant|seige|temperture|vegatables?|ect|twelth|febuary|lisence|excape|mispelled|aggresive|embarrased|harrassed|definitly|consistant|convienient|dissappoint|dissappointed|guage|hygeine|imediately|independance|intresting|mantain|neccesary|sentance|unconcious|wellcome|breif|cheif|concieve|decieve|percieve|bizzare|tommorrow|tomorow|beleif|calender|priviledge|posess|existant|vaccuum|whitch|writen|ambulence|knowlegde|carress|insistant|recieves|garantee|sherrif|wierdly|hense)\b(?!['’])/gi, m => FANSPELL[m[1].toLowerCase()]],
     [/\b(?:a|make|makes|made|making|common|no|any|some|the) sence\b/gi, m => m[0].replace(/sence$/i, 'sense')],
     [/\bwether (?=or|to|he|she|it|they|I|we|you)/g, 'whether '],
-    [/(?<=\b(?:told|asked|tell|ask|call|called|calling|thanked|hugged|texted|text|thanks|kissed|helped|and|with|to|for|from|like) )(mom|dad|mum)\b(?! and dad| and mom)|\b(mom|dad|mum)(?= (?:said|says|asked|smiled|sighed|laughed|told|called|yelled|shouted|replied|nodded|looked|frowned)\b)|(?<=, )(mom|dad|mum)(?=[.,!?])/g, m => m[0][0].toUpperCase() + m[0].slice(1)],
-    [/(?<=(?:^|["(]|[.!?] ))(?:Hi|Hey|Hello|Thanks|Thank you|Bye|Goodbye|Night|Morning|Okay|Sorry) (?!(?:There|Everyone|Everybody|All|Guys|You|World|Again|God|Lord|Jesus)\b)[A-Z][a-z]+(?=[,.!?])/gm, m => m[0].replace(" ", ", ")],
+    [/(?<=\b(?:told|asked|tell|ask|call|called|calling|thanked|hugged|texted|text|thanks|kissed|helped|and|with|to|for|from|like) )(mom|dad|mum)\b(?! and dad| and mom)|\b(mom|dad|mum)(?= (?:said|says|asked|smiled|sighed|laughed|told|called|yelled|shouted|replied|nodded|looked|frowned)\b)|(?<=, )(mom|dad|mum)(?=[.,!?])/g, m => m[0][0].toUpperCase() + m[0].slice(1), 1],
+    [/(?<=(?:^|["(]|[.!?] ))(?:Hi|Hey|Hello|Thanks|Thank you|Bye|Goodbye|Night|Morning|Okay|Sorry) (?!(?:There|Everyone|Everybody|All|Guys|You|World|Again|God|Lord|Jesus)\b)[A-Z][a-z]+(?=[,.!?])/gm, m => m[0].replace(" ", ", "), 1],
     [/\b(responsability|pronounciation|occassionally|dissapointed|maintainance|unfortunatly|exhilirating|perseverence|questionaire|embarassing|independant|dissapeared|mischevious|oppurtunity|alltogether|flourescent|definately|seperately|accidently|embarassed|neccessary|publically|threshhold|apparantly|curiousity|dissapoint|enviroment|immediatly|resistence|begginning|facinating|glamourous|innoculate|occurrance|rediculous|wherabouts|definatly|seperated|occurence|arguement|existance|goverment|noticable|occassion|reccomend|completly|dissapear|millenium|posession|prescence|succesful|thourough|unforseen|whereever|recieving|agressive|agression|concensus|gaurantee|ignorence|playwrite|privelege|seperate|recieved|beleived|occuring|tommorow|begining|embarass|necesary|ocassion|suprised|supprise|acheived|collegue|concious|knowlege|minature|paralell|prefered|relevent|religous|similiar|sincerly|strenght|tendancy|vegtable|writting|allready|buisness|catagory|cemetary|commited|comittee|humerous|jewelery|manuever|recomend|recieve|beleive|occured|tomorow|suprise|tounges|withold|freinds|becuase|becasue|beacuse|acheive|basicly|comming|foriegn|grammer|happend|harrass|probaly|reciept|refered|remeber|tomatos|potatos|visable|amatuer|ecstacy|medeval|momento|sargent|belive|untill|truely|truley|persue|tounge|freind|heigth|finaly|fourty|liason|libary|rember|speach|stoped|sucess|usualy|vaccum|wieght|aquire|dilema|lenght|shoudl|tyrany|wierd|rythm|thier|gaurd|neice|noone|peice|realy|sieze|tatoo|whith|yeild|wich)\b/gi, m => MISSPELL[m[1].toLowerCase()]],
     [/\blightening (?:struck|strike|strikes|flashed|flash|bolt|bolts|storm|crackled)\b/gi, m => m[0].replace(/lightening/i, 'lightning')],
     [/\b(?!(?:that|had|is|do|no|so|very|bye|ha|blah|tut|chop|now|there|well|come|hush|knock|yeah|yes|go|run|boo|la|na|tsk|hey|oh|ah|ay|aye|please|never|again|more|far|long|many|much|round|on|off|out|up|down|over|away|little|really|she|he|you|it|we|they|who|what|when|where|why|how|in|dat|dis|dem|night|pretty|tick|tock|ding|dong|mew|woof|baa|moo|beep|honk|bang|boom|click|drip|tap|pit|pat|murmur)\b)([a-z]+) \1\b|\b(The the|A a|An an|And and|But but|To to|Of of|For for|With with|I I)\b/g, m => `doubled word: "${m[1] || m[2].split(' ')[0]}"`],
-    [/\b(dont|didnt|doesnt|isnt|wasnt|werent|couldnt|wouldnt|shouldnt|hasnt|havent|hadnt|arent|youre|theyre|thats|whats|wouldve|couldve|shouldve|ive|im|hes|shes|theyve|weve|youve|youll|theyll|aint)\b/gi, m => ({ dont: "don't", didnt: "didn't", doesnt: "doesn't", isnt: "isn't", wasnt: "wasn't", werent: "weren't", couldnt: "couldn't", wouldnt: "wouldn't", shouldnt: "shouldn't", hasnt: "hasn't", havent: "haven't", hadnt: "hadn't", arent: "aren't", youre: "you're", theyre: "they're", thats: "that's", whats: "what's", wouldve: "would've", couldve: "could've", shouldve: "should've", ive: "I've", im: "I'm", hes: "he's", shes: "she's", theyve: "they've", weve: "we've", youve: "you've", youll: "you'll", theyll: "they'll", aint: "ain't" })[m[1].toLowerCase()]],
-    [/(?<![\w.'-])i(?='(?:m|ve|ll|d)\b| (?!\.))/g, 'I'],
+    [/\b(dont|didnt|doesnt|isnt|wasnt|werent|couldnt|wouldnt|shouldnt|hasnt|havent|hadnt|arent|youre|theyre|thats|whats|wouldve|couldve|shouldve|ive|im|hes|shes|theyve|weve|youve|youll|theyll|aint)\b/gi, m => ({ dont: "don't", didnt: "didn't", doesnt: "doesn't", isnt: "isn't", wasnt: "wasn't", werent: "weren't", couldnt: "couldn't", wouldnt: "wouldn't", shouldnt: "shouldn't", hasnt: "hasn't", havent: "haven't", hadnt: "hadn't", arent: "aren't", youre: "you're", theyre: "they're", thats: "that's", whats: "what's", wouldve: "would've", couldve: "could've", shouldve: "should've", ive: "I've", im: "I'm", hes: "he's", shes: "she's", theyve: "they've", weve: "we've", youve: "you've", youll: "you'll", theyll: "they'll", aint: "ain't" })[m[1].toLowerCase()], 1],
+    [/(?<![\w.'-])i(?='(?:m|ve|ll|d)\b| (?!\.))/g, 'I', 1],
     [/[a-z],[a-zA-Z]/g, 'add a space after the comma'], [/[a-z]{2}\.[A-Z][a-z]/g, 'add a space after the period'],
     [/\w ,/g, 'remove the space before the comma'], [/,,|(?<!\.)\.\.(?!\.)/g, 'doubled punctuation']
   ];
@@ -1167,7 +1183,10 @@ const Grader = (() => {
     // opts.onProgress(0…1) is called as the checks finish, for a progress bar
     let done = 0; const tick = typeof opts.onProgress === 'function' ? x => { const v = typeof x === 'number' ? x : PROGRESS[x]; if (v != null && v > done) { done = v; opts.onProgress(v); } } : null;
     const between = (a, b, i, n) => tick && i % 8 === 0 && tick(PROGRESS[a] + (PROGRESS[b] - PROGRESS[a]) * i / n);   // progress inside a long step
-    const R = id => prof.o[id] || DEFAULTS[id];
+    // "Stylized voice or first person": the narrator's own voice may bend the rules on purpose (Faulkner, Twain's Huck, Burgess),
+    // so looser structure targets, and the narrator's dialect grammar and dropped apostrophes count like character speech.
+    const voiceOn = opts.voice === 'stylized';
+    const R = id => { const r = prof.o[id] || DEFAULTS[id]; return voiceOn && VOICE_O[id] ? loosen(r, VOICE_O[id]) : r; };
     const dlgMode = opts.dlgMode || 'reduce';
     let norm = text.replace(/[’‘]/g, "'").replace(/[“”]/g, '"').replace(/\r/g, ' ');
     // Chapter headings, scene breaks, story info and author's notes are shown but not graded: blank them out before any checks run
@@ -1589,16 +1608,21 @@ const Grader = (() => {
     // ===== Errors
     const dlgW = dlgMode === 'full' ? 1 : dlgMode === 'reduce' ? 0.25 : 0;
     let errDone = 0; const errTotal = TIER1.length + TIER2.length + GRAMMAR.length + TYPOS.length;
-    function errs(list, id) {
+    // Voice rules (dialect grammar, dropped apostrophes, run-together words) in a stylized narrator's narration count like dialogue,
+    // a quarter of the usual penalty (none if speech is set to "Don't count"). Misspellings, confused words, misused phrases, a/an,
+    // doubled words and spacing slips are mistakes in any voice and count in full.
+    const voiceW = dlgMode === 'ignore' ? 0 : 0.25;
+    function errs(list, id, vDef) {
       const out = [];
-      for (const x of uniq(list.flatMap(([re, fix]) => (between('commaSplice', 'tier1', errDone++, errTotal), scan(re).map(y => ({ ...y, fix })))))) { const fix = x.fix;
+      for (const x of uniq(list.flatMap(([re, fix, v]) => (between('commaSplice', 'tier1', errDone++, errTotal), scan(re).map(y => ({ ...y, fix, v: v ?? vDef })))))) { const fix = x.fix;
         if (x.dlg && dlgMode === 'ignore') continue;
-        const f = F(x.s, x.e, 'error', `"${x.m[0]}"${x.dlg && dlgMode === 'reduce' ? ' (in dialogue, possibly intentional)' : ''}`, id, typeof fix === 'function' ? fix(x.m) : fix);
-        f.w = x.dlg ? dlgW : 1; out.push(f);
+        const nv = !x.dlg && voiceOn && x.v;
+        const f = F(x.s, x.e, 'error', `"${x.m[0]}"${x.dlg && dlgMode === 'reduce' ? ' (in dialogue, possibly intentional)' : nv ? ' (narrator’s voice, possibly intentional)' : ''}`, id, typeof fix === 'function' ? fix(x.m) : fix);
+        f.w = x.dlg ? dlgW : nv ? voiceW : 1; out.push(f);
       }
       return out;
     }
-    const t1 = errs(TIER1, 'tier1'), t2 = errs(TIER2, 'tier2'), gr = errs(GRAMMAR, 'grammar'), ty = errs(TYPOS, 'typos');
+    const t1 = errs(TIER1, 'tier1', 0), t2 = errs(TIER2, 'tier2', 0), gr = errs(GRAMMAR, 'grammar', 1), ty = errs(TYPOS, 'typos', 0);
     const wsum = a => a.reduce((s, f) => s + f.w, 0);
     M('errors', 'tier1', 'Misused phrases', k(wsum(t1)), `${t1.length} found`, 'Fixed phrases that are always wrong in narration: "per say," "could of," "for all intensive purposes," "I wish I would have"…', { flags: t1, weight: 1.5 });
     M('errors', 'tier2', 'Confused words', k(wsum(t2)), `${t2.length} found`, 'Than/then, your/you\'re, lose/loose, its/it\'s, whose/who\'s, affect/effect, breath/breathe, fewer/less, among/between — clear-cut patterns only.', { flags: t2 });
@@ -1667,7 +1691,7 @@ const Grader = (() => {
     // Errors aren't a share of the grade: they come straight off it. The other categories make a style score out of 100, and each
     // error costs a fixed number of points per error per 1,000 words (calibrated to cost what it did when errors were 4× a category)
     const ERR_PTS = { tier1: 6, tier2: 5, grammar: 6, typos: 2.5, povSlip: 3, tense: 4 };
-    const ALLOW = { povSlip: 0.2, tense: 0.2 };
+    const ALLOW = voiceOn ? { povSlip: 0.6, tense: 0.6 } : { povSlip: 0.2, tense: 0.2 };
     const STEP = { tier1: 0.01, tier2: 0.01, grammar: 0.01 };                            // these cost points for each full 0.01 errors per 1,000 words                                           // the first 0.2 per 1,000 words are free: classics have the odd deliberate one
     const DED_SCALE = { errors: 35 };                                          // points off that read as a 0 score, for the section's color
     const CAT_FLOOR = -25;
@@ -1794,6 +1818,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   $('folder').onchange = e => { const fs = [...e.target.files]; e.target.value = ''; if (fs.length) handleFiles(fs, true); };
   $('linkHelpBtn').onclick = () => { const n = $('linkHelp'); n.hidden = !n.hidden; $('linkHelpBtn').setAttribute('aria-expanded', String(!n.hidden)); };
   document.querySelector('.bm').onclick = e => { e.preventDefault(); setStatus('Drag the "Copy story for Novel Grader" button to your bookmarks bar, then click it while viewing a story.'); };
+  $('voiceHelpBtn').onclick = e => { e.preventDefault(); const n = $('voiceNote'); n.hidden = !n.hidden; $('voiceHelpBtn').setAttribute('aria-expanded', String(!n.hidden)); };
   $('helpBtn').onclick = e => { e.preventDefault(); const n = $('helpNote'); n.hidden = !n.hidden; $('helpBtn').setAttribute('aria-expanded', String(!n.hidden)); };
 
   // drag and drop
@@ -2418,7 +2443,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   $('gradeBtn').onclick = () => grade();
   // A changed setting regrades what's loaded (grading runs in the background, and a newer grade replaces one still running)
   const settingChanged = () => { if (novels && !$('compare').hidden) { gradeNovels(); return; } if (!last || last.shared) return; grade(); };
-  profileSel.onchange = settingChanged; $('dlgMode').onchange = settingChanged; $('english').onchange = settingChanged;
+  profileSel.onchange = settingChanged; $('dlgMode').onchange = settingChanged; $('english').onchange = settingChanged; $('voice').onchange = settingChanged;
   $('saveBtn').onclick = saveReport;
 
   function showEdit() {
@@ -2492,7 +2517,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   // the same settings; explanations that depend on the story (e.g. sensory counts) are sent only when they differ.
   const SNAP_FLAGS = 5, SEV = ['error', 'warn', 'info'];
   const skeleton = o => Grader.analyze(SAMPLE, o);
-  const snapOpts = () => ({ profile: profileSel.value, dlgMode: $('dlgMode').value, english: $('english').value });
+  const snapOpts = () => ({ profile: profileSel.value, dlgMode: $('dlgMode').value, english: $('english').value, voice: $('voice').value });
   const r3 = v => v == null ? null : Math.round(v * 1e5) / 1e5;
   function snapshot(res) {
     const o = res.opts || snapOpts(), sk = skeleton(o), skM = new Map(sk.metrics.map(m => [m.id, m]));
@@ -2535,7 +2560,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
       if (m[1] === 'z') bytes = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
       const res = unsnapshot(JSON.parse(new TextDecoder().decode(bytes)));
       setMeta(res.title, res.author); last = res;
-      if (res.opts) { profileSel.value = res.opts.profile; $('dlgMode').value = res.opts.dlgMode; $('english').value = res.opts.english || 'us'; }
+      if (res.opts) { profileSel.value = res.opts.profile; $('dlgMode').value = res.opts.dlgMode; $('english').value = res.opts.english || 'us'; $('voice').value = res.opts.voice || 'standard'; }
       renderReport(res);
       input.hidden = true; ms.hidden = true; $('editBtn').hidden = true; $('saveBtn').hidden = true; $('legend').hidden = true;
       $('ownBtn').onclick = () => { history.replaceState(null, '', location.pathname); last = null; setMeta('', ''); input.value = ''; input.hidden = false;
@@ -2795,8 +2820,8 @@ self.onmessage = e => { const { id, text, opts } = e.data;
   const hideProgress = () => { progress.hidden = true; };
 
   let grading = false, gradingKey = null, gradeSeq = 0;
-  const bookKey = (full, o) => JSON.stringify({ profile: o.profile, dlgMode: o.dlgMode, english: o.english }) + full.length + ':' + full.slice(0, 200) + full.slice(-200);
-  const gradeKey = () => [profileSel.value, $('dlgMode').value, $('english').value, scope, input.value.length, input.value.slice(0, 200), input.value.slice(-200)].join('|');
+  const bookKey = (full, o) => JSON.stringify({ profile: o.profile, dlgMode: o.dlgMode, english: o.english, voice: o.voice }) + full.length + ':' + full.slice(0, 200) + full.slice(-200);
+  const gradeKey = () => [profileSel.value, $('dlgMode').value, $('english').value, $('voice').value, scope, input.value.length, input.value.slice(0, 200), input.value.slice(-200)].join('|');
   async function grade() {
     if (novels && !$('compare').hidden) { gradeNovels(); return; }
     if (grading && gradingKey === gradeKey()) return;                                  // this exact grade is already running
@@ -2810,7 +2835,7 @@ self.onmessage = e => { const { id, text, opts } = e.data;
     const key = gradeKey(), my = ++gradeSeq, words = Math.round(text.length / 5.7);
     cancelAnalyses(); grading = true; gradingKey = key; setStatus('');
     showProgress(0, `Grading ${scopeTitle ? scopeTitle + ', ' : ''}${words >= 10000 ? Math.round(words / 1000) + 'k' : words.toLocaleString()} words…`);
-    let res, twoStep = false; const o = { profile: profileSel.value, dlgMode: $('dlgMode').value, english: $('english').value };
+    let res, twoStep = false; const o = { profile: profileSel.value, dlgMode: $('dlgMode').value, english: $('english').value, voice: $('voice').value };
     try {
       if (scope != null) {                                                            // a chapter: overuse is judged against the whole work
         const bk = bookKey(full, o);
@@ -2842,7 +2867,7 @@ self.onmessage = e => { const { id, text, opts } = e.data;
 
   // Grade each chapter in the background and fill in the whole-work Chapters table as results arrive
   async function gradeChapters(res) {
-    const o = { profile: profileSel.value, dlgMode: $('dlgMode').value, english: $('english').value };
+    const o = { profile: profileSel.value, dlgMode: $('dlgMode').value, english: $('english').value, voice: $('voice').value };
     const key = bookKey(res.fullText, o);
     if (chapterCache.key !== key) chapterCache = { key, rows: [] };
     chapterCache.overuse = res.overuse.map(x => x.w); o.overuseOnly = chapterCache.overuse;
