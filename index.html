@@ -675,6 +675,7 @@ const Grader = (() => {
     [/\b(these|those) (kind|type|sort) of\b/gi, m => `${m[1].toLowerCase() === 'these' ? 'this' : 'that'} ${m[2]} of`],
     [/\bhad of (?=(?:known|been|seen|gone|done|had|told|said|thought|come|left|stayed|tried|listened|waited|asked|realized|realised|noticed|\w+ed)\b)/gi, 'had '],
     [/\b(had|has|have|hadn't|hasn't|haven't|'d|'ve) (became|overcame) /gi, m => `${m[1]} ${m[2].replace(/became/i, 'become')} `],
+    [/\bcasted\b/gi, 'cast'],                                                         // "she casted a spell" (not broadcasted / forecasted, which are accepted)
     [/\bdrownded\b/gi, 'drowned'], [/\battackted\b/gi, 'attacked'], [/\bbrung\b/gi, 'brought'],
     [/\b(more|most) (better|worse|easier|easiest|harder|hardest|quicker|quickest|faster|fastest|bigger|biggest|smaller|smallest|happier|happiest|sadder|larger|longer|shorter|stronger|weaker|prettier|prettiest|greater|greatest|higher|lower|older|oldest|younger|smarter|smartest|louder|quieter|closer|cheaper|richer|poorer|darker|brighter|colder|warmer|kinder|nicer|nicest|safer|simpler|simplest|best|worst)\b/gi, m => m[2]],
     [/(?:^|(?<=[.!?]["”]?\s+|, ))(Everyone|Everybody|Someone|Somebody|No one|Nobody|Anyone|Anybody|everyone|everybody|someone|somebody|no one|nobody|anyone|anybody) (have|are|were|don't)\b(?! (?:to|been)\b)/gm, m => `${m[1]} ${({ have: 'has', are: 'is', were: 'was', "don't": "doesn't" })[m[2].toLowerCase()]}`],
