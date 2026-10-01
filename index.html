@@ -308,7 +308,7 @@ const Grader = (() => {
     adjStack: lower(0.5, 2.5), appositives: lower(2, 6), paragraphs: lower(0.25, 3), readability: higher(7, 1), daleChall: higher(6, 3),
     dlgRatio: band(20, 50, 5, 75), fancyTags: lower(20, 50), tagAdverbs: lower(1, 4), dlgPunct: lower(0, 3),
     excl: lower(1, 5), ellipses: lower(2, 6), dashes: lower(6, 15),
-    tier1: lower(0, 4), tier2: lower(0, 4), grammar: lower(0, 3), typos: lower(0, 3), povSlip: lower(0, 3), tense: lower(0, 2), longSent: lower(1, 4), fragments: lower(3, 10), simStack: lower(0.2, 1.5), commaSplice: lower(0.5, 2), britishisms: lower(0.3, 3)
+    tier1: lower(0, 4), tier2: lower(0, 4), grammar: lower(0, 3), typos: lower(0, 3), subjunctive: lower(0, 3), povSlip: lower(0, 3), tense: lower(0, 2), longSent: lower(1, 4), fragments: lower(3, 10), simStack: lower(0.2, 1.5), commaSplice: lower(0.5, 2), britishisms: lower(0.3, 3)
   };
   const UNITS = {
     echoes: 'per 1,000 words', filler: 'per 1,000 narration words', adverbs: '% of narration words', hedging: 'per 1,000 narration words',
@@ -317,7 +317,7 @@ const Grader = (() => {
     passive: '% of sentences', progressive: 'per 1,000 narration words', openers: 'runs per 1,000 words', ingOpeners: '% of sentences',
     adjStack: 'per 1,000 words', appositives: 'per 1,000 narration words', paragraphs: 'per 1,000 words', readability: 'grade level', daleChall: 'Dale–Chall score', dlgRatio: '% dialogue', fancyTags: '% of tags', tagAdverbs: 'per 1,000 words',
     dlgPunct: 'per 1,000 words', excl: 'per 1,000 narration words', ellipses: 'per 1,000 words', dashes: 'per 1,000 words',
-    tier1: 'per 1,000 words', tier2: 'per 1,000 words', grammar: 'per 1,000 words', typos: 'per 1,000 words', povSlip: 'per 1,000 words', tense: 'per 1,000 narration words', longSent: 'per 1,000 narration words', fragments: 'per 1,000 narration words', simStack: 'per 1,000 narration words', commaSplice: 'per 1,000 narration words', britishisms: 'per 1,000 words'
+    tier1: 'per 1,000 words', tier2: 'per 1,000 words', grammar: 'per 1,000 words', typos: 'per 1,000 words', subjunctive: 'per 1,000 words', povSlip: 'per 1,000 words', tense: 'per 1,000 narration words', longSent: 'per 1,000 narration words', fragments: 'per 1,000 narration words', simStack: 'per 1,000 narration words', commaSplice: 'per 1,000 narration words', britishisms: 'per 1,000 words'
   };
   // Style profiles: genre targets that replace the defaults above, and category weights (w) that replace the usual ones.
   // Calibrated on acclaimed novels of each kind (dialogue share: Woolf ~3%, Gatsby 27%, Hemingway 37–39%, Austen 36–51%,
@@ -444,7 +444,10 @@ const Grader = (() => {
     [/\bcase and point\b/gi, 'case in point'],
     [/\btow(?:ed|s|ing)? the line\b/gi, 'toe the line'],
     [new RegExp(`\\b(?:peak|peek)(?:ed|s|ing)? (?:${P.slice(3, -1)}|its|\\w+'s) (?:interest|curiosity)\\b`, 'gi'), 'pique (someone\'s) interest'],
-    [/\bcuriosity (?:was )?(?:peaked|peeked)\b/gi, 'curiosity was piqued'],
+    [/\b(?:curiosity|interest) (?:was |were |had been |is |got )(?:\w+ )?(?:peaked|peeked)\b/gi, m => m[0].replace(/pe(?:a|e)ked$/i, 'piqued')],
+    [/\b(?:peak|peek)(?:ed|s|ing) (?:the |a |some |new |real |great |\w+ )?(?:interest|curiosity|imagination)(?= (?:of|in|among|from|with)\b)|\b(?:peaked|peeked) (?:interest|curiosity)\b/gi, m => m[0].replace(/^pe(?:a|e)k/i, 'piqu')],
+    [/(?<!\b(?:was|were|felt|be|been|is|am|are|looked|seemed|grew|got|became|more|less|slightly|clearly|visibly|rather|quite|very|so|too|faintly) )\bpiqu(?:ed|es|ing) (?:at (?:\d|the (?:start|end|beginning|top|height))|in (?:\d|January|February|March|April|May|June|July|August|September|October|November|December|the (?:spring|summer|fall|autumn|winter|\d|early|late|mid))|around \d|early|late)\b/g, m => m[0].replace(/^piqu/, 'peak')],
+    [/\b(?:sneak|quick|little|brief) piques?\b|\b(?:take|took|taking|takes|steal|stole|have|had|get|got|grab|grabbed) a (?:quick |little |brief )?pique\b/gi, m => m[0].replace(/pique/i, 'peek')],
     [/\bsneak peak\b/gi, 'sneak peek'],
     [/\bfree reign\b/gi, 'free rein'],
     [new RegExp(`\\breign(?:ed|ing|s)? ${SELF} in\\b`, 'gi'), 'rein (someone) in'],
@@ -758,6 +761,16 @@ const Grader = (() => {
     [/\b(?:I|[Hh]e|[Ss]he|[Tt]hey|[Ww]e|[Yy]ou|and|then) laid (?:down|back)(?! (?:the|a|his|her|my|their|our|your|its|it|them|him|some|arms|weapons|rules|plans)\b)/g, m => m[0].replace(/laid/, 'lay')],
     [/\b(?:is|was|are|were|been|am|I'm|he's|she's|they're|we're|you're) laying (?:down|on (?:the|a|his|her|my|their) (?:bed|couch|floor|ground|sofa|grass|table)|in (?:bed|the (?:bed|grass|sun|dark|snow))|there|awake|still|next to|beside)/gi, m => m[0].replace(/laying/i, 'lying')],
     [/\b(?:to|will|gonna|should|must|can|could|let's|just|'ll|going to) lay (?:down|back|still|in bed)(?! (?:the|a|his|her|my|their|our|your|arms|weapons|rules|plans)\b)/gi, m => m[0].replace(/lay/i, 'lie')]
+  ];
+  // ---- Subjunctive: counterfactual "were" and the mandative base form. Only clear-cut frames; real past conditions
+  // ("If he was angry, he hid it", "She insisted that he was innocent") are left alone.
+  const toBase = v => /^(?:is|are)$/i.test(v) ? 'be' : /^has$/i.test(v) ? 'have' : /^does$/i.test(v) ? 'do' : /[^aeiou]ies$/i.test(v) ? v.slice(0, -3) + 'y' : /(?:sh|ch|x|ss|zz|o)es$/i.test(v) ? v.slice(0, -2) : v.slice(0, -1);
+  const SUBJ_SUBJ = `(?:he|she|it|I|[A-Z][a-z]+|(?:the|each|every|this|that|his|her|their|our|my|your|no|any) (?:\\w+ )?[a-z]+(?<!s))`;
+  const SUBJUNCTIVE = [
+    [/\b([Ii]f|[Ww]ish|[Ww]ished|[Ww]ishing|[Ii]f only|[Aa]s if|[Aa]s though) (I|he|she|it) was (?=(?:you|him|her|them|me)(?=[,.;:!?]| I'd| I would| I'll| and)|in your (?:shoes|place|position)\b|in (?:his|her|their|my) (?:shoes|place|position)\b)/g, m => `${m[1]} ${m[2]} were `],
+    [/\b[Ii]f it (?:wasn't|was not) for\b/g, m => m[0].replace(/wasn't|was not/, w => w === 'was not' ? 'were not' : "weren't")],
+    [/\b((?:I|[Yy]ou|[Hh]e|[Ss]he|[Ww]e|[Tt]hey) (?:wish|wished)(?: that)?) (I|he|she|it) was\b(?! (?:going|about|told|asked|supposed|given|able)\b)/g, m => `${m[1]} ${m[2]} were`],
+    [new RegExp(`(?<!\\b(?:the|a|an|his|her|their|my|your|our|its|this|that|every|each|no)\\s|'s\\s)\\b((?:demand|demanded|demands|demanding|require|required|requires|requiring|request|requested|requests|order|ordered|orders|urge|urged|urges|recommend|recommended|recommends|propose|proposed|proposes|command|commanded|commands|decree|decreed|decrees|beg|begged|begs|ask|asked|asks|insist on|move|moved|stipulate|stipulated|mandate|mandated|(?:it|It)(?: is|'s| was) (?:essential|vital|imperative|crucial|important|necessary|critical|mandatory|urgent|advisable|desirable|best)) that ${SUBJ_SUBJ}) ((?!(?:was|always|never|also|just|only|still|really|this|thus|perhaps)\\b)(?:is|[a-z]{2,}s(?<![aisu]s)))\\b(?! (?:should|would|could|might|must|will|shall|can|may|be|were|are|have|had|did|of|and|or|that|which|who)\\b)`, 'g'), m => `${m[1]} ${toBase(m[2])}`]
   ];
   // ---- Typos and misspellings ----
   const FANSPELL = {eachother:"each other",infront:"in front",aswell:"as well",atleast:"at least",incase:"in case",inbetween:"in between",everytime:"every time",eventhough:"even though",ofcourse:"of course",alittle:"a little",abit:"a bit",thankyou:"thank you",nevermind:"never mind",ontop:"on top",infact:"in fact",theres:"there's",whos:"who's",heres:"here's",wheres:"where's",layed:"laid",mischievious:"mischievous",sence:"sense",beautifull:"beautiful",carefull:"careful",wonderfull:"wonderful",gratefull:"grateful",thankfull:"thankful",hopefull:"hopeful",painfull:"painful",powerfull:"powerful",peacefull:"peaceful",helpfull:"helpful",usefull:"useful",faithfull:"faithful",playfull:"playful",excercise:"exercise",excercised:"exercised",accross:"across",foward:"forward",fowards:"forwards",accomodate:"accommodate",greatful:"grateful",hieght:"height",hipocrite:"hypocrite",jewlery:"jewelry",miniscule:"minuscule",nieghbor:"neighbor",nieghbour:"neighbour",occurance:"occurrence",persistant:"persistent",restaraunt:"restaurant",resturant:"restaurant",seige:"siege",temperture:"temperature",vegatable:"vegetable",vegatables:"vegetables",ect:"etc.",twelth:"twelfth",febuary:"February",lisence:"license",excape:"escape",mispelled:"misspelled",aggresive:"aggressive",embarrased:"embarrassed",harrassed:"harassed",definitly:"definitely",consistant:"consistent",convienient:"convenient",dissappoint:"disappoint",dissappointed:"disappointed",guage:"gauge",hygeine:"hygiene",imediately:"immediately",independance:"independence",intresting:"interesting",mantain:"maintain",neccesary:"necessary",sentance:"sentence",unconcious:"unconscious",wellcome:"welcome",breif:"brief",cheif:"chief",concieve:"conceive",decieve:"deceive",percieve:"perceive",bizzare:"bizarre",tommorrow:"tomorrow",tomorow:"tomorrow",beleif:"belief",calender:"calendar",priviledge:"privilege",posess:"possess",existant:"existent",vaccuum:"vacuum",whitch:"which",writen:"written",ambulence:"ambulance",knowlegde:"knowledge",carress:"caress",insistant:"insistent",recieves:"receives",garantee:"guarantee",sherrif:"sheriff",wierdly:"weirdly",hense:"hence"};
@@ -1628,7 +1641,7 @@ const Grader = (() => {
 
     // ===== Errors
     const dlgW = dlgMode === 'full' ? 1 : dlgMode === 'reduce' ? 0.25 : 0;
-    let errDone = 0; const errTotal = TIER1.length + TIER2.length + GRAMMAR.length + TYPOS.length;
+    let errDone = 0; const errTotal = TIER1.length + TIER2.length + GRAMMAR.length + TYPOS.length + SUBJUNCTIVE.length;
     // Voice rules (dialect grammar, dropped apostrophes, run-together words) in a stylized narrator's narration count like dialogue,
     // a quarter of the usual penalty (none if speech is set to "Don't count"). Misspellings, confused words, misused phrases, a/an,
     // doubled words and spacing slips are mistakes in any voice and count in full.
@@ -1643,11 +1656,12 @@ const Grader = (() => {
       }
       return out;
     }
-    const t1 = errs(TIER1, 'tier1', 0), t2 = errs(TIER2, 'tier2', 0), gr = errs(GRAMMAR, 'grammar', 1), ty = errs(TYPOS, 'typos', 0);
+    const t1 = errs(TIER1, 'tier1', 0), t2 = errs(TIER2, 'tier2', 0), gr = errs(GRAMMAR, 'grammar', 1), ty = errs(TYPOS, 'typos', 0), sj = errs(SUBJUNCTIVE, 'subjunctive', 1);
     const wsum = a => a.reduce((s, f) => s + f.w, 0);
     M('errors', 'tier1', 'Misused phrases', k(wsum(t1)), `${t1.length} found`, 'Fixed phrases that are always wrong in narration: "per say," "could of," "for all intensive purposes," "I wish I would have"…', { flags: t1, weight: 1.5 });
     M('errors', 'tier2', 'Confused words', k(wsum(t2)), `${t2.length} found`, 'Than/then, your/you\'re, lose/loose, its/it\'s, whose/who\'s, affect/effect, breath/breathe, fewer/less, among/between — clear-cut patterns only.', { flags: t2 });
     M('errors', 'grammar', 'Grammar', k(wsum(gr)), `${gr.length} found`, 'A/an, verb forms ("had went"), subject-verb agreement ("he don\'t", "they was"), double negatives, pronoun case ("between you and I"), lay/lie. Clear-cut patterns only.', { flags: gr });
+    M('errors', 'subjunctive', 'Subjunctive', k(wsum(sj)), `${sj.length} found`, 'Where the subjunctive belongs: "If I were you" (not "was"), "I wish she were here," "if it weren\'t for," and the base verb after demands and requirements ("They demanded that he leave," "It is essential that she be told," not "leaves" / "is"). Correct uses ("If he were…," "Long live the king") are never flagged; real past conditions ("If he was angry, he hid it") are left alone.', { flags: sj });
     M('errors', 'typos', 'Typos & misspellings', k(wsum(ty)), `${ty.length} found`, 'Common misspellings ("definately", "recieve"), doubled words ("the the"), missing apostrophes ("dont"), a lower-case "i", and spacing or punctuation slips.', { flags: ty });
 
     // Third-person narration that suddenly addresses "you" ("like when you slowly walk in front of doctors"). Only checked when the
@@ -1711,7 +1725,7 @@ const Grader = (() => {
     // ===== Scoring
     // Errors aren't a share of the grade: they come straight off it. The other categories make a style score out of 100, and each
     // error costs a fixed number of points per error per 1,000 words (calibrated to cost what it did when errors were 4× a category)
-    const ERR_PTS = { tier1: 6, tier2: 5, grammar: 6, typos: 2.5, povSlip: 3, tense: 4 };
+    const ERR_PTS = { tier1: 6, tier2: 5, grammar: 6, typos: 2.5, subjunctive: 2, povSlip: 3, tense: 4 };
     const ALLOW = voiceOn ? { povSlip: 0.6, tense: 0.6 } : { povSlip: 0.2, tense: 0.2 };
     const STEP = { tier1: 0.01, tier2: 0.01, grammar: 0.01 };                            // these cost points for each full 0.01 errors per 1,000 words                                           // the first 0.2 per 1,000 words are free: classics have the odd deliberate one
     const DED_SCALE = { errors: 35 };                                          // points off that read as a 0 score, for the section's color
@@ -1719,7 +1733,7 @@ const Grader = (() => {
     const CATS = [
       { id: 'errors', name: 'Common errors', w: 0, deduct: true }, { id: 'words', name: 'Word choice & variety', w: 3 },   // Word choice includes overuse (5×) and clichés (3×)
       { id: 'show', name: 'Show vs. tell', w: 1 }, { id: 'structure', name: 'Sentences & paragraphs', w: 1 },
-      { id: 'dialogue', name: 'Dialogue', w: 1 }, { id: 'punct', name: 'Punctuation', w: 0.5 }, { id: 'readability', name: 'Readability', w: 1 }
+      { id: 'dialogue', name: 'Dialogue', w: 1 }, { id: 'punct', name: 'Punctuation', w: 0.5 }, { id: 'readability', name: 'Readability', w: 0.5 }
     ];
     for (const c of CATS) {
       if (prof.w && prof.w[c.id] != null && !c.deduct) c.w = prof.w[c.id];
@@ -2040,7 +2054,8 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     const list = names.length > 6 ? `${names.slice(0, 5).join(', ')} … ${names[names.length - 1]}` : names.join(', ');
     const what = [parts.length === 1 ? '' : `${parts.length} files`, where].filter(Boolean).join(' ') || parts[0].name;
     const notes = parts.filter(p => p.note).map(p => parts.length > 1 ? `${p.name}: ${p.note}` : p.note).join(' ');
-    setStatus(`Loaded ${what}${parts.length > 1 ? `, in this order: ${list}` : ''}.${notes ? ' ' + notes : ''}${failed.length ? ` Skipped ${failed.length}: ${failed.map(f => `${f.name} (${f.err})`).join('; ')}.` : ''} Check the text, then press Grade.`, failed.length > 0 && !parts.length);
+    progMap = progMap ? [progMap[1], 1] : null; grade();                           // grading continues the same progress bar
+    setStatus(`Loaded ${what}${parts.length > 1 ? `, in this order: ${list}` : ''}.${notes ? ' ' + notes : ''}${failed.length ? ` Skipped ${failed.length}: ${failed.map(f => `${f.name} (${f.err})`).join('; ')}.` : ''}`, failed.length > 0 && !parts.length);
   }
 
   // ---------- Opening files from this computer (one, several, or a folder) ----------
@@ -2052,6 +2067,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     let mode = 'chapters';
     if (list.length > 1) { mode = await askMultiple(list.length, fromFolder); if (mode === 'cancel') { setStatus('Nothing was opened.'); return; } }
     const parts = [], failed = [];
+    progMap = [0, list.some(f => /\.(?:pdf|epub)$/i.test(f.name)) ? 0.4 : 0.1];   // reading fills the start of the bar, grading the rest
     for (let i = 0; i < list.length; i++) {
       const f = list[i];
       if (!i) setStatus(''); readSpan = { i, n: list.length };
@@ -2062,11 +2078,11 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
         if (text.trim()) parts.push({ name: f.name, text, meta: sink.meta, note: sink.note }); else failed.push({ name: f.name, err: 'no story text' });
       } catch (e) { console.error(e); failed.push({ name: f.name, err: e.message || String(e) }); }
     }
-    readSpan = null; hideProgress();
+    readSpan = null;
     if (mode === 'novels' && parts.length > 1) { startCompare(parts, failed); return; }
     exitCompare();
     try { finishImport(parts, failed, parts.length === 1 ? parts[0].name : fromFolder ? 'from the folder' : ''); }
-    catch (e) { setStatus(e.message, true); }
+    catch (e) { hideProgress(); setStatus(e.message, true); }
   }
   // Several files: chapters of one novel, or separate novels to compare?
   function askMultiple(n, fromFolder) {
@@ -2085,7 +2101,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
       let title = (m.title || g.title || prettyName(p.name)).trim(); const k = title.toLowerCase();
       seen.set(k, (seen.get(k) || 0) + 1); if (seen.get(k) > 1) title += ` (${seen.get(k)})`;
       return { name: p.name, title, author: (m.author || g.author || '').trim(), text: p.text, res: null, key: null }; });
-    cmpA = 0; cmpB = novels.length > 2 ? 'avg' : 1; last = null;
+    cmpA = 0; cmpB = novels.length > 2 ? 'avg' : 1; last = null; progMap = progMap ? [progMap[1], 1] : null;
     setStatus(failed.length ? `Skipped ${failed.length}: ${failed.map(f => `${f.name} (${f.err})`).join('; ')}.` : '', failed.length > 0);
     showCompare(); gradeNovels();
   }
@@ -2240,20 +2256,20 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
               ++done; showProgress(done / links.length, `Downloading the folder's files: ${done} of ${links.length}…`);
             }
           };
-          setStatus(''); showProgress(0, `Downloading the folder's files: 0 of ${links.length}…`);
-          await Promise.all([worker(), worker(), worker()]); hideProgress();
+          setStatus(''); progMap = [0, 0.4]; showProgress(0, `Downloading the folder's files: 0 of ${links.length}…`);
+          await Promise.all([worker(), worker(), worker()]);
           finishImport(parts.filter(Boolean), failed, `from the folder${via ? ` (through the ${via} relay)` : ''}`);
           return;
         }
       }
-      setStatus(''); readSpan = null; readProg(0, `Reading ${name}…`);
-      const sink = {}, text = await bytesToText(buf, type, name, sink); hideProgress();
+      setStatus(''); readSpan = null; progMap = [0, /pdf|epub/i.test(type || '') || /\.(?:pdf|epub)$/i.test(name) ? 0.4 : 0.1]; readProg(0, `Reading ${name}…`);
+      const sink = {}, text = await bytesToText(buf, type, name, sink);
       if (!text.trim()) throw new Error('No story text was found at that link.');
       finishImport([{ name, text, meta: sink.meta }], [], `from the link${via ? ` (through the ${via} relay)` : ''}`);
     } catch (e) {
-      console.error(e); const m = e.message || String(e); setStatus(m.charAt(0).toUpperCase() + m.slice(1), true);
+      console.error(e); hideProgress(); const m = e.message || String(e); setStatus(m.charAt(0).toUpperCase() + m.slice(1), true);
       $('linkHelp').hidden = false; $('linkHelpBtn').setAttribute('aria-expanded', 'true');
-    } finally { $('urlBtn').disabled = false; if (!grading && !novels) hideProgress(); }
+    } finally { $('urlBtn').disabled = false; if (!grading && !novels) hideProgress(); }   // a failed read: clear the bar
   }
 
   // ---------- HTML ----------
@@ -2840,12 +2856,15 @@ self.onmessage = e => { const { id, text, opts } = e.data;
 
   // ---------- Progress bar ----------
   const progress = $('progress');
+  // progMap squeezes one stage into part of the bar: opening a file reads into [0, r] and grades into [r, 1]
+  let progMap = null;
   function showProgress(frac, label) {
+    if (progMap) frac = progMap[0] + frac * (progMap[1] - progMap[0]);
     const pct = Math.max(0, Math.min(100, Math.floor(frac * 100)));
     progress.hidden = false; $('progFill').style.width = pct + '%'; $('progPct').textContent = pct + '%'; progress.setAttribute('aria-valuenow', pct);
     if (label != null) { $('progLbl').textContent = label; progress.setAttribute('aria-valuetext', `${label} ${pct}%`); }
   }
-  const hideProgress = () => { progress.hidden = true; };
+  const hideProgress = () => { progress.hidden = true; progMap = null; };
 
   let grading = false, gradingKey = null, gradeSeq = 0, chapOpen = false;   // chapter grades start collapsed
   const bookKey = (full, o) => JSON.stringify({ profile: o.profile, dlgMode: o.dlgMode, english: o.english, voice: o.voice }) + full.length + ':' + full.slice(0, 200) + full.slice(-200);
