@@ -140,7 +140,7 @@ table.cmp .up{color:var(--green)}table.cmp .down{color:var(--red)}
 .linkbtn{background:none;border:0;padding:0;color:var(--pencil);cursor:pointer;text-align:left;font:inherit;text-decoration:underline;text-underline-offset:2px}
 .diffs{margin:8px 0 0;padding-left:20px;font-size:14px}.diffs li{margin:3px 0}
 .backbar{margin-bottom:10px}.compare .of{color:var(--muted)}
-.chapters{margin:14px 0 6px}.chapters h3{font-size:15px;margin:0 0 6px}
+.chapters{margin:14px 0 6px}.chapters h3{font-size:15px;margin:0;display:inline}.chapters summary{cursor:pointer;padding:4px 0}.chapters[open] summary{margin-bottom:6px}.chapters .cnt{color:var(--muted);font-size:13px}
 .chapters table{width:100%;border-collapse:collapse;font-size:13px}
 .chapters td,.chapters th{padding:4px 5px;text-align:left;border-bottom:1px solid var(--rule);vertical-align:top}
 .chapters th{font-weight:600;color:var(--muted);font-size:12px}.chapters td.g{white-space:nowrap;font-weight:600}.chapters td.n{white-space:nowrap;color:var(--muted)}
@@ -1953,7 +1953,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     const parts = [];
     for (let k = 0; k < spine.length; k++) {
       const path = resolve(spine[k].getAttribute('href')); if (!zip.has(path)) continue;
-      setStatus(`${label}: reading section ${k + 1} of ${spine.length}…`);
+      if (!sink.quiet) readProg(k / spine.length, `Reading ${label}: section ${k + 1} of ${spine.length}…`);
       const html = await read(path), top = html.slice(html.search(/<body/i), html.search(/<body/i) + 1500);
       // sections the book itself labels as front or back matter (copyright page, colophon, acknowledgments…) aren't story text
       if (/epub:type="[^"]*\b(?:frontmatter|backmatter|imprint|colophon|copyright-page|titlepage|halftitlepage|toc|landmarks|loi|index|acknowledgments|dedication|epigraph)\b/i.test(top)) continue;
@@ -1974,10 +1974,13 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     if (wrapped < full.length * 0.4) return str;                                        // most lines run on into the next one
     return t.replace(/([^\n])\n(?=[ \t]*[^\s])/g, (m, a, off) => a + ' ');
   }
+  // Reading files shares the grading progress bar. readSpan places the current file within a batch (file i of n).
+  let readSpan = null;
+  const readProg = (frac, label) => { const sp = readSpan || { i: 0, n: 1 }; showProgress((sp.i + Math.min(1, frac)) / sp.n, label); };
   async function bytesToText(buf, type, label, sink = {}) {
     const head = new TextDecoder().decode(buf.slice(0, 5));
     if (head.startsWith('%PDF') || /application\/pdf/i.test(type || '')) {
-      const t = await pdfToText(buf, (i, n) => setStatus(`${label}: reading PDF page ${i} of ${n} (${Math.floor(100 * i / n)}%)…`), sink);
+      const t = await pdfToText(buf, (i, n) => { if (!sink.quiet) readProg(i / n, `Reading ${label}: page ${i} of ${n}…`); }, sink);
       if (!t.trim()) throw new Error('the PDF has no selectable text (probably a scanned image)');
       return t;
     }
@@ -2051,13 +2054,15 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
     const parts = [], failed = [];
     for (let i = 0; i < list.length; i++) {
       const f = list[i];
-      setStatus(list.length > 1 ? `Reading file ${i + 1} of ${list.length}: ${f.name}…` : `Reading ${f.name}…`);
+      if (!i) setStatus(''); readSpan = { i, n: list.length };
+      readProg(0, list.length > 1 ? `Reading file ${i + 1} of ${list.length}: ${f.name}…` : `Reading ${f.name}…`);
       try {
         const sink = {};
         const text = await bytesToText(await f.arrayBuffer(), f.type || (/\.pdf$/i.test(f.name) ? 'application/pdf' : /\.html?$/i.test(f.name) ? 'text/html' : 'text/plain'), f.name, sink);
         if (text.trim()) parts.push({ name: f.name, text, meta: sink.meta, note: sink.note }); else failed.push({ name: f.name, err: 'no story text' });
       } catch (e) { console.error(e); failed.push({ name: f.name, err: e.message || String(e) }); }
     }
+    readSpan = null; hideProgress();
     if (mode === 'novels' && parts.length > 1) { startCompare(parts, failed); return; }
     exitCompare();
     try { finishImport(parts, failed, parts.length === 1 ? parts[0].name : fromFolder ? 'from the folder' : ''); }
@@ -2229,24 +2234,26 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
               const i = next++, L = links[i];
               try {
                 const r = await fetchAny(L.url);
-                const sink = {}, text = await bytesToText(r.buf, r.type, L.name, sink);
+                const sink = { quiet: true }, text = await bytesToText(r.buf, r.type, L.name, sink);
                 if (text.trim()) parts[i] = { name: L.name, text, meta: sink.meta }; else failed.push({ name: L.name, err: 'no story text' });
               } catch (e) { failed.push({ name: L.name, err: (e.message || String(e)).replace(/^Couldn't download it\. /, '').slice(0, 120) }); }
-              setStatus(`Downloading the folder's files: ${++done} of ${links.length}…`);
+              ++done; showProgress(done / links.length, `Downloading the folder's files: ${done} of ${links.length}…`);
             }
           };
-          await Promise.all([worker(), worker(), worker()]);
+          setStatus(''); showProgress(0, `Downloading the folder's files: 0 of ${links.length}…`);
+          await Promise.all([worker(), worker(), worker()]); hideProgress();
           finishImport(parts.filter(Boolean), failed, `from the folder${via ? ` (through the ${via} relay)` : ''}`);
           return;
         }
       }
-      const sink = {}, text = await bytesToText(buf, type, name, sink);
+      setStatus(''); readSpan = null; readProg(0, `Reading ${name}…`);
+      const sink = {}, text = await bytesToText(buf, type, name, sink); hideProgress();
       if (!text.trim()) throw new Error('No story text was found at that link.');
       finishImport([{ name, text, meta: sink.meta }], [], `from the link${via ? ` (through the ${via} relay)` : ''}`);
     } catch (e) {
       console.error(e); const m = e.message || String(e); setStatus(m.charAt(0).toUpperCase() + m.slice(1), true);
       $('linkHelp').hidden = false; $('linkHelpBtn').setAttribute('aria-expanded', 'true');
-    } finally { $('urlBtn').disabled = false; }
+    } finally { $('urlBtn').disabled = false; if (!grading && !novels) hideProgress(); }
   }
 
   // ---------- HTML ----------
@@ -2840,7 +2847,7 @@ self.onmessage = e => { const { id, text, opts } = e.data;
   }
   const hideProgress = () => { progress.hidden = true; };
 
-  let grading = false, gradingKey = null, gradeSeq = 0;
+  let grading = false, gradingKey = null, gradeSeq = 0, chapOpen = false;   // chapter grades start collapsed
   const bookKey = (full, o) => JSON.stringify({ profile: o.profile, dlgMode: o.dlgMode, english: o.english, voice: o.voice }) + full.length + ':' + full.slice(0, 200) + full.slice(-200);
   const gradeKey = () => [profileSel.value, $('dlgMode').value, $('english').value, $('voice').value, scope, input.value.length, input.value.slice(0, 200), input.value.slice(-200)].join('|');
   async function grade() {
@@ -2937,8 +2944,8 @@ self.onmessage = e => { const { id, text, opts } = e.data;
     const sharedNote = res.shared ? `<div class="warnbox">Shared report${res.sharedAt ? ` from ${esc(res.sharedAt)}` : ''}. The story text isn't included, only short quoted examples. <button class="btn" id="ownBtn" type="button">Grade your own story</button></div>` : '';
     const chs = res.chapters || [], rowsShared = res.shared ? res.chapterRows || [] : null;
     const chooser = chs.length && !res.shared ? `<label class="scope">Grade: <select id="scopeSel"><option value="">Whole work (${chs.length} chapters)</option>${chs.map((c, i) => `<option value="${i}"${res.scope === i ? ' selected' : ''}>${esc(c.title)} · ${c.words.toLocaleString()} words</option>`).join('')}</select></label>` : '';
-    const chapTable = (res.scope == null && chs.length) || (rowsShared && rowsShared.length) ? `<div class="chapters" id="chapSum"><h3>Chapters</h3><table><thead><tr><th>Chapter</th><th>Words</th><th>Grade</th><th>Biggest issue</th></tr></thead><tbody>${
-      (rowsShared && rowsShared.length ? rowsShared : chs).map((c, i) => `<tr data-ch="${i}"${res.shared ? '' : ' class="go" title="Grade just this chapter"'}><td>${esc(c.title)}</td><td class="n">${c.words.toLocaleString()}</td><td class="g">${c.letter ? `<span style="color:${MARK(c.letter)}">${esc(c.letter)}</span> ${c.score}` : '…'}</td><td class="iss">${c.issue ? esc(c.issue) : res.shared ? '' : 'grading…'}</td></tr>`).join('')}</tbody></table></div>` : '';
+    const chapTable = (res.scope == null && chs.length) || (rowsShared && rowsShared.length) ? `<details class="chapters" id="chapSum"${chapOpen ? ' open' : ''}><summary><h3>Chapter grades</h3> <span class="cnt">· ${(rowsShared && rowsShared.length ? rowsShared : chs).length} chapters</span></summary><table><thead><tr><th>Chapter</th><th>Words</th><th>Grade</th><th>Biggest issue</th></tr></thead><tbody>${
+      (rowsShared && rowsShared.length ? rowsShared : chs).map((c, i) => `<tr data-ch="${i}"${res.shared ? '' : ' class="go" title="Grade just this chapter"'}><td>${esc(c.title)}</td><td class="n">${c.words.toLocaleString()}</td><td class="g">${c.letter ? `<span style="color:${MARK(c.letter)}">${esc(c.letter)}</span> ${c.score}` : '…'}</td><td class="iss">${c.issue ? esc(c.issue) : res.shared ? '' : 'grading…'}</td></tr>`).join('')}</tbody></table></details>` : '';
     let h = sharedNote + chooser + `${ficTitle() || ficAuthor() ? `<div class="ficname">${esc(shownTitle())}${ficAuthor() ? ` <span class="by">by ${esc(ficAuthor())}</span>` : ''}</div>` : ''}<div class="head"><div class="mark ${gClass}">${res.letter}</div><div>
       <div class="num">${Math.round(res.overall)}<small> / 100</small></div>
       <div class="meta">${res.total.toLocaleString()} words graded${res.skippedWords ? ` of ${(res.total + res.skippedWords).toLocaleString()}` : ''} · ${res.profile}</div>
@@ -2990,6 +2997,7 @@ self.onmessage = e => { const { id, text, opts } = e.data;
     if ($('backCmp')) $('backCmp').onclick = backToCompare;
     wireShare(res); renderList();
     if ($('scopeSel')) $('scopeSel').onchange = e => { scope = e.target.value === '' ? null : +e.target.value; grade(); };
+    const cs = $('chapSum'); if (cs) cs.ontoggle = () => { chapOpen = cs.open; };
     report.querySelectorAll('#chapSum tr.go').forEach(tr => tr.onclick = () => { scope = +tr.dataset.ch; grade(); report.scrollTop = 0; scrollTo({ top: report.getBoundingClientRect().top + scrollY - 10 }); });
     report.scrollTop = 0;
     $('expandAll').onclick = () => { const all = report.querySelectorAll('details'), open = [...all].some(d => !d.open);
