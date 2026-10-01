@@ -863,7 +863,28 @@ const Grader = (() => {
     `(?:look|air|expression|voice|tone|face|smile|posture|walk|confidence|gait|eyes|grin|energy|manner|laugh) of (?:someone|somebody|a man|a woman) who`,
     `mirth(?:ful|fully)?\\b`, `(?:blue|green|brown|grey|gray|hazel|amber|dark|black) eyes (?:met|looked into|locked (?:on|with|onto)|stared into|found|searched) (?:blue|green|brown|grey|gray|hazel|amber|dark|black)(?! eyes)\\b`,
     `a testament to`, `(?:rich |vibrant |intricate )?tapestry of`, `delv(?:e|ed|es|ing) (?:into|deeper)`, `a symphony of`,
-    `(?:the )?(?:words|silence|question|tension|confession) hung (?:heavy |heavily )?(?:in|between)`, `the weight of (?:his|her|their|those|the) words`
+    `(?:the )?(?:words|silence|question|tension|confession) hung (?:heavy |heavily )?(?:in|between)`, `the weight of (?:his|her|their|those|the) words`,
+    // ---- stock gestures
+    `(?:ran|runs|running|run|raked|rakes|raking|dragged|drags|dragging|shoved|shoves|carded|cards|carding|pushed|pushes|pushing) (?:a|${P}|both) (?:\\w+ )?(?:hands?|fingers) (?:through|thru) ${P} (?:\\w+ )?hair`,
+    `(?:pinched|pinches|pinching|pinch|rubbed|rubbing|rubs|massaged|massaging|squeezed) the bridge of ${P} nose`, `(?:rubbed|rubs|rubbing|scratched|scratches|scratching) (?:at )?the back of ${P} neck`,
+    `a muscle (?:ticked|ticking|ticks|jumped|jumping|jumps|twitched|twitching|twitches|feathered|flexed|worked|leapt) (?:in|along) ${P} (?:jaw|cheek|temple)`, `${P} nostrils flared`,
+    `(?:the )?corners? of ${P} (?:mouth|lips) (?:quirked|quirking|quirks|twitched|twitching|twitches|tugged|tugging|lifted|ticked|turned|curled|kicked) up`, `${P} (?:mouth|lips) (?:quirked|quirking|quirks|twitched|twitching)`,
+    `(?:quirked|quirking|quirks|quirk|arched|arching|arches|arch|cocked|cocking|cocks) (?:an|one|a|${P}) (?:\\w+ )?(?:eyebrow|brow)`, `${P} (?:eyebrows?|brows?) (?:quirked|quirking|quirks|shot up|rose to ${P} hairline|disappeared into ${P} hairline|climbed|climbing)`,
+    `(?:worried|worrying|worries|worry|chewed|chewing|chews|nibbled|nibbling|tugged|tugging|caught|catching) (?:at |on )?${P} (?:bottom|lower) lip`, `(?:worried|worrying|worries) ${P} lip`, `(?:chewed|chewing|chews|bit|biting|bites) (?:on )?the inside of ${P} cheek`,
+    `(?:huffed|huffs|huffing|huff) (?:out )?(?:a|an) (?:\\w+ )?(?:laugh|breath|sigh|chuckle)`, `(?:the|a) ghost of (?:a|an) (?:smile|grin|smirk|laugh)`, `(?:a )?(?:grin|smile) (?:split|splitting|splits|spread across|spreading across|stretched across|broke across|breaking across) ${P} face`,
+    `without (?:missing|skipping) a beat`, `(?:shit|shite|crap)-?eating grin`, `rolled ${P} eyes so hard`, `(?:eyes|gaze) (?:rolling|rolled) (?:back )?(?:so hard|heavenward|skyward|to the heavens)`,
+    // ---- generic, overwritten phrasing
+    `(?:couldn't|could not|can't|cannot|can not) help but`, `in that (?:very )?moment,`, `something (?:shifted|shifts|shifting) (?:between (?:them|us)|in the air|in ${P} (?:chest|expression|eyes|face|gaze)|inside ${O}|within ${O})`, `for what (?:felt|seemed) like (?:an eternity|hours|forever|ages|years|a lifetime)`,
+    `(?:barely|scarcely|hardly) (?:above|more than) a whisper`, `(?:a )?(?:mix|mixture|blend|cocktail|swirl|jumble|tangle) of (?:emotions|feelings)`, `(?:a )?(?:mix|mixture|blend|cocktail) of (?:fear|anger|relief|guilt|shame|amusement|confusion|annoyance|exasperation|fondness|affection|concern|worry|surprise|disbelief|awe|hope|sadness|irritation|pride|embarrassment|curiosity) and`, `(?:a )?(?:whirlwind|rollercoaster|roller coaster|maelstrom|storm|tornado|tidal wave) of (?:emotions?|feelings)`,
+    `(?:the )?realization (?:hit|struck|slammed into|crashed over|washed over|dawned on) ${O}`, `hit ${O} like a (?:truck|freight train|train|brick|tidal wave|sledgehammer|punch)`,
+    `(?:a|the|in) comfortable silence`, `(?:a )?(?:mischievous|wicked|devilish|playful) (?:glint|gleam|twinkle|sparkle)`, `(?:glint|gleam|twinkle|sparkle) of mischief`, `a beacon of (?:hope|light)`, `shrouded in (?:mystery|secrecy|darkness)`,
+    `the air (?:was |grew |hung )?(?:thick|heavy) with`, `let(?:ting|s)? the words sink in`, `(?:a |the )?wave of (?:relief|nausea|guilt|emotion|exhaustion|sadness|fear|dread|panic|anger|calm|warmth|affection|longing|despair)`,
+    `(?:a|that|the) (?:symphony|kaleidoscope|cacophony) of`, `every fib(?:er|re) of ${P} body`, `(?:a |the )?(?:sense of )?(?:dread|unease) (?:settled|pooled|coiled|curled|crept) (?:in|over|into|through)`,
+    // ---- frozen similes and stock compound adjectives
+    `(?:smooth|soft) as (?:silk|velvet|butter|a baby's bottom)`, `hard as (?:a )?(?:rock|stone|steel|iron)`, `stubborn as a mule`, `pretty as a picture`, `quick as (?:lightning|a flash|a wink|a cat)`, `fast as lightning`,
+    `crystal(?:-| )clear`, `pitch(?:-| )(?:black|dark)`, `(?:bone|blood|spine)(?:-| )(?:chilling|curdling|tingling)`, `hair(?:-| )raising`, `heart(?:-| )(?:stopping|wrenching)`, `jaw(?:-| )dropping`, `nerve(?:-| )(?:wracking|racking)`,
+    `(?:as )?(?:dry|dull) as (?:a bone|dust|dishwater|ditchwater)`, `(?:as )?(?:cold|still) as (?:a )?(?:stone|the grave)`, `(?:as )?(?:big|large) as a house`, `(?:as )?(?:flat|thin) as a (?:pancake|rail|board)`,
+    `(?:as )?(?:snug|cute) as a bug`, `(?:as )?(?:hungry|strong) as a horse`, `(?:as )?(?:red|pink) as a (?:beet|tomato|lobster)`, `(?:as )?(?:tight|taut) as a drum`, `(?:as )?(?:pure|white) as (?:the )?driven snow`
   ];
   // ---- Clichés: romance fiction ----
   const CLICHE_ROMANCE = [
