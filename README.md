@@ -6,9 +6,9 @@ It is one self-contained web page (`index.html`). Everything is inlined, includi
 
 ## Live site
 
-https://ihardlynoah.github.io/novelgrading/
+https://reconsidering.github.io/novelgrading/
 
-Every push to `claude/amazing-shannon-rh63cz` deploys to GitHub Pages through `.github/workflows/static.yml`. If the first deploy fails, open **Settings → Pages** in the repo and set **Source** to **GitHub Actions**.
+Every push to `claude/amazing-shannon-rh63cz` deploys to GitHub Pages through `.github/workflows/static.yml`. The repository is at https://github.com/reconsidering/novelgrading (formerly `ihardlynoah/novelgrading`). If the first deploy fails, open **Settings → Pages** in the repo and set **Source** to **GitHub Actions**.
 
 ## Using it
 
