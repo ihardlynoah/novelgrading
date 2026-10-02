@@ -31,6 +31,7 @@ Every push to `claude/amazing-shannon-rh63cz` deploys to GitHub Pages through `.
 | **Style profile** | Genre targets and section weights. Choices: General fiction, Literary, Thriller/mystery/crime, Romance, Horror, Fantasy/science fiction, Historical, Young adult, Middle grade. |
 | **Mistakes in character speech** | Errors inside quotation marks count lightly (a quarter of the penalty), fully, or not at all. Narration is always graded in full. |
 | **Narration** | **Stylized voice or first person** is for narrators who bend the rules on purpose, like Faulkner or Twain's Huck. The narrator's dialect grammar and dropped apostrophes count like dialogue, and fragments, run-ons, reading level and the like get more room. Misspellings, confused words and clichés still count in full. |
+| **Character names** | Names to exclude from the overused-word, echo and reading-level checks, separated by commas (e.g. `Obi-Wan, Kacchan, Lan Zhan`). Any case and any part of a listed name counts. Remembered in this browser. A built-in list already covers many well-known characters and nicknames, and honorifics like -kun, -chan and -gege. |
 | **English** | American English flags Britishisms. British/other doesn't. |
 
 ## How scoring works
@@ -97,6 +98,7 @@ Everything is in `index.html`:
 
 - **The grading engine:** between `/*GRADER-START*/` and `/*GRADER-END*/`. It defines `Grader.analyze(text, opts)`, which returns the score, section scores, metrics and flags.
   - Error rule lists: `TIER1` (misused phrases), `TIER2` (confused words), `GRAMMAR`, `SUBJUNCTIVE` (graded as grammar), `TYPOS`. Each rule is `[regex, fix]`. An optional third element marks rules that count lightly in stylized narration.
+  - Character names: `CHAR_NAMES` (built-in list) and `HONORIFICS`.
   - Cliché lists: `CLICHE_GENERAL`, `CLICHE_ROMANCE`.
   - Targets: `DEFAULTS`, `PROFILES`, `VOICE_O` (stylized-narration targets).
 - **Where it runs:** Grading runs in a Web Worker built from the engine code, so the page stays responsive and shows progress while it works.

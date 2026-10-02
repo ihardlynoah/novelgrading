@@ -27,6 +27,7 @@ button,select{font:inherit;color:inherit}
 .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
 .controls label{display:flex;flex-direction:column;font-size:12.5px;color:var(--muted);gap:3px}
 select{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;padding:7px 9px;min-width:150px}
+#names{font:inherit;color:var(--ink);background:var(--sheet);border:1px solid var(--rule);border-radius:6px;padding:7px 9px;width:190px;max-width:100%}
 .btn{background:var(--sheet);border:1px solid var(--rule);border-radius:6px;padding:8px 14px;cursor:pointer}
 .btn:hover{border-color:var(--muted)}
 .btn.primary{background:var(--pencil);border-color:var(--pencil);color:#fff;font-weight:600;padding:8px 20px}
@@ -217,6 +218,9 @@ body.dragging .sheet{outline:2px dashed var(--pencil);outline-offset:6px}
         <option value="stylized">Stylized voice or first person</option>
       </select>
     </label>
+    <label title="Names the story uses that shouldn't count as overused words. Separate them with commas, for example: Obi-Wan, Kacchan, Lan Zhan">Character names
+      <input id="names" type="text" placeholder="e.g. Obi-Wan, Kacchan" autocomplete="off" spellcheck="false">
+    </label>
     <label>English
       <select id="english">
         <option value="us">American (flag Britishisms)</option>
@@ -381,6 +385,41 @@ const Grader = (() => {
 
   const ED_ADJ = new Set(words(`tired scared bored interested excited worried surprised confused pleased annoyed embarrassed exhausted frightened terrified relieved used supposed married dressed related located based determined prepared concerned involved red bed shed sled need seed feed deed speed bleed breed greed weed hundred naked sacred wicked rugged ragged jagged crooked beloved aged blessed kindred shocked stunned amazed ashamed disappointed satisfied devoted convinced delighted horrified startled puzzled alarmed thrilled`));
   // Word sets for the fragment, comma-splice and tense checks
+  // Character names and nicknames that are common in fan-written fiction. Many are ordinary words ("Wan", "Bones", "Strange",
+  // "Happy", "Echo") or are always written next to a hyphen ("Obi-Wan"), so the capitalization test can miss them. A capitalized
+  // use of a one-word entry, and every use of a multi-word entry, counts as a name for the overuse, echo and reading-level checks;
+  // the lower-case word ("a wan smile", "strange") is still judged as usual.
+  const CHAR_NAMES = `
+    Obi-Wan, Obi Wan, Kenobi, Qui-Gon, Qui Gon, Jinn, Anakin, Ani, Skywalker, Padmé, Padme, Amidala, Ahsoka, Snips, Skyguy, Rex, Cody, Fives, Echo, Hardcase, Wolffe, Kix, Jesse, Tup, Dogma, Hevy, Crosshair, Wrecker, Hunter, Tech, Omega, Luke, Leia, Han, Solo, Chewie, Chewbacca, Lando, Vader, Yoda, Mace, Windu, Plo Koon, Palpatine, Sidious, Dooku, Grievous, Maul, Ventress, Rey, Kylo, Finn, Poe, Dameron, Din Djarin, Djarin, Mando, Grogu, Boba, Fett, Hera, Kanan, Ezra, Sabine, Zeb, Thrawn, Cassian, Jyn, Jedi, Sith, Padawan, Wookiee, Coruscant, Tatooine, Naboo, Mandalore, Kamino,
+    Harry, Potter, Hermione, Mione, Granger, Ron, Ronald, Weasley, Weasleys, Ginny, Ginevra, Gin, Draco, Malfoy, Malfoys, Lucius, Narcissa, Severus, Snape, Sirius, Padfoot, Remus, Lupin, Moony, Prongs, Wormtail, Pettigrew, Lily, Neville, Longbottom, Luna, Lovegood, Dumbledore, Albus, Voldemort, Riddle, Bellatrix, Hagrid, McGonagall, Minerva, Dobby, Kreacher, Cedric, Diggory, Seamus, Blaise, Zabini, Pansy, Parkinson, Theo, Nott, Scorpius, Teddy, Tonks, Kingsley, Mad-Eye, Moody, Fleur, Krum, Hogwarts, Gryffindor, Gryffindors, Slytherin, Slytherins, Ravenclaw, Hufflepuff, Hogsmeade, Azkaban, Muggle, Muggles, Quidditch, Death Eater, Death Eaters,
+    Tony, Stark, Steve, Rogers, Cap, Bucky, Buck, Barnes, Natasha, Nat, Tasha, Romanoff, Clint, Barton, Bruce, Banner, Thor, Loki, Odin, Frigga, Peter, Parker, Spidey, Spider-Man, Wanda, Pietro, Vision, Rhodey, Pepper, Happy, Strange, Doctor Strange, Wong, Shuri, T'Challa, Carol, Danvers, Fury, Coulson, Hawkeye, Iron Man, Avengers, Jarvis, Hulk, Quill, Gamora, Groot, Rocket, Drax, Nebula, Mantis, Deadpool, Wade, Logan, Wolverine, Xavier, Magneto, Rogue, Gambit,
+    Batman, Wayne, Dick Grayson, Grayson, Jason Todd, Tim Drake, Damian, Alfred, Clark, Superman, Kara, Diana, Barry, Wally, Hal Jordan, Ollie, Harley, Joker, Selina, Conner, Kon, Babs, Steph, Gotham, Robin, Nightwing, Red Hood, Oracle, Batgirl, Bats,
+    Dean, Sammy, Castiel, Cas, Cass, Crowley, Bobby, Gabriel, Lucifer, Rowena, Jody, Impala, Winchester, Winchesters,
+    Sherlock, Holmes, Watson, Mycroft, Lestrade, Moriarty, Hudson, Aziraphale, Beelzebub, Anathema,
+    TARDIS, Tardis, Dalek, Daleks, Rose Tyler, Martha, Donna, Rory, Clara, River Song,
+    Kirk, Spock, McCoy, Bones, Scotty, Sulu, Uhura, Chekov, Picard, Riker, Worf, Troi, Geordi, Janeway, Vulcan, Vulcans, Klingon, Klingons,
+    Frodo, Samwise, Gandalf, Aragorn, Strider, Legolas, Gimli, Bilbo, Thorin, Merry, Pippin, Gollum, Sméagol, Smeagol, Boromir, Faramir, Éowyn, Eowyn, Arwen, Sauron, Saruman, Elrond, Galadriel, Fili, Kili,
+    Naruto, Sasuke, Sakura, Kakashi, Itachi, Hinata, Gaara, Shikamaru, Ino, Choji, Neji, Tenten, Iruka, Jiraiya, Tsunade, Orochimaru, Minato, Kushina, Obito, Madara, Hashirama, Tobirama, Konoha, Hokage, Uchiha, Uzumaki, Hatake,
+    Izuku, Midoriya, Deku, Katsuki, Bakugo, Bakugou, Kacchan, Shoto, Shouto, Todoroki, Ochaco, Uraraka, Iida, Tenya, Kirishima, Eijiro, Denki, Kaminari, Aizawa, Shota, Shouta, Eraserhead, Hizashi, Present Mic, All Might, Toshinori, Endeavor, Dabi, Touya, Hawks, Keigo, Shinso, Shinsou, Tokoyami, Tsuyu, Momo, Yaoyorozu, Ashido, Shigaraki, Tomura, Toga,
+    Eren, Jaeger, Yeager, Mikasa, Armin, Levi, Erwin, Hange, Hanji, Reiner, Bertholdt, Historia, Ymir,
+    Shoyo, Shouyou, Kageyama, Tobio, Oikawa, Iwaizumi, Iwa-chan, Kuroo, Kenma, Bokuto, Akaashi, Tsukishima, Tsukki, Yamaguchi, Daichi, Suga, Sugawara, Nishinoya, Noya, Asahi, Atsumu, Osamu, Sakusa, Ushijima,
+    Gojo, Satoru, Geto, Suguru, Yuji, Itadori, Megumi, Fushiguro, Nobara, Sukuna, Nanami, Toji, Yuta, Tanjiro, Nezuko, Zenitsu, Inosuke, Giyu, Rengoku, Muzan,
+    Luffy, Zoro, Nami, Sanji, Usopp, Ichigo, Rukia, Renji, Byakuya, Alphonse, Mustang, Riza, Winry, Yagami, Ryuk, Mello,
+    Shiro, Keith, Lance, Hunk, Pidge, Allura, Coran, Voltron, Stiles, Stilinski, Derek, Hale, McCall, Lydia,
+    Bella, Cullen, Cullens, Jasper, Rosalie, Emmett, Carlisle, Esme, Katniss, Peeta, Haymitch, Finnick, Johanna, Annabeth, Grover, Nico, Thalia, Reyna, Solace,
+    Aang, Katara, Sokka, Toph, Zuko, Iroh, Azula, Ty Lee, Suki, Appa, Korra, Asami,
+    Geralt, Jaskier, Yennefer, Ciri, Daenerys, Dany, Arya, Sansa, Tyrion, Cersei, Jaime, Brienne, Robb, Theon, Jon Snow, Merlin, Morgana, Gaius, Uther, Lancelot, Gwaine, Camelot,
+    Wei Wuxian, Wuxian, Wei Ying, Lan Wangji, Wangji, Lan Zhan, Jiang Cheng, Wanyin, Lan Xichen, Xichen, Lan Huan, Jin Ling, Jin Zixuan, Nie Huaisang, Huaisang, Wen Ning, Wen Qing, Xue Yang, Xiao Xingchen, Hanguang-jun, Xie Lian, Hua Cheng, San Lang, Sanlang, He Xuan, Shi Qingxuan, Mu Qing, Feng Xin, Jun Wu, Shen Qingqiu, Qingqiu, Luo Binghe, Binghe, Liu Qingge, Yue Qingyuan,
+    Marinette, Adrien, Ladybug, Chat Noir, Chaton, Alya, Nino, Plagg, Tikki, Sans, Papyrus, Frisk, Chara, Toriel, Asgore, Undyne, Alphys, Flowey, Asriel,
+    Vex, Vax, Keyleth, Scanlan, Caleb, Jester, Fjord, Beau, Yasha, Caduceus, Essek, Solas, Varric, Dorian, Iron Bull, Fenris, Anders, Garrus, Liara, Tali, Wrex, Shepard, Kaidan, Alistair, Leliana, Morrigan, Zevran,
+    Zhongli, Childe, Tartaglia, Venti, Diluc, Kaeya, Albedo, Aether, Lumine, Paimon, Alastor, Angel Dust, Husk, Vaggie, Eleven, Hopper, Dustin, Eddie, Munson,
+    Sephiroth, Tifa, Aerith, Noctis, Prompto, Ignis, Gladio, Riku, Kairi, Roxas, Zelda, Ganon, Sidon, Pikachu, Usagi, Mamoru, Hannibal, Lecter, Buffy, Xander, Giles, Magnus, Jace, Clary, Izzy, Stede, Blackbeard, Connor, Markus`;
+  // Honorifics and kinship terms written onto names ("Naruto-kun", "Lan-gege", "Iwa-chan"): never an overused word
+  const HONORIFICS = new Set(words(`kun chan san sama sensei senpai sempai dono kohai onii onee nii hyung noona oppa unnie eonni gege jiejie didi meimei shixiong shidi shijie shimei shizun shifu xiong xiansheng gongzi guniang`));
+  const nameRe = list => { const multi = list.filter(n => /[\s-]/.test(n)).sort((a, b) => b.length - a.length);
+    return multi.length ? new RegExp(`(?<![\\p{L}'])(?:${multi.map(n => n.split(/[\s-]+/).map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[\\s-]+')).join('|')})(?![\\p{L}])`, 'giu') : null; };
+  const splitNames = str => String(str || '').split(/[,;\n]+/).map(n => n.trim().replace(/[’]/g, "'")).filter(n => /\p{L}/u.test(n));
+  const CHAR_LIST = splitNames(CHAR_NAMES), CHAR_ONE = new Set(CHAR_LIST.filter(n => !/[\s-]/.test(n)).map(n => n.toLowerCase().replace(/'s$/, ''))), CHAR_MULTI = nameRe(CHAR_LIST);
   const PARTICLE = new Set(words(`van der den de von du la le del della di da dos das ten ter bin ibn al el`));
   const TAG_PLAIN = new Set(words(`said says asked asks replied replies`));
   const ARTICLE = new Set(words(`the a an this that these those`));
@@ -1237,7 +1276,13 @@ const Grader = (() => {
     // words
     const W = []; { const re = /\p{L}+(?:'\p{L}+)*/gu; let m;   // \p{L}: accented letters stay inside the word (Ántonia, coupé)
       while ((m = re.exec(norm))) { const raw = m[0]; let j = m.index - 1; while (j >= 0 && (norm[j] === ' ' || norm[j] === '\t')) j--;
-        W.push({ raw, w: raw.toLowerCase().replace(/'s$/, ''), s: m.index, e: m.index + raw.length, cap: /^\p{Lu}/u.test(raw), initial: j < 0 || /[.!?"'(\n—:…\-]/.test(norm[j]), dlg: mask[m.index] === 1 }); } }
+        W.push({ raw, w: raw.toLowerCase().replace(/'s$/, ''), s: m.index, e: m.index + raw.length, cap: /^\p{Lu}/u.test(raw), initial: j < 0 || /[.!?"'(\n—:…]/.test(norm[j]) || (norm[j] === '-' && !/\p{L}/u.test(norm[j - 1] || '')), dlg: mask[m.index] === 1 }); } }
+    // Character names: the built-in list (capitalized single names, any multi-word name) and the names the user typed in (any case)
+    const userList = splitNames(opts.names), USER_ONE = new Set(userList.flatMap(n => n.toLowerCase().split(/[\s-]+/)).map(t => t.replace(/'s$/, '')).filter(t => t.length > 1)), userMulti = nameRe(userList);
+    { const markSpan = re => { if (!re) return; re.lastIndex = 0; let m, i = 0; while ((m = re.exec(norm))) { const s0 = m.index, e0 = s0 + m[0].length;
+        while (i < W.length && W[i].e <= s0) i++; for (let t = i; t < W.length && W[t].s < e0; t++) W[t].nm = true; } };
+      for (const x of W) if ((x.cap && CHAR_ONE.has(x.w)) || HONORIFICS.has(x.w) || USER_ONE.has(x.w)) x.nm = true;
+      markSpan(CHAR_MULTI); markSpan(userMulti); }
     const total = W.length, narrW = W.filter(x => !x.dlg), narr = narrW.length, dlgWords = total - narr;
     const k = (c, base = total) => base ? c / base * 1000 : 0;
 
@@ -1300,7 +1345,7 @@ const Grader = (() => {
       cnt.set(x.w, (cnt.get(x.w) || 0) + 1); if (x.cap) capAny.add(x.w);
       if (!x.initial) { nonInit.set(x.w, (nonInit.get(x.w) || 0) + 1); if (x.cap) capNon.set(x.w, (capNon.get(x.w) || 0) + 1); }
     }
-    const isName = w => PROPER.has(w) || (PARTICLE.has(w) && (inName.get(w) || 0) >= 0.5 * (cnt.get(w) || 1)) || ((nonInit.get(w) || 0) > 0 ? (capNon.get(w) || 0) / nonInit.get(w) >= 0.6 : !FREQ.has(w) && capAny.has(w));
+    const isName = w => PROPER.has(w) || USER_ONE.has(w) || HONORIFICS.has(w) || (PARTICLE.has(w) && (inName.get(w) || 0) >= 0.5 * (cnt.get(w) || 1)) || ((nonInit.get(w) || 0) > 0 ? (capNon.get(w) || 0) / nonInit.get(w) >= 0.6 : !FREQ.has(w) && capAny.has(w));
 
     const fil = scan(/\b(very|really|just|quite|suddenly|rather|somewhat|actually|basically|literally|totally|simply|pretty much|kind of|sort of|a little bit|a bit|completely|absolutely|definitely|certainly|truly|extremely|incredibly|seriously|honestly|practically|virtually|essentially|utterly|fairly|in order to|the fact that|at that moment|at this point|needless to say|somehow|all of a sudden|for some reason|it seemed|as if to say)\b/gi, { narr: true })
       .map(x => F(x.s, x.e, 'warn', `Filler: "${x.m[0]}"`, 'filler', 'cut or use a stronger word'));
@@ -1354,7 +1399,7 @@ const Grader = (() => {
     // Counted first, then positions are collected only for phrases used often enough to be flagged (keeps long books fast and small)
     const spaceAfter = new Uint8Array(W.length); for (let j = 0; j + 1 < W.length; j++) spaceAfter[j] = /^[ \t]+$/.test(norm.slice(W[j].e, W[j + 1].s)) ? 1 : 0;
     const NOT_OVERUSE = new Set(['said', 'says']);                                      // plain dialogue tags are meant to repeat
-    const skipTok = W.map(x => x.w.includes("'") || isName(x.w) || NOT_OVERUSE.has(x.w)), funcTok = W.map(x => FUNC.has(x.w) || TAG_PLAIN.has(x.w));
+    const skipTok = W.map(x => x.nm || x.w.includes("'") || isName(x.w) || NOT_OVERUSE.has(x.w)), funcTok = W.map(x => FUNC.has(x.w) || TAG_PLAIN.has(x.w));
     const phraseKey = (i, n) => {
       if (i + n > W.length) return null;
       for (let j = i; j < i + n; j++) if (skipTok[j] || (j < i + n - 1 && !spaceAfter[j])) return null;
@@ -1389,7 +1434,7 @@ const Grader = (() => {
     }
     // single words (uses already inside a flagged phrase aren't counted again)
     const cntFree = new Map(), artFree = new Map();
-    W.forEach((x, i) => { if (covered[i] !== -1) return; cntFree.set(x.w, (cntFree.get(x.w) || 0) + 1);
+    W.forEach((x, i) => { if (covered[i] !== -1 || x.nm) return; cntFree.set(x.w, (cntFree.get(x.w) || 0) + 1);
       if ([W[i - 1], W[i - 2]].some(y => y && ARTICLE.has(y.w))) artFree.set(x.w, (artFree.get(x.w) || 0) + 1); });
     // A rare word usually preceded by "the/a/an" ("the whale", "the jury", "an anarchist") is what the story is about, not a verbal tic.
     const isSubject = (w, c) => c >= 6 && !CRUTCH_NOUN.has(w) && (artFree.get(w) || 0) / c >= 0.5;
@@ -1425,7 +1470,7 @@ const Grader = (() => {
     const topic = w => (cnt.get(w) || 0) >= Math.max(10, total / 1500);
     const last = new Map(), ef = [];
     W.forEach((x, i) => {
-      if (x.dlg || x.w.length < 5 || STOP.has(x.w) || isName(x.w) || (FREQ.get(x.w) || 0) > ECHO_MAX_FREQ || topic(x.w)) return;
+      if (x.dlg || x.nm || x.w.length < 5 || STOP.has(x.w) || isName(x.w) || (FREQ.get(x.w) || 0) > ECHO_MAX_FREQ || topic(x.w)) return;
       if (last.has(x.w) && i - last.get(x.w) <= ECHO_WINDOW) ef.push(F(x.s, x.e, 'warn', `Echo: "${x.w}" repeated within ${i - last.get(x.w)} words`, 'echoes', 'vary or cut one'));
       last.set(x.w, i);
     });
@@ -1565,7 +1610,7 @@ const Grader = (() => {
       : `${u}${r.good[0]}–${r.good[1]} scores full marks; outside that the score drops evenly, reaching zero at ${r.bad[0]} and ${r.bad[1]}.`;
     M('readability', 'readability', 'Flesch–Kincaid grade level', fk, `grade ${fmt(Math.max(0, fk))}`, 'Estimated school grade of the narration (dialogue excluded) from sentence length and syllables per word. ' + ruleTxt(R('readability'), 'Grade '), { na: rdNA });
     // Dale–Chall: share of words outside the familiar-word list, plus sentence length. Names count as familiar.
-    const hard = narrW.filter(x => !dcFamiliar(x.w) && !isName(x.w)).length, hardPct = nWords ? hard / nWords * 100 : 0;
+    const hard = narrW.filter(x => !x.nm && !dcFamiliar(x.w) && !isName(x.w)).length, hardPct = nWords ? hard / nWords * 100 : 0;
     const dc = nS && nWords ? 0.1579 * hardPct + 0.0496 * (nWords / nS) + (hardPct > 5 ? 3.6365 : 0) : 0;
     const dcGrade = dc < 5 ? 'grade 4 or below' : dc < 6 ? 'grades 5–6' : dc < 7 ? 'grades 7–8' : dc < 8 ? 'grades 9–10' : dc < 9 ? 'grades 11–12' : 'college';
     M('readability', 'daleChall', 'Dale–Chall score', dc, `${fmt(dc)} (${dcGrade})`, `${fmt(hardPct)}% of narration words are outside the Dale–Chall list of ~3,000 familiar words (dialogue excluded). ` + ruleTxt(R('daleChall'), 'A score of '), { na: rdNA });
@@ -2487,6 +2532,8 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   // A changed setting regrades what's loaded (grading runs in the background, and a newer grade replaces one still running)
   const settingChanged = () => { if (novels && !$('compare').hidden) { gradeNovels(); return; } if (!last || last.shared) return; grade(); };
   profileSel.onchange = settingChanged; $('dlgMode').onchange = settingChanged; $('english').onchange = settingChanged; $('voice').onchange = settingChanged;
+  try { $('names').value = localStorage.getItem('ng-names') || ''; } catch (e) {}
+  $('names').onchange = () => { try { localStorage.setItem('ng-names', $('names').value); } catch (e) {} settingChanged(); };
   $('saveBtn').onclick = saveReport;
 
   function showEdit() {
@@ -2560,7 +2607,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
   // the same settings; explanations that depend on the story (e.g. sensory counts) are sent only when they differ.
   const SNAP_FLAGS = 5, SEV = ['error', 'warn', 'info'];
   const skeleton = o => Grader.analyze(SAMPLE, o);
-  const snapOpts = () => ({ profile: profileSel.value, dlgMode: $('dlgMode').value, english: $('english').value, voice: $('voice').value });
+  const snapOpts = () => ({ profile: profileSel.value, dlgMode: $('dlgMode').value, english: $('english').value, voice: $('voice').value, names: $('names').value.trim() });
   const r3 = v => v == null ? null : Math.round(v * 1e5) / 1e5;
   function snapshot(res) {
     const o = res.opts || snapOpts(), sk = skeleton(o), skM = new Map(sk.metrics.map(m => [m.id, m]));
@@ -2603,7 +2650,7 @@ The old house creaked around them. Somewhere below, water dripped, and the air s
       if (m[1] === 'z') bytes = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
       const res = unsnapshot(JSON.parse(new TextDecoder().decode(bytes)));
       setMeta(res.title, res.author); last = res;
-      if (res.opts) { profileSel.value = res.opts.profile; $('dlgMode').value = res.opts.dlgMode; $('english').value = res.opts.english || 'us'; $('voice').value = res.opts.voice || 'standard'; }
+      if (res.opts) { profileSel.value = res.opts.profile; $('dlgMode').value = res.opts.dlgMode; $('english').value = res.opts.english || 'us'; $('voice').value = res.opts.voice || 'standard'; if (res.opts.names) $('names').value = res.opts.names; }
       renderReport(res);
       input.hidden = true; ms.hidden = true; $('editBtn').hidden = true; $('saveBtn').hidden = true; $('legend').hidden = true;
       $('ownBtn').onclick = () => { history.replaceState(null, '', location.pathname); last = null; setMeta('', ''); input.value = ''; input.hidden = false;
@@ -2866,8 +2913,8 @@ self.onmessage = e => { const { id, text, opts } = e.data;
   const hideProgress = () => { progress.hidden = true; progMap = null; };
 
   let grading = false, gradingKey = null, gradeSeq = 0, chapOpen = false;   // chapter grades start collapsed
-  const bookKey = (full, o) => JSON.stringify({ profile: o.profile, dlgMode: o.dlgMode, english: o.english, voice: o.voice }) + full.length + ':' + full.slice(0, 200) + full.slice(-200);
-  const gradeKey = () => [profileSel.value, $('dlgMode').value, $('english').value, $('voice').value, scope, input.value.length, input.value.slice(0, 200), input.value.slice(-200)].join('|');
+  const bookKey = (full, o) => JSON.stringify({ profile: o.profile, dlgMode: o.dlgMode, english: o.english, voice: o.voice, names: o.names }) + full.length + ':' + full.slice(0, 200) + full.slice(-200);
+  const gradeKey = () => [profileSel.value, $('dlgMode').value, $('english').value, $('voice').value, $('names').value.trim(), scope, input.value.length, input.value.slice(0, 200), input.value.slice(-200)].join('|');
   async function grade() {
     if (novels && !$('compare').hidden) { gradeNovels(); return; }
     if (grading && gradingKey === gradeKey()) return;                                  // this exact grade is already running
@@ -2881,7 +2928,7 @@ self.onmessage = e => { const { id, text, opts } = e.data;
     const key = gradeKey(), my = ++gradeSeq, words = Math.round(text.length / 5.7);
     cancelAnalyses(); grading = true; gradingKey = key; setStatus('');
     showProgress(0, `Grading ${scopeTitle ? scopeTitle + ', ' : ''}${words >= 10000 ? Math.round(words / 1000) + 'k' : words.toLocaleString()} words…`);
-    let res, twoStep = false; const o = { profile: profileSel.value, dlgMode: $('dlgMode').value, english: $('english').value, voice: $('voice').value };
+    let res, twoStep = false; const o = { profile: profileSel.value, dlgMode: $('dlgMode').value, english: $('english').value, voice: $('voice').value, names: $('names').value.trim() };
     try {
       if (scope != null) {                                                            // a chapter: overuse is judged against the whole work
         const bk = bookKey(full, o);
@@ -2913,7 +2960,7 @@ self.onmessage = e => { const { id, text, opts } = e.data;
 
   // Grade each chapter in the background and fill in the whole-work Chapters table as results arrive
   async function gradeChapters(res) {
-    const o = { profile: profileSel.value, dlgMode: $('dlgMode').value, english: $('english').value, voice: $('voice').value };
+    const o = { profile: profileSel.value, dlgMode: $('dlgMode').value, english: $('english').value, voice: $('voice').value, names: $('names').value.trim() };
     const key = bookKey(res.fullText, o);
     if (chapterCache.key !== key) chapterCache = { key, rows: [] };
     chapterCache.overuse = res.overuse.map(x => x.w); o.overuseOnly = chapterCache.overuse;
