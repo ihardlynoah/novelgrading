@@ -51,7 +51,7 @@ All rates are per 1,000 words, or per 1,000 narration words where the report say
 
 - **How each check is scored:** A check scores 100 inside its target range. Its score falls to 0 at the "bad" end of the range, then continues down to −100. A section can drop to −25.
 - **Calibration:** Targets were set on about 50 acclaimed novels, so normal published prose isn't penalized.
-- **Profiles:** A profile can change both the targets and the section weights.
+- **Profiles:** A profile can change both the targets and the section weights. Romance also lets words and phrases of physical intimacy (kissed, moaned, thighs, thrust…) run 1.5× higher before they count as overused.
 
 **Errors are subtracted** from the style score. They are not averaged in.
 
