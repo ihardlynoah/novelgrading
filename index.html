@@ -311,7 +311,7 @@ const Grader = (() => {
     progressive: lower(6, 14), openers: lower(0.5, 3), ingOpeners: lower(4, 10),
     adjStack: lower(0.5, 2.5), appositives: lower(2, 6), paragraphs: lower(0.25, 3), readability: higher(7, 1), daleChall: higher(6, 3),
     dlgRatio: band(20, 50, 5, 75), fancyTags: lower(20, 50), tagAdverbs: lower(1, 4), dlgPunct: lower(0, 3),
-    excl: lower(1, 5), ellipses: lower(2, 6), dashes: lower(6, 15), stacked: lower(0.1, 1.5), unattrib: lower(0.5, 2), actionTags: lower(1, 4), headHop: lower(0.5, 2), stockOpen: lower(20, 100), expletive: lower(5, 12), concrete: higher(38, 18), backstory: lower(15, 40), vocative: lower(15, 35), asYouKnow: lower(0.1, 0.8), contractions: higher(30, -15), longSpeech: lower(10, 30), nameRatio: lower(55, 80),
+    excl: lower(1, 5), ellipses: lower(2, 6), dashes: lower(6, 15), stacked: lower(0.1, 1.5), unattrib: lower(0.5, 2), actionTags: lower(1, 4), headHop: lower(0.5, 2), stockOpen: lower(20, 100), expletive: lower(5, 12), concrete: higher(38, 18), backstory: lower(15, 40), vocative: lower(15, 35), asYouKnow: lower(0.1, 0.8), contractions: higher(30, -15), longSpeech: lower(10, 30), nameRatio: lower(55, 80), bodyAuto: lower(0.5, 2), danglers: lower(0.15, 0.8), nominal: lower(0.6, 2.5),
     tier1: lower(0, 4), tier2: lower(0, 4), grammar: lower(0, 3), typos: lower(0, 3), povSlip: lower(0, 3), tense: lower(0, 2), longSent: lower(1, 4), fragments: lower(3, 10), simStack: lower(0.2, 1.5), commaSplice: lower(0.5, 2), britishisms: lower(0.3, 3)
   };
   const UNITS = {
@@ -320,7 +320,7 @@ const Grader = (() => {
     body: 'per 1,000 words', sensory: '% non-visual sense words', sentAvg: 'words per sentence', sentSpread: 'spread', crutch: 'overuse points', vocab: 'MTLD', openerTop: '% of sentences',
     passive: '% of sentences', progressive: 'per 1,000 narration words', openers: 'runs per 1,000 words', ingOpeners: '% of sentences',
     adjStack: 'per 1,000 words', appositives: 'per 1,000 narration words', paragraphs: 'per 1,000 words', readability: 'grade level', daleChall: 'Dale–Chall score', dlgRatio: '% dialogue', fancyTags: '% of tags', tagAdverbs: 'per 1,000 words',
-    dlgPunct: 'per 1,000 words', stacked: 'per 1,000 words', unattrib: 'long runs per 1,000 words', actionTags: 'per 1,000 words', headHop: 'shifts per 1,000 narration words', stockOpen: '% of chapters', expletive: 'per 1,000 narration words', concrete: '% concrete', backstory: '% of narration', vocative: 'per 1,000 dialogue words', asYouKnow: 'per 1,000 words', contractions: '% contracted', longSpeech: 'per 10,000 dialogue words', nameRatio: '% names', excl: 'per 1,000 narration words', ellipses: 'per 1,000 words', dashes: 'per 1,000 words',
+    dlgPunct: 'per 1,000 words', stacked: 'per 1,000 words', unattrib: 'long runs per 1,000 words', actionTags: 'per 1,000 words', headHop: 'shifts per 1,000 narration words', stockOpen: '% of chapters', expletive: 'per 1,000 narration words', concrete: '% concrete', backstory: '% of narration', vocative: 'per 1,000 dialogue words', asYouKnow: 'per 1,000 words', contractions: '% contracted', longSpeech: 'per 10,000 dialogue words', nameRatio: '% names', bodyAuto: 'per 1,000 narration words', danglers: 'per 1,000 narration words', nominal: 'per 1,000 narration words', excl: 'per 1,000 narration words', ellipses: 'per 1,000 words', dashes: 'per 1,000 words',
     tier1: 'per 1,000 words', tier2: 'per 1,000 words', grammar: 'per 1,000 words', typos: 'per 1,000 words', povSlip: 'per 1,000 words', tense: 'per 1,000 narration words', longSent: 'per 1,000 narration words', fragments: 'per 1,000 narration words', simStack: 'per 1,000 narration words', commaSplice: 'per 1,000 narration words', britishisms: 'per 1,000 words'
   };
   // Style profiles: genre targets that replace the defaults above, and category weights (w) that replace the usual ones.
@@ -472,6 +472,26 @@ const Grader = (() => {
   const P = '(?:his|her|their|my|your|our)';
   const O = '(?:him|her|them|me|you|us)';
   const SELF = '(?:himself|herself|themselves|themself|myself|yourself|ourselves)';
+  // ---- Nouns doing a verb's job: "made a decision" (decided), "gave a nod" (nodded)
+  const NOMINAL = [
+    [/\bmade (?:a|the|an|his|her|their|my|our|your) (?:final |quick |sudden |snap |conscious |firm )?decision\b|\bcame to (?:a|the|an|this) (?:\w+ )?(?:decision|conclusion)\b/gi, 'decided / concluded'],
+    [/\bcame to (?:the|a) (?:\w+ )?realization\b/gi, 'realized'], [/\bgave (?:a|an) (?:\w+ )?description of\b/gi, 'described'], [/\bmade (?:a|an|another|one last) (?:\w+ )?(?:attempt|effort) to\b/gi, 'tried to'],
+    [/\bgave (?:a|an) (?:\w+ )?explanation\b/gi, 'explained'], [/\bmade (?:a|the) suggestion\b/gi, 'suggested'], [/\bgave (?:a|an) (?:\w+ )?(?:response|reply)\b/gi, 'responded / replied'],
+    [/\bmade (?:an|the) assumption\b/gi, 'assumed'], [/\bhad a (?:\w+ )?discussion (?:about|with|of)\b/gi, 'discussed / talked'], [/\bmade (?:a|the) comparison\b/gi, 'compared'],
+    [/\b(?:conducted|carried out|made) an? (?:\w+ )?investigation\b/gi, 'investigated'], [/\breached an? (?:\w+ )?agreement\b/gi, 'agreed'], [/\btook a (?:quick |long |brief |closer |good |careful )?look at\b/gi, 'looked at'],
+    [/\b(?:gave|offered|shot|threw|sent) (?:him|her|them|me|us|you|[A-Z][a-z]+) a (?:\w+ )?(?:nod|shrug|smile|grin|wave|wink|frown|glare|look)\b|\bgave a (?:\w+ )?(?:nod|shrug|smile|grin|wave|wink|frown|laugh|sigh|chuckle|snort|shudder|groan|gasp|yawn)\b/gi, m => { const n = /(nod|shrug|smile|grin|wave|wink|frown|glare|look|laugh|sigh|chuckle|snort|shudder|groan|gasp|yawn)$/i.exec(m[0])[1].toLowerCase(); return ({ nod: 'nodded', shrug: 'shrugged', smile: 'smiled', grin: 'grinned', wave: 'waved', wink: 'winked', frown: 'frowned', glare: 'glared', look: 'looked', laugh: 'laughed', sigh: 'sighed', chuckle: 'chuckled', snort: 'snorted', shudder: 'shuddered', groan: 'groaned', gasp: 'gasped', yawn: 'yawned' })[n]; }],
+    [/\blet out a (?:\w+ )?(?:laugh|sigh|chuckle|groan|snort|whimper|yelp|yawn|hum)\b/gi, m => ({ laugh: 'laughed', sigh: 'sighed', chuckle: 'chuckled', groan: 'groaned', snort: 'snorted', whimper: 'whimpered', yelp: 'yelped', yawn: 'yawned', hum: 'hummed' })[/(\w+)$/.exec(m[0])[1].toLowerCase()]],
+    [/\b(?:made|gave) (?:a|an) (?:\w+ )?(?:movement|motion) (?:toward|towards|to|for)\b/gi, 'moved / reached'], [/\bhad (?:a|an) (?:\w+ )?(?:feeling|suspicion) that\b/gi, 'felt / suspected'],
+    [/\bmade (?:a|an) (?:\w+ )?(?:appearance)\b/gi, 'appeared'], [/\bput (?:up )?(?:a|up a) (?:\w+ )?(?:struggle|fight)\b/gi, 'struggled / fought'], [/\bgave (?:\w+ )?(?:a|an) (?:\w+ )?(?:hug|kiss|push|shove|pat|squeeze|tug|nudge)\b/gi, m => ({ hug: 'hugged', kiss: 'kissed', push: 'pushed', shove: 'shoved', pat: 'patted', squeeze: 'squeezed', tug: 'tugged', nudge: 'nudged' })[/(\w+)$/.exec(m[0])[1].toLowerCase()]]];
+  // ---- Body parts acting on their own: "her eyes followed him", "his hand flew to his mouth", "her feet carried her"
+  const BODY_AUTO = [
+    `${P} (?:eyes|gaze) (?:followed|tracked|roamed|wandered|travel(?:l)?ed|raked|swept|drifted|darted|slid|trailed|caressed|devoured|drank in|bored into|crawled|climbed|scanned|searched|danced)\\b`,
+    `${P} (?:eyes|gaze) (?:fell|dropped|landed|settled|lingered|rested|snapped|flew|shot) (?:on|to|upon|onto|over|back)\\b`,
+    `${P} (?:hand|hands|fingers|arm|arms|fist) (?:flew|shot|darted|crept|snaked|wandered|found|went|moved|drifted|reached|itched|twitched toward|sought|strayed)\\b(?! (?:by|with)\\b)`,
+    `${P} (?:feet|legs|body) (?:carried|took|led|brought|propelled|moved of their own accord|moved on (?:their|its) own|refused to (?:move|obey|cooperate))\\b`,
+    `${P} (?:body|hands|legs|feet|mouth) (?:moved|acted|responded|reacted|spoke) (?:on (?:its|their) own|of (?:its|their) own accord|before ${P} (?:brain|mind) could)`,
+    `${P} (?:brain|mind|body|instincts|common sense) (?:screamed|shouted|yelled|told|whispered|begged|pleaded|warned) (?:at )?${O}`,
+    `${P} mouth (?:moved|ran|went) (?:before|ahead of) ${P} (?:brain|mind)`];
   // ---- Misused phrases: fixed expressions that are wrong as written ----
   const TIER1 = [
     // ---- idioms misheard by ear ----
@@ -1811,6 +1831,25 @@ const Grader = (() => {
         if (nm && nm === prev) { n++; if (n === 3) nr.push(F(first.s, first.e, 'warn', `Three sentences in a row start with "${first.raw}"`, 'nameRatio', 'use a pronoun or vary the opening')); }
         else { prev = nm; n = nm ? 1 : 0; first = w0; } } }
     M('words', 'nameRatio', 'Names vs. pronouns', nameRatio, `${fmt(nameRatio, 0)}% names`, 'Of the times narration refers to a character, the share that use a name rather than he/she/they. A high share reads as "Harry walked. Harry sat. Harry thought."', { flags: nr, weight: 0.5, na: nN + nP < 50 });
+
+    // Body parts acting on their own
+    const BA = BODY_AUTO.map(x => new RegExp('\\b' + x, 'gi'));
+    const ba = uniq(BA.flatMap(re => scan(re, { narr: true }))).map(x => F(x.s, x.e, 'warn', `Body part acting on its own: "${x.m[0]}"`, 'bodyAuto', 'let the character act: "she watched him go", "she covered her mouth"'));
+    M('show', 'bodyAuto', 'Body parts acting alone', k(ba.length, narr), `${fmt(k(ba.length, narr))} / 1k`, '"Her eyes followed him across the room," "his hand flew to his mouth," "her feet carried her to the door." Now and then it is vivid; as a habit the body parts seem to have minds of their own.', { flags: ba, weight: 0.75 });
+    // Dangling and impossible -ing openers: "Walking into the room, the door slammed", "Opening the door, he crossed the room"
+    const THING = `door|doors|room|phone|car|sun|wind|light|lights|sound|house|window|rain|water|street|sky|world|air|day|night|smell|scent|thought|thoughts|memory|silence|music|noise|bell|clock|crowd|floor|ground|wall|walls|book|letter|knife|gun|glass|cup|food|meal|tea|coffee|bed|train|bus|ship|storm|fire|answer|question|words|room's|city|town|forest|road|path|news|message|screen|television|tv|radio`;
+    const DANG = new RegExp(`^(?!(?:Nothing|Something|Anything|Everything|King|Spring|Morning|Evening|During|Thing|Ring|Wing|Sing|String|Bring|Ceiling|Building|Wedding|Meeting|Feeling|Ending|Beginning|Clothing|Pudding|Darling|Sterling|Viking|Lightning|Notwithstanding|Including|Regarding|Concerning|Considering|According|Following|Pending|Sibling|Speaking|Judging|Barring|Assuming|Granted|Seeing|Allowing)\\b)[A-Z][a-z]+ing\\b[^,.!?;"]{0,70}, (?:the|a|an|his|her|their|my|its|our|your|this|that) (?:\\w+ )?(?:${THING})\\b(?! (?:of|in|on|at|that|which|who|he|she|they|I)\\b)`);
+    const DANG2 = /^(?!(?:Nothing|Something|Anything|Everything|King|Spring|Morning|Evening|During|Thing|Ring|Wing|Sing|String|Bring|Ceiling|Building|Wedding|Meeting|Feeling|Ending|Beginning|Clothing|Pudding|Darling|Sterling|Viking|Lightning|Notwithstanding|Including|Regarding|Concerning|Considering|According|Following|Pending|Sibling|Speaking|Judging|Barring|Assuming|Granted|Seeing|Allowing)\b)[A-Z][a-z]+ing\b[^,.!?;"]{0,70}, (?:it|there) (?:was|were|is|seemed|felt|looked|became|began)\b/;
+    const SIMUL = /^(?:Opening|Closing|Unlocking|Locking|Grabbing|Picking up|Putting (?:on|down)|Pulling on|Taking off|Getting (?:into|out of|up)|Climbing (?:into|out of|up)|Stepping (?:out|into|off)|Arriving|Reaching|Finishing|Hanging up|Shutting|Slamming|Parking|Dressing|Packing)\b[^,.!?;"]{0,60}, (?:he|she|they|I|we|[A-Z][a-z]+) (?:then )?(?:crossed|walked|drove|ran|went|headed|hurried|strode|rushed|raced|left|travel(?:l)?ed|flew|sped|marched)\b/;
+    const dg = [];
+    for (const s0 of S) { if (!s0.startsNarr) continue; const t = norm.slice(s0.s, s0.e);
+      const m = DANG.exec(t) || DANG2.exec(t), m2 = SIMUL.exec(t);
+      if (m) dg.push(F(s0.s, s0.s + m[0].length, 'warn', `Dangling opener: "${m[0]}"`, 'danglers', 'the -ing phrase needs to describe the subject that follows it'));
+      else if (m2) dg.push(F(s0.s, s0.s + m2[0].length, 'warn', `Two actions that can't happen at once: "${m2[0]}"`, 'danglers', 'use "After …," or two sentences')); }
+    M('structure', 'danglers', 'Dangling & impossible openers', k(dg.length, narr), `${dg.length} found`, '"Walking into the room, the door slammed" (the door wasn’t walking), and "Opening the door, he crossed the room" (he can’t do both at once). Approximate.', { flags: dg, weight: 0.75 });
+    // Nominalizations: a noun doing a verb's job
+    const nm2 = uniq(NOMINAL.flatMap(([re, fix]) => scan(re, { narr: true }).map(y => ({ ...y, fix })))).map(x => F(x.s, x.e, 'warn', `Noun for a verb: "${x.m[0]}"`, 'nominal', typeof x.fix === 'function' ? x.fix(x.m) : x.fix));
+    M('words', 'nominal', 'Nouns for verbs', k(nm2.length, narr), `${fmt(k(nm2.length, narr))} / 1k`, '"Made a decision" for decided, "gave a nod" for nodded, "came to the realization" for realized, "let out a sigh" for sighed. The verb is shorter and stronger.', { flags: nm2, weight: 0.75 });
 
     // ===== Errors
     const dlgW = dlgMode === 'full' ? 1 : dlgMode === 'reduce' ? 0.25 : 0;
