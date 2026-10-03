@@ -50,6 +50,7 @@ All rates are per 1,000 words, or per 1,000 narration words where the report say
 | Readability | 0.5 | Flesch–Kincaid grade, Dale–Chall score |
 
 - **How each check is scored:** A check scores 100 inside its target range. Its score falls to 0 at the "bad" end of the range, then continues down to −100. A section can drop to −25.
+- **Narrow checks only subtract:** the narrower habit checks (head-hopping, dialogue habits, concrete language, backstory, nouns for verbs, stock openings and the like) take points off their section when they find a problem, but a clean result doesn't raise it. Adding more checks therefore can't inflate grades. They show in the report as "no points off" or "−X pts".
 - **Calibration:** Targets were set on about 50 acclaimed novels, so normal published prose isn't penalized.
 - **Profiles:** A profile can change both the targets and the section weights. Romance compares words and phrases of physical intimacy (kissed, moaned, thighs, thrust, fucking…) against 10× their rate in published fiction, rather than the plain rate, before judging them overused.
 

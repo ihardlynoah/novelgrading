@@ -1132,6 +1132,9 @@ const Grader = (() => {
     penetrate penetrated penetration lick licks licked licking suck sucks sucked sucking
     fucker fuckers dicks cunts pussies prick pricks tits titties boobs boner hardon horny jizz cummed blowjob blowjobs handjob handjobs
     shag shags shagged shagging wank wanks wanked wanking fingering fingered rimmed rimming orgasmed climaxing grinded humped humping`));
+  // Narrow "habit" checks: they take points off their section when they find a problem, but a clean result doesn't raise it
+  // (otherwise every new check scoring 100 on good books would inflate everyone's grade)
+  const HABIT = new Set(words(`unattrib actionTags stacked headHop stockOpen expletive concrete backstory vocative asYouKnow contractions longSpeech nameRatio bodyAuto danglers nominal`));
   const OVERUSE = {
     // Trigger 1, "rare but repeated": used at least 50x its normal rate in fiction
     minRatio: 50,
@@ -1965,10 +1968,13 @@ const Grader = (() => {
     for (const c of CATS) {
       if (prof.w && prof.w[c.id] != null && !c.deduct) c.w = prof.w[c.id];
       c.metrics = metrics.filter(m => m.cat === c.id);
-      const sc2 = c.metrics.filter(m => m.score != null && m.weight > 0);
-      const ww = sc2.reduce((a, m) => a + m.weight, 0);
+      const sc2 = c.metrics.filter(m => m.score != null && m.weight > 0), core = sc2.filter(m => !HABIT.has(m.id)), hab = sc2.filter(m => HABIT.has(m.id));
+      const ww = sc2.reduce((a, m) => a + m.weight, 0), cwt = core.reduce((a, m) => a + m.weight, 0);
+      // Core checks are averaged. Narrow habit checks only take points away: a clean result adds nothing, so adding more
+      // of them can't lift a section; a poor one costs what it would have cost inside the average.
+      c.habitPen = hab.reduce((a, m) => a + m.weight * (100 - Math.min(100, m.score)), 0) / (ww || 1);
       // the worst offenders can go a little below 0 (a section costs at most 1.25× its share); checks inside can reach −100
-      c.score = ww ? Math.max(CAT_FLOOR, sc2.reduce((a, m) => a + m.score * m.weight, 0) / ww) : null;
+      c.score = cwt ? Math.max(CAT_FLOOR, core.reduce((a, m) => a + m.score * m.weight, 0) / cwt - c.habitPen) : ww ? Math.max(CAT_FLOOR, sc2.reduce((a, m) => a + m.score * m.weight, 0) / ww) : null;
     }
     const sc3 = CATS.filter(c => c.score != null && !c.deduct), cw = sc3.reduce((a, c) => a + c.w, 0);
     const base = cw ? sc3.reduce((a, c) => a + c.score * c.w, 0) / cw : 0;
@@ -1986,9 +1992,10 @@ const Grader = (() => {
     for (const c of CATS) {
       if (c.deduct) continue;
       c.avail = c.score == null ? 0 : 100 * c.w / cw; c.points = c.score == null ? 0 : c.score * c.w / cw;
-      const mw = c.metrics.filter(m => m.score != null && m.weight > 0).reduce((a, m) => a + m.weight, 0);
+      const live = c.metrics.filter(m => m.score != null && m.weight > 0), mw = live.reduce((a, m) => a + m.weight, 0), coreW = live.filter(m => !HABIT.has(m.id)).reduce((a, m) => a + m.weight, 0);
       for (const m of c.metrics) {
-        if (c.score != null && m.score != null && m.weight > 0) { m.role = 'scored'; m.avail = c.avail * m.weight / mw; m.points = m.score / 100 * m.avail; }
+        if (c.score != null && m.score != null && m.weight > 0 && HABIT.has(m.id) && coreW) { m.role = 'deduct'; m.avail = 0; m.points = -c.avail * m.weight * (100 - Math.min(100, m.score)) / (mw * 100); }
+        else if (c.score != null && m.score != null && m.weight > 0) { m.role = 'scored'; m.avail = c.avail * m.weight / (coreW || mw); m.points = m.score / 100 * m.avail; }
         else m.role = m.cat === 'readability' ? 'info' : 'na';
       }
     }
