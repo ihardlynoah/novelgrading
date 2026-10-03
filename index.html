@@ -311,7 +311,7 @@ const Grader = (() => {
     progressive: lower(6, 14), openers: lower(0.5, 3), ingOpeners: lower(4, 10),
     adjStack: lower(0.5, 2.5), appositives: lower(2, 6), paragraphs: lower(0.25, 3), readability: higher(7, 1), daleChall: higher(6, 3),
     dlgRatio: band(20, 50, 5, 75), fancyTags: lower(20, 50), tagAdverbs: lower(1, 4), dlgPunct: lower(0, 3),
-    excl: lower(1, 5), ellipses: lower(2, 6), dashes: lower(6, 15),
+    excl: lower(1, 5), ellipses: lower(2, 6), dashes: lower(6, 15), stacked: lower(0.1, 1.5), unattrib: lower(0.5, 2), actionTags: lower(1, 4), headHop: lower(0.5, 2), stockOpen: lower(20, 100),
     tier1: lower(0, 4), tier2: lower(0, 4), grammar: lower(0, 3), typos: lower(0, 3), povSlip: lower(0, 3), tense: lower(0, 2), longSent: lower(1, 4), fragments: lower(3, 10), simStack: lower(0.2, 1.5), commaSplice: lower(0.5, 2), britishisms: lower(0.3, 3)
   };
   const UNITS = {
@@ -320,7 +320,7 @@ const Grader = (() => {
     body: 'per 1,000 words', sensory: '% non-visual sense words', sentAvg: 'words per sentence', sentSpread: 'spread', crutch: 'overuse points', vocab: 'MTLD', openerTop: '% of sentences',
     passive: '% of sentences', progressive: 'per 1,000 narration words', openers: 'runs per 1,000 words', ingOpeners: '% of sentences',
     adjStack: 'per 1,000 words', appositives: 'per 1,000 narration words', paragraphs: 'per 1,000 words', readability: 'grade level', daleChall: 'Dale–Chall score', dlgRatio: '% dialogue', fancyTags: '% of tags', tagAdverbs: 'per 1,000 words',
-    dlgPunct: 'per 1,000 words', excl: 'per 1,000 narration words', ellipses: 'per 1,000 words', dashes: 'per 1,000 words',
+    dlgPunct: 'per 1,000 words', stacked: 'per 1,000 words', unattrib: 'long runs per 1,000 words', actionTags: 'per 1,000 words', headHop: 'shifts per 1,000 narration words', stockOpen: '% of chapters', excl: 'per 1,000 narration words', ellipses: 'per 1,000 words', dashes: 'per 1,000 words',
     tier1: 'per 1,000 words', tier2: 'per 1,000 words', grammar: 'per 1,000 words', typos: 'per 1,000 words', povSlip: 'per 1,000 words', tense: 'per 1,000 narration words', longSent: 'per 1,000 narration words', fragments: 'per 1,000 narration words', simStack: 'per 1,000 narration words', commaSplice: 'per 1,000 narration words', britishisms: 'per 1,000 words'
   };
   // Style profiles: genre targets that replace the defaults above, and category weights (w) that replace the usual ones.
@@ -349,9 +349,30 @@ const Grader = (() => {
            longSent: lower(1, 3.5), readability: lower(7.5, 11), daleChall: lower(6.5, 8.5) } }
   };
 
+  // ---- Clichés in dialogue: real people talk in stock lines, so these count a quarter as much as a cliché in narration
+  const CLICHE_DIALOGUE = [`we need to talk`, `it'?s not what (?:it|this) looks like`, `I can explain(?=[.!,—-])`, `don't you (?:dare )?(?:die on me|leave me)`,
+    `we'?ve got company`, `this (?:isn't|is not|ain't) over`, `over my dead body`, `I(?:'ve| have) got a bad feeling about this`, `took you long enough`,
+    `is that (?:all|the best) you(?:'ve| have)? got`, `you just don't (?:get|understand) it`, `it'?s not you,? it'?s me`, `I'?m not going anywhere`, `we meet again`,
+    `you and what army`, `(?:it's )?(?:quiet|too quiet)\\W+too quiet`, `you'?ll never get away with (?:this|it)`, `we (?:have|need|gotta|got) to stop meeting like this`,
+    `I thought you were dead`, `if I told you,? I'?d have to kill you`, `where have you been all my life`, `what could possibly go wrong`, `famous last words`,
+    `we'?re not so different,? you and I`, `this changes everything`, `speak of the devil`, `long time,? no see`, `is that a threat`, `I'?m (?:getting )?too old for this`,
+    `you have no idea how long I'?ve (?:waited|wanted)`, `now you tell me`, `it'?s (?:a trap|now or never)`, `I'?ll never let you go`, `you complete me`,
+    `(?:we can|let's) do this the easy way or the hard way`, `the easy way or the hard way`, `I'?m only going to say this once`, `you'?re going to regret this`,
+    `I have a bad feeling about this`, `don't (?:you )?die on me`, `(?:it's|this is) bigger than (?:both of us|the two of us)`, `I'?m not like other girls`,
+    `you'?re different from the others`, `I don't bite`, `don't make me (?:come over there|laugh)`, `you clean up nice`, `you don't scare me`];
+  // ---- Words with two accepted spellings: using both in one story is inconsistent (the less-used one is flagged)
+  const SPELL_PAIRS = [
+    [/\bbackseats?\b/gi, /\bback seats?\b/gi, 'backseat', 'back seat'], [/\bokay\b/gi, /\b(?:OK|Ok|ok)\b/g, 'okay', 'OK'], [/\bgray(?:er|est|ish|ing|ed|s|ness)?\b/g, /\bgrey(?:er|est|ish|ing|ed|s|ness)?\b/g, 'gray', 'grey'],
+    [/\balright\b/gi, /\ball right\b/gi, 'alright', 'all right'],
+    [/\bemails?\b/gi, /\be-mails?\b/gi, 'email', 'e-mail'], [/\bgoodbyes?\b/gi, /\bgood-byes?\b/gi, 'goodbye', 'good-bye'], [/\bjudgments?\b/gi, /\bjudgements?\b/gi, 'judgment', 'judgement'],
+    [/\btheaters?\b/gi, /\btheatres?\b/gi, 'theater', 'theatre'],
+    [/\b(?:cancel|travel|model|label|fuel|level|signal|marvel|quarrel|shovel|tunnel|channel|counsel|dial|duel|total)(?:ed|ing|er|ers)\b/gi, /\b(?:cancell|travell|modell|labell|fuell|levell|signall|marvell|quarrell|shovell|tunnell|channell|counsell|diall|duell|totall)(?:ed|ing|er|ers)\b/gi, 'single l (traveled)', 'double l (travelled)']];
+  // ---- Viewpoint: a character's inner experience ("Harry wondered", "Ron's stomach dropped")
+  const INNER_V = `thought|wondered|realized|realised|knew|felt|wished|hoped|feared|worried|decided|remembered|recalled|noticed|sensed|suspected|wanted|longed|yearned|regretted|doubted|believed|imagined|could feel|could tell|could hear|could see|couldn't help`;
+  const INNER_BODY = `heart|stomach|chest|mind|thoughts|pulse|throat|gut|insides`;
   // Targets for a stylized or first-person narrator, used where looser than the profile's own
   const VOICE_O = { fragments: lower(8, 18), commaSplice: lower(3, 8), longSent: lower(5, 12), sentAvg: band(6, 34, 3, 50), sentSpread: higher(0.4, 0.2),
-    readability: higher(3, -1), daleChall: higher(5, 2), filter: lower(10, 20), hedging: lower(4, 10), paragraphs: lower(2, 8), ellipses: lower(4, 10), dashes: lower(10, 22) };
+    readability: higher(3, -1), daleChall: higher(5, 2), headHop: lower(1.5, 4), filter: lower(10, 20), hedging: lower(4, 10), paragraphs: lower(2, 8), ellipses: lower(4, 10), dashes: lower(10, 22) };
   const loosen = (a, b) => ({ good: [Math.min(a.good[0], b.good[0]), Math.max(a.good[1], b.good[1])], bad: [Math.min(a.bad[0], b.bad[0]), Math.max(a.bad[1], b.bad[1])] });
   function rangeScore(v, r) {
     const [lo, hi] = r.good, [blo, bhi] = r.bad;
@@ -1364,7 +1385,10 @@ const Grader = (() => {
     M('words', 'hedging', 'Hedging verbs', k(hed.length, narr), `${fmt(k(hed.length, narr))} / 1k`, '"She began to run" is usually weaker than "she ran."', { flags: hed });
 
     const cl = []; for (const x of uniq(CLICHES.flatMap((re, i) => (between('hedging', 'cliches', i, CLICHES.length), scan(re))))) cl.push(F(x.s, x.e, 'warn', `Cliché: "${x.m[0]}"`, 'cliches', 'rewrite in your own words'));
-    M('words', 'cliches', 'Clichés', k(cl.length), `${cl.length} found`, 'Stock phrases readers have seen many times. Counts 3× within this section.', { flags: cl, weight: 3 });
+    const DCL = CLICHE_DIALOGUE.map(x => new RegExp('\\b' + x + '(?![\\w])', 'gi'));
+    for (const x of uniq(DCL.flatMap(re => scan(re, { test: (m, s0) => mask[s0] === 1 })))) if (!cl.some(c => x.s < c.e && c.s < x.e)) { const f = F(x.s, x.e, 'warn', `Cliché in dialogue: "${x.m[0]}"`, 'cliches', 'a line only this character would say'); f.w = 0.25; cl.push(f); }
+    const clW = cl.reduce((a, f) => a + (f.w ?? 1), 0);
+    M('words', 'cliches', 'Clichés', k(clW), `${cl.length} found`, 'Stock phrases readers have seen many times. Stock lines of dialogue ("We need to talk," "It\'s not what it looks like") count a quarter as much. Counts 3× within this section.', { flags: cl, weight: 3 });
 
     const ep = uniq(EPITHETS.flatMap(re => scan(re, { narr: true }))).map(x => F(x.s, x.e, 'warn', `Epithet: "${x.m[0]}"`, 'epithets', "use the character's name or a pronoun"));
     M('words', 'epithets', 'Epithets for characters', k(ep.length, narr), `${fmt(k(ep.length, narr))} / 1k`, '"The older man", "the blonde", "the taller of the two" in place of a name. Fine for a stranger the viewpoint character doesn\'t know; for known characters, a name or pronoun reads more naturally.', { flags: ep });
@@ -1504,6 +1528,18 @@ const Grader = (() => {
     const sTot = Object.values(sc).reduce((a, b) => a + b, 0), nonSight = sTot ? (sTot - sc.sight) / sTot * 100 : 0;
     M('show', 'sensory', 'Sensory balance', nonSight, sTot ? `${fmt(nonSight, 0)}% non-visual` : 'too few',
       `Sight ${sc.sight}, sound ${sc.sound}, smell ${sc.smell}, touch ${sc.touch}, taste ${sc.taste}. Most drafts lean almost entirely visual.`, { na: sTot < 10, weight: 0.5 });
+    // Head-hopping: inside one scene, the narration reports two characters' inner experience back and forth
+    const sceneEnds2 = headings.filter(h => h.kind === 'heading').map(h => h.e).sort((a, b) => a - b);
+    const sceneOf2 = pos => { let lo = 0, hi = sceneEnds2.length; while (lo < hi) { const m = (lo + hi) >> 1; if (sceneEnds2[m] <= pos) lo = m + 1; else hi = m; } return lo; };
+    const inner = scan(new RegExp(`\\b([A-Z][a-z]+)(?:'s (?:${INNER_BODY}))?\\s+(?:(?:had|could|would|suddenly|briefly|still|already|almost|never|just|only|now|then|vaguely|dimly|secretly) )?(?:${INNER_V})\\b`, 'g'),
+      { narr: true, test: m => { const w = m[1].toLowerCase(); return !FUNC.has(w) && !SUBJ.has(w) && isName(w); } });
+    const hop = []; { const byScene = new Map();
+      for (const x of inner) { const sc = sceneOf2(x.s); if (!byScene.has(sc)) byScene.set(sc, []); byScene.get(sc).push(x); }
+      for (const list of byScene.values()) { const n = new Map(); for (const x of list) n.set(x.m[1], (n.get(x.m[1]) || 0) + 1);
+        let prev = null; for (const x of list) { if ((n.get(x.m[1]) || 0) < 2) continue;
+          if (prev && prev.m[1] !== x.m[1] && x.s - prev.e < 6000) hop.push(F(x.s, x.e, 'warn', `Viewpoint shifts from ${prev.m[1]} to ${x.m[1]} within one scene`, 'headHop', 'stay in one character’s head per scene, or add a scene break'));
+          prev = x; } } }
+    M('show', 'headHop', 'Head-hopping', k(hop.length, narr), `${hop.length} found`, 'Within one scene, the narration reports what one character thinks or feels, then another’s, then back. Omniscient narrators do this on purpose; in a close viewpoint it reads as a slip. Approximate.', { flags: hop, weight: 0.75 });
 
     // ===== Sentences & paragraphs
     const lens = S.map(s => s.words.length), avg = lens.length ? lens.reduce((a, b) => a + b, 0) / lens.length : 0;
@@ -1602,6 +1638,24 @@ const Grader = (() => {
     flush();
     M('structure', 'paragraphs', 'Paragraph length', k(pf.length), `${pf.length} issue${pf.length === 1 ? '' : 's'}`, 'Flags paragraphs over 180 words and runs of six or more one-liners.', { flags: pf });
 
+    // Stock chapter openings (waking up, the weather, a look in the mirror) and a story that ends as "all a dream"
+    const chapStarts = [0, ...headings.filter(h => h.kind === 'heading' && /[\p{L}\d]/u.test(norm.slice(h.s, h.e) + text.slice(h.s, h.e))).map(h => h.e)].sort((a, b) => a - b).filter((x, i, a) => !i || x - a[i - 1] > 200);
+    const OPEN_RE = [
+      [/\b(?:woke|awoke|awakened|wakes|awakens)\b|\bwoke up\b|\b(?:jolted|blinked|startled) awake\b|\balarm(?: clock)?\b[^.!?]{0,30}\b(?:blared|rang|buzzed|went off|shrieked|beeped|screamed)\b|\b(?:eyes|eyelids) (?:fluttered|snapped|cracked|blinked) open\b|\bopened (?:his|her|my|their) eyes\b/i, 'opens with waking up'],
+      [/^(?:it was (?:a |an )?(?:dark|cold|hot|warm|bright|sunny|rainy|stormy|grey|gray|windy|beautiful|crisp|chilly|humid|freezing|cloudy|clear|perfect|miserable|dreary)\b[^.!?]{0,40}\b(?:day|night|morning|evening|afternoon)\b|the (?:rain|sun|snow|wind|storm|sky|thunder|clouds?|fog|mist|heat)\b (?:was|had|fell|beat|pounded|poured|shone|rose|blazed|howled|rolled|hung|drifted|pattered|lashed|drummed|streamed|battered)|(?:rain|snow|thunder|lightning|sunlight|sunshine) (?:fell|pounded|poured|beat|rumbled|flashed|streamed|drummed|pattered|lashed))/i, 'opens with the weather'],
+      [/\b(?:looked|stared|gazed|peered|studied|examined|glanced|checked)\b[^.!?]{0,40}\b(?:mirror|reflection)\b|\b(?:mirror|reflection)\b[^.!?]{0,40}\b(?:stared|looked|gazed) back\b/i, 'opens with a look in the mirror']];
+    const so = [];
+    for (const c0 of chapStarts) {
+      let a = c0; while (a < N && /\s/.test(norm[a])) a++;
+      const lead = norm.slice(a, a + 700), firstSent = (lead.match(/^[^.!?]*[.!?]?/) || [''])[0], firstTwo = (lead.match(/^(?:[^.!?]*[.!?]+["']?\s*){0,2}/) || [''])[0];
+      if (!firstSent.trim() || mask[a] === 1) continue;
+      for (const [re, what] of OPEN_RE) { const scope = what.includes('weather') ? firstSent : what.includes('mirror') ? lead.slice(0, 500) : firstTwo;
+        if (re.test(scope)) { so.push(F(a, a + firstSent.length, 'warn', `Stock chapter opening: ${what}`, 'stockOpen', 'open on something only this story has')); break; } }
+    }
+    { const tail = norm.slice(Math.max(0, N - 800)), dm = /\b(?:it|this|that|everything|it all|all of it)(?: had)?(?: all| only| just| really)? (?:was|been|had been) (?:all |only |just |nothing but |merely )*(?:a |one )?(?:\w+ )?dream\b/i.exec(tail);
+      if (dm) { const s0 = N - tail.length + dm.index; so.push(F(s0, s0 + dm[0].length, 'warn', 'Stock ending: it was all a dream', 'stockOpen', 'let the events of the story count')); } }
+    M('structure', 'stockOpen', 'Stock openings & endings', chapStarts.length ? so.length / chapStarts.length * 100 : 0, `${so.length} found`, 'Chapters that open with the character waking up, with the weather, or with a look in the mirror, and a story that ends as "all a dream."', { flags: so, weight: 0.5, na: total < 300 });
+
     // Measured on narration only: dialogue is written to sound like speech, and would pull every novel's score down
     const nS = S.filter(x => x.narr && x.nw.length).length, nWords = narr;
     const syll = narrW.reduce((a, x) => a + syl(x.raw), 0);
@@ -1649,6 +1703,22 @@ const Grader = (() => {
       dp.push(F(x.s, x.s + 2, 'error', 'Missing comma before the closing quote', 'dlgPunct', 'add ," before the tag'));
     M('dialogue', 'dlgPunct', 'Dialogue punctuation', k(dp.length), `${dp.length} error${dp.length === 1 ? '' : 's'}`, 'Commas and capitals around dialogue tags: "Hello," she said.', { flags: dp, na: !hasDlg, weight: 1.5 });
 
+    // Long runs of quoted lines with no tag or action between them: readers lose track of who is speaking
+    const sceneEnds = headings.filter(h => h.kind === 'heading').map(h => h.e).sort((a, b) => a - b);
+    const sceneOf = pos => { let lo = 0, hi = sceneEnds.length; while (lo < hi) { const m = (lo + hi) >> 1; if (sceneEnds[m] <= pos) lo = m + 1; else hi = m; } return lo; };
+    const ua = []; { let run = [];
+      const close = () => { if (run.length >= 8) ua.push(F(run[0].s, run[0].e, 'warn', `${run.length} lines of dialogue in a row with no speaker named`, 'unattrib', 'add a tag or an action beat so readers can follow who is talking')); run = []; };
+      for (const p of paras) { const dw = p.words.filter(x => x.dlg).length, nw = p.words.length - dw;
+        if (dw && !nw && (!run.length || sceneOf(run[run.length - 1].s) === sceneOf(p.s))) run.push(p); else { close(); if (dw && !nw) run.push(p); } }
+      close(); }
+    M('dialogue', 'unattrib', 'Unattributed dialogue runs', k(ua.length), `${ua.length} found`, 'Eight or more lines of dialogue in a row with no tag or action beat. Fine for a quick two-person exchange; past that, readers start counting lines to work out who is speaking.', { flags: ua, na: !hasDlg, weight: 0.5 });
+    // Actions used as speech tags: you can't laugh or sigh words ("Fine," she sighed.)
+    const ACT_V = `laughed|laughs|giggled|giggles|chuckled|chuckles|sighed|sighs|snorted|snorts|huffed|huffs|scoffed|scoffs|smiled|smiles|grinned|grins|smirked|smirks|shrugged|shrugs|nodded|nods|frowned|frowns|winked|winks|beamed|beams|grimaced|grimaces|sniffed|sniffs|scowled|scowls|pouted|pouts|sneered|sneers|snickered|snickers|chortled|cackled|yawned`;
+    const at = scan(new RegExp(`[,!?]"\\s+(?:he|she|they|we|I|you|[A-Z][a-z]+)\\s+(?:${ACT_V})\\b(?!\\s+(?:at|to|and|as|then|before|after|when|while|in|into|over|back|toward|towards|up|down|again|a |an |the |his |her |their )\\b)`, 'g'),
+      { test: (m, s0) => mask[s0] === 1 && (m[0][0] === ',' || /^[!?]"\s+[a-z]/.test(m[0])) })
+      .map(x => F(x.s, x.e, 'warn', `Action used as a speech tag: "${x.m[0].replace(/^[,!?]"\s+/, '')}"`, 'actionTags', 'end the line with a period and make the action its own sentence: "Fine." She sighed.'));
+    M('dialogue', 'actionTags', 'Actions used as tags', k(at.length), `${at.length} found`, 'Laughing, sighing, smiling or shrugging used in place of "said" ("Fine," she sighed). Nobody can sigh a word; make the action its own sentence.', { flags: at, na: !hasDlg, weight: 0.75 });
+
     // ===== Punctuation
     const ex = scan(/!/g, { narr: true }).map(x => F(x.s, x.e, 'warn', 'Exclamation mark in narration', 'excl'));
     M('punct', 'excl', 'Exclamation marks (narration)', k(ex.length, narr), `${fmt(k(ex.length, narr))} / 1k`, 'Let the scene create the excitement.', { flags: ex });
@@ -1656,6 +1726,8 @@ const Grader = (() => {
     M('punct', 'ellipses', 'Ellipses', k(el.length), `${fmt(k(el.length))} / 1k`, 'Useful for trailing speech; tiring in bulk.', { flags: el });
     const da = scan(/—|--/g).map(x => F(x.s, x.e, 'warn', 'Em dash', 'dashes'));
     M('punct', 'dashes', 'Em dashes', k(da.length), `${fmt(k(da.length))} / 1k`, 'Great for interruptions; heavy use becomes a tic.', { flags: da, weight: 0.75 });
+    const stk = scan(/[!?]{2,}|!\.\.\.|\?\.\.\./g).map(x => F(x.s, x.e, 'warn', `Stacked punctuation: "${x.m[0]}"`, 'stacked', 'one mark is enough; let the words carry the emotion'));
+    M('punct', 'stacked', 'Stacked punctuation', k(stk.length), `${stk.length} found`, '"!!", "?!", "??!" and the like, in dialogue or narration.', { flags: stk, weight: 0.5 });
 
     // Comma splices: two complete clauses joined by only a comma ("He smiled, she looked away.")
     const SUBORD = /^(?:when|whenever|if|as|after|before|while|because|since|although|though|once|until|unless|whether|even|by the time|now that|so that)\b/i;
@@ -1705,7 +1777,13 @@ const Grader = (() => {
       }
       return out;
     }
-    const t1 = errs(TIER1, 'tier1', 0), t2 = errs(TIER2, 'tier2', 0), gr = errs([...GRAMMAR, ...SUBJUNCTIVE], 'grammar', 1), ty = errs(TYPOS, 'typos', 0);
+    const t1 = errs(TIER1, 'tier1', 0), t2 = errs(TIER2, 'tier2', 0), gr = errs([...GRAMMAR, ...SUBJUNCTIVE], 'grammar', 1), ty = errs(TYPOS, 'typos', 0).slice();
+    for (const [ra, rb, la, lb] of SPELL_PAIRS) {                                    // both accepted spellings of a word in one story
+      const A = scan(ra), B = scan(rb); if (!A.length || !B.length) continue;
+      const [minor, , useL, otherL] = A.length < B.length ? [A, B, lb, la] : [B, A, la, lb];
+      for (const x of minor) { if (x.dlg && dlgMode === 'ignore') continue;
+        const f = F(x.s, x.e, 'error', `Inconsistent spelling: "${x.m[0]}" (this story mostly uses ${useL})`, 'typos', `pick one: ${useL} or ${otherL}`); f.w = x.dlg ? dlgW : 1; ty.push(f); }
+    }
     const wsum = a => a.reduce((s, f) => s + f.w, 0);
     M('errors', 'tier1', 'Misused phrases', k(wsum(t1)), `${t1.length} found`, 'Fixed phrases that are always wrong in narration: "per say," "could of," "for all intensive purposes," "I wish I would have"…', { flags: t1, weight: 1.5 });
     M('errors', 'tier2', 'Confused words', k(wsum(t2)), `${t2.length} found`, 'Than/then, your/you\'re, lose/loose, its/it\'s, whose/who\'s, affect/effect, breath/breathe, fewer/less, among/between — clear-cut patterns only.', { flags: t2 });

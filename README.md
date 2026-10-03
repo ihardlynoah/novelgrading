@@ -42,11 +42,11 @@ All rates are per 1,000 words, or per 1,000 narration words where the report say
 
 | Section | Weight | Checks |
 |---|---|---|
-| Word choice & variety | 3 | Overused words and phrases (5× within the section), clichés (3×), filler, adverbs, hedging, redundancy, epithets ("the blonde"), echoes, vocabulary range, Britishisms |
-| Show vs. tell | 1 | Filter words, named emotions, stock body language, non-visual senses |
-| Sentences & paragraphs | 1 | Sentence length and variety, repeated openers, -ing openers, passive and progressive voice, fragments, long sentences, stacked adjectives and similes, appositives, paragraph length |
-| Dialogue | 1 | Dialogue share, showy tags, adverbs on tags, dialogue punctuation |
-| Punctuation | 0.5 | Exclamation marks in narration, ellipses, dashes, comma splices |
+| Word choice & variety | 3 | Overused words and phrases (5× within the section), clichés (3×; stock dialogue lines count ¼), filler, adverbs, hedging, redundancy, epithets ("the blonde"), echoes, vocabulary range, Britishisms |
+| Show vs. tell | 1 | Filter words, named emotions, stock body language, non-visual senses, head-hopping within a scene |
+| Sentences & paragraphs | 1 | Sentence length and variety, repeated openers, -ing openers, passive and progressive voice, fragments, long sentences, stacked adjectives and similes, appositives, paragraph length, stock chapter openings (waking up, weather, mirror) and "it was all a dream" endings |
+| Dialogue | 1 | Dialogue share, showy tags, adverbs on tags, dialogue punctuation, long unattributed runs (8+ lines), actions used as tags ("Fine," she sighed) |
+| Punctuation | 0.5 | Exclamation marks in narration, ellipses, dashes, comma splices, stacked marks ("?!", "!!!") |
 | Readability | 0.5 | Flesch–Kincaid grade, Dale–Chall score |
 
 - **How each check is scored:** A check scores 100 inside its target range. Its score falls to 0 at the "bad" end of the range, then continues down to −100. A section can drop to −25.
@@ -60,7 +60,7 @@ All rates are per 1,000 words, or per 1,000 narration words where the report say
 | Misused phrases ("could of", "for all intensive purposes", "in the throws of") | 6 |
 | Grammar (verb forms, agreement, pronoun case, a/an, lay/lie, subjunctive: "If I were you", "demanded that he leave") | 6 |
 | Confused words (their/there, affect/effect, peak/pique, taut/taught, rogue/rouge…) | 5 |
-| Typos & misspellings (including run-together words, missing apostrophes, doubled words, a lowercase "i") | 2.5 |
+| Typos & misspellings (including run-together words, missing apostrophes, doubled words, a lowercase "i", and mixing two accepted spellings such as backseat/back seat or gray/grey) | 2.5 |
 | Tense switches in narration | 4 (first 0.2 free) |
 | Slips into "you" in third-person narration | 3 (first 0.2 free) |
 
