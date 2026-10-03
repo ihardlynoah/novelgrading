@@ -334,7 +334,7 @@ const Grader = (() => {
     thriller: { label: 'Thriller / mystery / crime', w: { structure: 1.5, show: 0.75 },
       o: { sentAvg: band(8, 18, 4, 28), dlgRatio: band(25, 60, 10, 80), excl: lower(2, 8), fragments: lower(6, 14), paragraphs: lower(0.2, 2), longSent: lower(0.5, 3),
            passive: lower(8, 16), ingOpeners: lower(3, 8), filter: lower(5, 12), readability: higher(5, 1), daleChall: higher(5.5, 3) } },
-    romance: { label: 'Romance', w: { show: 1.25 }, sexRatio: 100,   // love scenes are the genre: sex words and phrases are compared against 100× their normal rate in published fiction
+    romance: { label: 'Romance', w: { show: 1.25 }, sexRatio: 10,   // love scenes are the genre: sex words and phrases are compared against 10× their normal rate in published fiction
       o: { sentAvg: band(9, 22, 5, 32), dlgRatio: band(30, 60, 10, 80), emotions: lower(3, 7), filter: lower(8, 16), body: lower(8, 16), sensory: higher(35, 10),
            epithets: lower(0.2, 1.5), coyBody: lower(0.1, 1), longSent: lower(1.5, 5.5), readability: higher(5.5, 1), daleChall: higher(5.8, 3) } },
     horror: { label: 'Horror', o: { sentAvg: band(10, 26, 5, 36), dlgRatio: band(10, 45, 0, 70), sensory: higher(35, 10), emotions: lower(2, 5), ellipses: lower(3, 8),
