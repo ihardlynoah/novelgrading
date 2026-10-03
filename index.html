@@ -1512,7 +1512,8 @@ const Grader = (() => {
     for (const o of overuse) {
       o.label = o.kind === 'phrase' ? `“${o.w}”` : o.w;
       o.ratioTxt = `${o.known ? '' : 'at least '}${o.ratio >= 100 ? Math.round(o.ratio).toLocaleString() : fmt(o.ratio, o.ratio < 10 ? 1 : 0)}× ${o.sx > 1 ? `the romance norm (${o.sx}× its rate in published fiction)` : 'normal'}`;
-      o.rateTxt = `${fmt(o.rate, 1)} per 1,000 words (normal ${o.expRate < 0.1 ? 'under 0.1' : fmt(o.expRate, 1)})`;
+      const nr = o.expRate >= 0.1 ? fmt(o.expRate, 1) : String(+o.expRate.toPrecision(2));   // small rates keep two significant digits, so rate ÷ normal matches the "× normal" figure
+      o.rateTxt = `${fmt(o.rate, 1)} per 1,000 words (normal ${o.known ? '' : 'at most '}${nr}${o.sx > 1 ? `, after the romance allowance` : ''})`;
     }
     const overusePts = overuse.reduce((a, o) => a + o.pen, 0);
     const cf = [];
